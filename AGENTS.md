@@ -1,3 +1,13 @@
+# Capy environment setup
+
+The same backing repo is used by normal Capy projects and filesystem-snapshot projects. Detect whether the VM is already snapshot-prepared before running setup.
+
+- Do not run heavy setup blindly at session start; it blocks jams. Probe first, then install only what the task needs and only when missing.
+- Check for pre-existing dependency dirs/caches, tool versions, and smoke command success. If they are present, treat the VM as snapshot-prepared and skip heavy setup. If they are absent, use the minimal non-snapshot setup path.
+- For PostHog specifically, check `.venv`, `uv run python -c "import django, posthog"`, `pnpm exec --version`, and `./bin/hogli --help` before installing.
+- If dependencies are missing, prefer targeted setup: `uv python install 3.12.12`, `UV_PROJECT_ENVIRONMENT=.venv uv sync --frozen --dev --inexact`, and `pnpm install --frozen-lockfile --prefer-offline --optimistic-repeat-install`.
+- Do not start Docker services unless the task specifically requires them.
+
 # PostHog Development Guide
 
 ## Codebase Structure
