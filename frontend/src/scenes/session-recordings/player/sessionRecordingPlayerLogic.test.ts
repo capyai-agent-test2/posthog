@@ -22,7 +22,13 @@ import {
     recordingMetaJson,
     setupSessionRecordingTest,
 } from './__mocks__/test-setup'
-import { findNewEvents, findSegmentForTimestamp, stripRrwebScriptShims } from './sessionRecordingPlayerLogic'
+import {
+    findNewEvents,
+    findSegmentForTimestamp,
+    hideRootFrameDuringReplayerInit,
+    showRootFrameAfterReplayerInit,
+    stripRrwebScriptShims,
+} from './sessionRecordingPlayerLogic'
 import { snapshotDataLogic } from './snapshotDataLogic'
 import { deleteRecording as deleteRecordingMock } from './utils/playerUtils'
 
@@ -134,6 +140,34 @@ describe('stripRrwebScriptShims', () => {
         expect(output).toContain('<title>t</title>')
         expect(output).toContain('<main><p>kept</p></main>')
         expect(countTag(output, 'noscript')).toBe(0)
+    })
+})
+
+describe('replayer init frame visibility', () => {
+    it('hides the root frame immediately while a new window is booting', () => {
+        const rootFrame = document.createElement('div')
+
+        hideRootFrameDuringReplayerInit(rootFrame)
+
+        expect(rootFrame.style.visibility).toBe('hidden')
+    })
+
+    it('restores the root frame visibility on the next animation frame', () => {
+        const rootFrame = document.createElement('div')
+        rootFrame.style.visibility = 'hidden'
+
+        const requestAnimationFrameSpy = jest
+            .spyOn(window, 'requestAnimationFrame')
+            .mockImplementation((callback: FrameRequestCallback): number => {
+                callback(0)
+                return 1
+            })
+
+        showRootFrameAfterReplayerInit(rootFrame)
+
+        expect(rootFrame.style.visibility).toBe('')
+
+        requestAnimationFrameSpy.mockRestore()
     })
 })
 

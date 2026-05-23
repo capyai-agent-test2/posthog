@@ -196,6 +196,20 @@ export function stripRrwebScriptShims(html: string): string {
     return html.replace(NOSCRIPT_BLOCK_RE, '')
 }
 
+export function hideRootFrameDuringReplayerInit(rootFrame: HTMLDivElement | null): void {
+    rootFrame?.style.setProperty('visibility', 'hidden')
+}
+
+export function showRootFrameAfterReplayerInit(rootFrame: HTMLDivElement | null): void {
+    if (!rootFrame) {
+        return
+    }
+
+    requestAnimationFrame(() => {
+        rootFrame.style.removeProperty('visibility')
+    })
+}
+
 /**
  * returns the relative second in the recording
  * e.g. if the player starts at 1000ms and the snapshot is at 2000ms or 1500ms, the relative second is 1
@@ -1249,19 +1263,23 @@ export const sessionRecordingPlayerLogic = kea<sessionRecordingPlayerLogicType>(
         tryInitReplayer: () => {
             // Tries to initialize a new player
             const windowId = values.segmentForTimestamp(values.currentTimestamp)?.windowId
+            const rootFrame = values.rootFrame
 
             actions.setPlayer(null)
 
-            if (values.rootFrame) {
-                values.rootFrame.innerHTML = '' // Clear the previously drawn frames
+            hideRootFrameDuringReplayerInit(rootFrame)
+
+            if (rootFrame) {
+                rootFrame.innerHTML = '' // Clear the previously drawn frames
             }
 
             if (
-                !values.rootFrame ||
+                !rootFrame ||
                 windowId === undefined ||
                 !values.sessionPlayerData.snapshotsByWindowId[windowId] ||
                 values.sessionPlayerData.snapshotsByWindowId[windowId].length < 2
             ) {
+                rootFrame?.style.removeProperty('visibility')
                 actions.setPlayer(null)
                 return
             }
@@ -1440,6 +1458,7 @@ export const sessionRecordingPlayerLogic = kea<sessionRecordingPlayerLogicType>(
                 if (values.playingState === SessionPlayerState.PAUSE && values.currentTimestamp !== undefined) {
                     values.player?.replayer?.pause(values.toRRWebPlayerTime(values.currentTimestamp))
                 }
+                showRootFrameAfterReplayerInit(values.rootFrame)
             }
         },
         setCurrentSegment: ({ segment }) => {
