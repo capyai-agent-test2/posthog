@@ -696,7 +696,13 @@ class ReplayFiltersEventsSubQuery(SessionRecordingsListingBaseQuery):
         for prop in negative_props:
             operator = cast(PropertyOperator, prop.operator)  # type: ignore[union-attr]
             inverted = prop.model_copy(update={"operator": INVERSE_OPERATOR_FOR[operator]})
-            inverted_exprs.append(property_to_expr(inverted, team=self._team, scope="event"))
+            inverted_exprs.append(
+                property_to_expr(
+                    inverted,
+                    team=self._team,
+                    scope="event_no_person_overrides" if is_cohort_property(prop) else "event",
+                )
+            )
 
         # Any event matching any positive condition → session goes in blocklist
         where_expr = ast.Or(exprs=inverted_exprs) if len(inverted_exprs) > 1 else inverted_exprs[0]

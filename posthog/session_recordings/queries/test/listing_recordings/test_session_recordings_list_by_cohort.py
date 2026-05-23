@@ -5,6 +5,7 @@ from posthog.test.base import (
     APIBaseTest,
     ClickhouseTestMixin,
     also_test_with_materialized_columns,
+    create_person_id_override_by_distinct_id,
     snapshot_clickhouse_queries,
 )
 from unittest.mock import patch
@@ -1139,6 +1140,101 @@ class TestSessionRecordingsListByCohort(ClickhouseTestMixin, APIBaseTest):
                         {
                             "key": "id",
                             "value": internal_cohort.pk,
+                            "operator": "not_in",
+                            "type": "cohort",
+                        }
+                    ]
+                },
+                [session_external, session_anonymous],
+            )
+
+    @patch("posthog.session_recordings.queries.utils.posthoganalytics.feature_enabled")
+    def test_not_in_behavioral_cohort_keeps_pre_identification_anonymous_sessions_in_poe_mode(
+        self, mock_feature_enabled
+    ) -> None:
+        mock_feature_enabled.return_value = True
+
+        with self.settings(
+            USE_PRECALCULATED_CH_COHORT_PEOPLE=True,
+            PERSON_ON_EVENTS_V2_OVERRIDE=True,
+        ):
+            internal_user = "identified@company.com"
+            external_user = "external@customer.com"
+            anonymous_user = "anonymous_pre_identify"
+
+            session_internal = "session-identified"
+            session_external = "session-external"
+            session_anonymous = "session-anonymous-pre-identify"
+
+            Person.objects.create(team=self.team, distinct_ids=[internal_user])
+            Person.objects.create(team=self.team, distinct_ids=[external_user])
+
+            produce_replay_summary(
+                distinct_id=internal_user,
+                session_id=session_internal,
+                first_timestamp=self.an_hour_ago,
+                team_id=self.team.id,
+                ensure_analytics_event_in_session=False,
+            )
+            create_event(
+                distinct_id=internal_user,
+                timestamp=self.an_hour_ago,
+                team=self.team,
+                event_name="internal_event",
+                properties={"$session_id": session_internal},
+            )
+
+            produce_replay_summary(
+                distinct_id=external_user,
+                session_id=session_external,
+                first_timestamp=self.an_hour_ago,
+                team_id=self.team.id,
+                ensure_analytics_event_in_session=False,
+            )
+            create_event(
+                distinct_id=external_user,
+                timestamp=self.an_hour_ago,
+                team=self.team,
+                properties={"$session_id": session_external},
+            )
+
+            produce_replay_summary(
+                distinct_id=anonymous_user,
+                session_id=session_anonymous,
+                first_timestamp=self.an_hour_ago,
+                team_id=self.team.id,
+                ensure_analytics_event_in_session=False,
+            )
+            create_event(
+                distinct_id=anonymous_user,
+                timestamp=self.an_hour_ago,
+                team=self.team,
+                properties={"$session_id": session_anonymous},
+            )
+
+            create_person_id_override_by_distinct_id(anonymous_user, internal_user, self.team.id)
+
+            behavioral_cohort = Cohort.objects.create(
+                team=self.team,
+                name="internal_behavioral_users",
+                groups=[
+                    {
+                        "days": "7",
+                        "count": "1",
+                        "count_operator": "gte",
+                        "event_id": "internal_event",
+                        "label": "internal_event",
+                    }
+                ],
+            )
+            behavioral_cohort.calculate_people_ch(pending_version=0)
+
+            self._assert_query_matches_session_ids(
+                {
+                    "properties": [
+                        {
+                            "key": "id",
+                            "value": behavioral_cohort.pk,
                             "operator": "not_in",
                             "type": "cohort",
                         }
