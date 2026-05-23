@@ -295,6 +295,7 @@ properties.foo['bar-baz']
 
 Don't use | Use instead
 `toFloat64OrNull()`, `toFloat64()` | `toFloat()`
+`toDateTime64()` | `toDateTime()`, `parseDateTime()`, or `parseDateTimeBestEffort()`
 `toDateOrNull(timestamp)` | `toDate(timestamp)`
 `LAG()`, `LEAD()` | `lagInFrame()`, `leadInFrame()` with `ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING`
 `count(*)` | `count()`
