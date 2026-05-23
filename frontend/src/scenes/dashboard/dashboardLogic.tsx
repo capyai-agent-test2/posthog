@@ -533,7 +533,10 @@ export const dashboardLogic = kea<dashboardLogicType>([
                             layouts: values.dashboardLayouts?.[tile.id],
                         }))
 
-                        values.dashboard.tiles = restoredTiles
+                        return {
+                            ...values.dashboard,
+                            tiles: restoredTiles,
+                        }
                     }
 
                     return values.dashboard
