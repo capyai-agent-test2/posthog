@@ -84,34 +84,38 @@ export function SceneTabs(): JSX.Element {
                     items={[...tabs.map((tab, index) => getSortableId(tab, index)), 'new']}
                     strategy={horizontalListSortingStrategy}
                 >
-                    <div
-                        className="scene-tab-row gap-1 flex-1 min-w-0 items-center flex h-[var(--scene-layout-header-height)] lg:h-auto pr-2"
-                        onMouseLeave={clearFrozenWidths}
-                    >
-                        {tabs.map((tab, index) => {
-                            const sortableId = getSortableId(tab, index)
-                            const isLastPinned =
-                                tab.pinned &&
-                                // last tab OR next tab is not pinned
-                                (index === tabs.length - 1 || !tabs[index + 1]?.pinned)
+                    <div className="flex flex-1 min-w-0 items-center">
+                        <div className="flex-1 min-w-0 overflow-x-auto overflow-y-visible hide-scrollbar">
+                            <div
+                                className="scene-tab-row gap-1 items-center flex w-max min-w-full h-[var(--scene-layout-header-height)] lg:h-auto pr-2"
+                                onMouseLeave={clearFrozenWidths}
+                            >
+                                {tabs.map((tab, index) => {
+                                    const sortableId = getSortableId(tab, index)
+                                    const isLastPinned =
+                                        tab.pinned &&
+                                        // last tab OR next tab is not pinned
+                                        (index === tabs.length - 1 || !tabs[index + 1]?.pinned)
 
-                            return (
-                                <Fragment key={sortableId}>
-                                    <SortableSceneTab
-                                        tab={tab}
-                                        index={index}
-                                        sortableId={sortableId}
-                                        onConfigurePinnedTabs={() => showConfigurePinnedTabsModal()}
-                                    />
-                                    {isLastPinned && (
-                                        <div
-                                            className="h-4 w-px bg-border-secondary shrink-0 rounded opacity-50"
-                                            aria-hidden="true"
-                                        />
-                                    )}
-                                </Fragment>
-                            )
-                        })}
+                                    return (
+                                        <Fragment key={sortableId}>
+                                            <SortableSceneTab
+                                                tab={tab}
+                                                index={index}
+                                                sortableId={sortableId}
+                                                onConfigurePinnedTabs={() => showConfigurePinnedTabsModal()}
+                                            />
+                                            {isLastPinned && (
+                                                <div
+                                                    className="h-4 w-px bg-border-secondary shrink-0 rounded opacity-50"
+                                                    aria-hidden="true"
+                                                />
+                                            )}
+                                        </Fragment>
+                                    )
+                                })}
+                            </div>
+                        </div>
                         <AppShortcut name="NewTab" keybind={[keyBinds.newTab]} intent="New tab" interaction="click">
                             <Link
                                 to={urls.newTab()}
@@ -127,7 +131,8 @@ export function SceneTabs(): JSX.Element {
                                 tooltipCloseDelayMs={0}
                                 buttonProps={{
                                     iconOnly: true,
-                                    className: 'p-1 flex items-center gap-1 cursor-pointer rounded border-b z-20',
+                                    className:
+                                        'p-1 flex items-center gap-1 cursor-pointer rounded border-b z-20 shrink-0',
                                 }}
                             >
                                 <IconPlus className="!ml-0 size-3" />
