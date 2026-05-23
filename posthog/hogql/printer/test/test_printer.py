@@ -636,6 +636,44 @@ class TestPrinter(BaseTest):
             {"hogql_val_0": "nomat", "hogql_val_1": "json", "hogql_val_2": "yet"},
         )
 
+    def test_hogql_struct_fields_use_tuple_element(self):
+        credential = DataWarehouseCredential.objects.create(team=self.team, access_key="key", access_secret="secret")
+        DataWarehouseTable.objects.create(
+            team=self.team,
+            name="test_table",
+            format=DataWarehouseTable.TableFormat.Parquet,
+            url_pattern="http://s3/folder/",
+            credential=credential,
+            columns={
+                "customer": {
+                    "clickhouse": "Tuple(email String, company Tuple(name String))",
+                    "hogql": "StructDatabaseField",
+                    "schema_valid": True,
+                    "fields": {
+                        "email": {"clickhouse": "String", "hogql": "string", "schema_valid": True},
+                        "company": {
+                            "clickhouse": "Tuple(name String)",
+                            "hogql": "StructDatabaseField",
+                            "schema_valid": True,
+                            "fields": {
+                                "name": {"clickhouse": "String", "hogql": "string", "schema_valid": True}
+                            },
+                        },
+                    },
+                }
+            },
+        )
+
+        context = HogQLContext(team_id=self.team.pk, enable_select_queries=True)
+        printed = self._print("SELECT customer.email, customer.company.name FROM test_table", context=context)
+
+        self.assertIn("tupleElement(test_table.customer", printed)
+        self.assertIn("tupleElement(tupleElement(test_table.customer", printed)
+        self.assertNotIn("JSONExtractRaw(test_table.customer", printed)
+        self.assertIn("email", context.values.values())
+        self.assertIn("company", context.values.values())
+        self.assertIn("name", context.values.values())
+
     def test_hogql_properties_materialized_json_access(self):
         try:
             from ee.clickhouse.materialized_columns.analyze import materialize
