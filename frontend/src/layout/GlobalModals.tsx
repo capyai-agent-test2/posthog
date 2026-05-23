@@ -17,7 +17,6 @@ import { CreateProjectModal } from 'scenes/project/CreateProjectModal'
 import { SessionPlayerModal } from 'scenes/session-recordings/player/modal/SessionPlayerModal'
 import { inviteLogic } from 'scenes/settings/organization/inviteLogic'
 import { InviteModal } from 'scenes/settings/organization/InviteModal'
-import { PreviewingCustomCssModal } from 'scenes/themes/PreviewingCustomCssModal'
 import { MaybeWelcomeDialog } from 'scenes/welcome/WelcomeDialog'
 
 import { ComposeTicketModal } from 'products/conversations/frontend/components/ComposeTicket'
@@ -77,7 +76,6 @@ export function GlobalModals(): JSX.Element {
             <TimeSensitiveAuthenticationModal />
             <SessionPlayerModal />
             <LogsViewerModal />
-            <PreviewingCustomCssModal />
             <TwoFactorSetupModal />
             <HedgehogMode />
             <PaymentEntryModal />

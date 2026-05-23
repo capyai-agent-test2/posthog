@@ -4,20 +4,15 @@ import { useActions, useValues } from 'kea'
 import { IconDay, IconLaptop, IconNight, IconPalette } from '@posthog/icons'
 
 import { LemonTag } from 'lib/lemon-ui/LemonTag/LemonTag'
-import { Link } from 'lib/lemon-ui/Link/Link'
 import { ButtonPrimitive } from 'lib/ui/Button/ButtonPrimitives'
 import { MenuOpenIndicator } from 'lib/ui/Menus/Menus'
-import { urls } from 'scenes/urls'
 import { userLogic } from 'scenes/userLogic'
 
-import { themeLogic } from '~/layout/navigation-3000/themeLogic'
 import { UserTheme } from '~/types'
 
 export function ThemeMenu(): JSX.Element {
     const { themeMode } = useValues(userLogic)
     const { updateUser } = useActions(userLogic)
-    const { customCssEnabled } = useValues(themeLogic)
-
     function handleThemeChange(theme: UserTheme): void {
         updateUser({ theme_mode: theme })
     }
@@ -67,16 +62,6 @@ export function ThemeMenu(): JSX.Element {
                                     </ButtonPrimitive>
                                 }
                             />
-                            {customCssEnabled && (
-                                <Menu.Item
-                                    render={(props) => (
-                                        <Link {...props} to={urls.customCss()} buttonProps={{ menuItem: true }}>
-                                            <IconPalette />
-                                            Edit custom CSS
-                                        </Link>
-                                    )}
-                                />
-                            )}
                         </div>
                     </Menu.Popup>
                 </Menu.Positioner>

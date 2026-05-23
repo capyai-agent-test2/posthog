@@ -24,7 +24,6 @@ import {
 import { FEATURE_FLAGS } from 'lib/constants'
 import { IconBlank } from 'lib/lemon-ui/icons'
 import { LemonTag } from 'lib/lemon-ui/LemonTag/LemonTag'
-import { Link } from 'lib/lemon-ui/Link/Link'
 import { ProfilePicture } from 'lib/lemon-ui/ProfilePicture/ProfilePicture'
 import { UploadedLogo } from 'lib/lemon-ui/UploadedLogo/UploadedLogo'
 import { featureFlagLogic } from 'lib/logic/featureFlagLogic'
@@ -34,7 +33,6 @@ import {
     DropdownMenuContent,
     DropdownMenuGroup,
     DropdownMenuItem,
-    DropdownMenuSeparator,
     DropdownMenuSub,
     DropdownMenuSubContent,
     DropdownMenuSubTrigger,
@@ -48,12 +46,10 @@ import { billingLogic } from 'scenes/billing/billingLogic'
 import { organizationLogic } from 'scenes/organizationLogic'
 import { preflightLogic } from 'scenes/PreflightCheck/preflightLogic'
 import { inviteLogic } from 'scenes/settings/organization/inviteLogic'
-import { urls } from 'scenes/urls'
 import { userLogic } from 'scenes/userLogic'
 
 import { KeyboardShortcut } from '~/layout/navigation-3000/components/KeyboardShortcut'
 import { navigation3000Logic } from '~/layout/navigation-3000/navigationLogic'
-import { themeLogic } from '~/layout/navigation-3000/themeLogic'
 import { AccessLevelIndicator } from '~/layout/navigation/AccessLevelIndicator'
 import { getTreeItemsGames } from '~/products'
 import { UserTheme } from '~/types'
@@ -69,8 +65,6 @@ interface AccountMenuProps extends DropdownMenuContentProps {
 function ThemeMenu(): JSX.Element {
     const { themeMode } = useValues(userLogic)
     const { updateUser } = useActions(userLogic)
-    const { customCssEnabled } = useValues(themeLogic)
-
     function handleThemeChange(theme: UserTheme): void {
         updateUser({ theme_mode: theme })
     }
@@ -119,17 +113,6 @@ function ThemeMenu(): JSX.Element {
                             Sync with system
                         </ButtonPrimitive>
                     </DropdownMenuItem>
-                    {customCssEnabled && (
-                        <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem asChild>
-                                <Link to={urls.customCss()} buttonProps={{ menuItem: true }}>
-                                    <IconPalette />
-                                    Edit custom CSS
-                                </Link>
-                            </DropdownMenuItem>
-                        </>
-                    )}
                 </DropdownMenuGroup>
             </DropdownMenuSubContent>
         </DropdownMenuSub>
