@@ -1676,16 +1676,6 @@ export const SETTINGS_MAP: SettingSection[] = [
     },
     {
         level: 'organization',
-        id: 'organization-startup-program',
-        hideSelfHost: true,
-        title: 'Startup program',
-        to: urls.startups(),
-        settings: [],
-        minimumAccessLevel: OrganizationMembershipLevel.Admin,
-        flag: 'STARTUP_PROGRAM_INTENT',
-    },
-    {
-        level: 'organization',
         id: 'organization-danger-zone',
         title: 'Danger zone',
         settings: [

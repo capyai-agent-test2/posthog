@@ -84,5 +84,3 @@ export const SettingsOrganizationProxy: Story = { args: { sectionId: 'organizati
 export const SettingsOrganizationDangerZone: Story = { args: { sectionId: 'organization-danger-zone' } }
 
 export const SettingsOrganizationBilling: Story = { args: { sectionId: 'organization-billing' } }
-
-export const SettingsOrganizationStartupProgram: Story = { args: { sectionId: 'organization-startup-program' } }

@@ -315,7 +315,6 @@ const pathPrefixesOnboardingNotRequiredFor = [
     '/agentic',
     // /cli/authorize, /cli/live (CLI auth round-trip).
     '/cli',
-    '/startups',
     '/coupons',
 ]
 

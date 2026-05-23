@@ -67,7 +67,6 @@ export type SettingSectionId =
     | 'organization-danger-zone'
     | 'organization-billing'
     | 'organization-legal-documents'
-    | 'organization-startup-program'
     | 'user-profile'
     | 'user-personal-integrations'
     | 'user-connected-apps'
