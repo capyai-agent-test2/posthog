@@ -11,7 +11,7 @@ from posthog.hogql import ast
 from posthog.hogql.ast import AST, Constant, StringType
 from posthog.hogql.constants import HogQLDialect
 from posthog.hogql.context import HogQLContext
-from posthog.hogql.database.models import DANGEROUS_NoTeamIdCheckTable, DatabaseField, SavedQuery
+from posthog.hogql.database.models import DANGEROUS_NoTeamIdCheckTable, DatabaseField, SavedQuery, StructDatabaseField
 from posthog.hogql.database.s3_table import DataWarehouseTable, S3Table
 from posthog.hogql.errors import ImpossibleASTError, InternalHogQLError, QueryError
 from posthog.hogql.escape_sql import escape_clickhouse_identifier, escape_clickhouse_string, safe_identifier
@@ -58,6 +58,19 @@ COLUMNS_WITH_HACKY_OPTIMIZED_NULL_HANDLING = {
 
 class ClickHousePrinter(BasePrinter):
     DIALECT_NAME: ClassVar[HogQLDialect] = "clickhouse"
+
+    def visit_property_type(self, type: ast.PropertyType):
+        if type.joined_subquery is not None and type.joined_subquery_field_name is not None:
+            return super().visit_property_type(type)
+
+        database_field = type.field_type.resolve_database_field(self.context)
+        if isinstance(database_field, StructDatabaseField):
+            struct_expr = self.visit(type.field_type)
+            for link in type.chain:
+                struct_expr = f"tupleElement({struct_expr}, {self.context.add_value(str(link))})"
+            return struct_expr
+
+        return super().visit_property_type(type)
 
     def _render_set_query_limit_percent(self, limit: ast.Expr, limit_str: str) -> str:
         return str(self._limit_percent_constant_value(limit))
