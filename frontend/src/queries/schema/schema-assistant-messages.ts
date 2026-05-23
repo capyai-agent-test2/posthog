@@ -546,7 +546,6 @@ export enum AssistantNavigateUrl {
     ErrorTracking = 'errorTracking',
     Experiments = 'experiments',
     FeatureFlags = 'featureFlags',
-    Game368Hedgehogs = 'game368hedgehogs',
     Heatmaps = 'heatmaps',
     IngestionWarnings = 'ingestionWarnings',
     Insights = 'insights',

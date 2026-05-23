@@ -230,7 +230,6 @@ export const sceneConfigurations: Record<Scene | string, SceneConfig> = {
             'Use feature flags to safely deploy and roll back new features in an easy-to-manage way. Roll variants out to certain groups, a percentage of users, or everyone all at once.',
         activityScope: ActivityScope.FEATURE_FLAG,
     },
-    [Scene.Game368]: { name: '368 Hedgehogs', projectBased: true },
     [Scene.Group]: {
         projectBased: true,
         name: 'People & groups',

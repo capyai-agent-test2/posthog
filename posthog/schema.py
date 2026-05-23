@@ -488,7 +488,6 @@ class AssistantNavigateUrl(StrEnum):
     ERROR_TRACKING = "errorTracking"
     EXPERIMENTS = "experiments"
     FEATURE_FLAGS = "featureFlags"
-    GAME368HEDGEHOGS = "game368hedgehogs"
     HEATMAPS = "heatmaps"
     INGESTION_WARNINGS = "ingestionWarnings"
     INSIGHTS = "insights"
