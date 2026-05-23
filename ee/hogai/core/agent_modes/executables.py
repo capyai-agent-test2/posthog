@@ -387,11 +387,17 @@ class AgentExecutable(BaseAgentLoopRootExecutable):
 
     @staticmethod
     def _has_unanalyzed_tool_result(messages: Sequence[BaseMessage]) -> bool:
+        if len(messages) < 2 or not isinstance(messages[-1], LangchainToolMessage):
+            return False
+
+        message_idx = len(messages) - 2
+        while message_idx >= 0 and isinstance(messages[message_idx], LangchainToolMessage):
+            message_idx -= 1
+
         return (
-            len(messages) >= 2
-            and isinstance(messages[-1], LangchainToolMessage)
-            and isinstance(messages[-2], LangchainAIMessage)
-            and bool(messages[-2].tool_calls)
+            message_idx >= 0
+            and isinstance(messages[message_idx], LangchainAIMessage)
+            and bool(messages[message_idx].tool_calls)
         )
 
     def _process_output_message(self, message: LangchainAIMessage) -> list[AssistantMessage]:

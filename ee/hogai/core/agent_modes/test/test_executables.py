@@ -444,6 +444,21 @@ class TestAgentNode(ClickhouseTestMixin, BaseTest):
         self.assertEqual(len(tool_messages), 1)
         self.assertEqual(tool_messages[0].content, tool_content)
 
+    def test_has_unanalyzed_tool_result_with_multiple_trailing_tool_messages(self):
+        messages = [
+            LangchainAIMessage(
+                content="Running queries",
+                tool_calls=[
+                    {"id": "call-1", "name": "run_sql", "args": {"query": "SELECT 1"}},
+                    {"id": "call-2", "name": "run_sql", "args": {"query": "SELECT 2"}},
+                ],
+            ),
+            LangchainToolMessage(content="rows 1", tool_call_id="call-1"),
+            LangchainToolMessage(content="rows 2", tool_call_id="call-2"),
+        ]
+
+        self.assertTrue(_create_agent_node(self.team, self.user)._has_unanalyzed_tool_result(messages))
+
     @patch(
         "ee.hogai.core.agent_modes.executables.AgentExecutable._get_model", return_value=FakeChatOpenAI(responses=[])
     )
