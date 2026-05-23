@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from langchain_core.messages import (
     AIMessage as LangchainAIMessage,
     HumanMessage as LangchainHumanMessage,
+    ToolMessage as LangchainToolMessage,
 )
 from langchain_core.runnables import RunnableConfig
 from parameterized import parameterized
@@ -403,6 +404,45 @@ class TestAgentNode(ClickhouseTestMixin, BaseTest):
         mock_summarize.assert_called_once()
         summarized_messages = mock_summarize.call_args[0][0]
         self.assertEqual(len(summarized_messages), 2)
+
+    @patch(
+        "ee.hogai.core.agent_modes.executables.AgentExecutable._get_model", return_value=FakeChatOpenAI(responses=[])
+    )
+    @patch("ee.hogai.core.agent_modes.compaction_manager.AnthropicConversationCompactionManager.calculate_token_count")
+    @patch("ee.hogai.utils.conversation_summarizer.AnthropicConversationSummarizer.summarize")
+    async def test_conversation_summarization_preserves_latest_tool_result_window(
+        self, mock_summarize, mock_calculate_tokens, mock_model
+    ):
+        mock_calculate_tokens.return_value = 150_000
+        mock_summarize.return_value = "Summary of conversation"
+
+        mock_model_instance = FakeChatOpenAI(responses=[LangchainAIMessage(content="Analyzed the query result")])
+        mock_model.return_value = mock_model_instance
+
+        node = _create_agent_node(self.team, self.user)
+        tool_content = "result row\n" * 1500
+        state = AssistantState(
+            messages=[
+                HumanMessage(content="Run SQL", id="1"),
+                AssistantMessage(
+                    content="Running query",
+                    id="2",
+                    tool_calls=[AssistantToolCall(id="call-1", name="run_sql", args={"query": "SELECT 1"})],
+                ),
+                AssistantToolCallMessage(content=tool_content, id="3", tool_call_id="call-1"),
+            ],
+            start_id="1",
+        )
+
+        result = await node.arun(state, {})
+
+        self.assertIsInstance(result, PartialAssistantState)
+        preserved_window = node._construct_messages(
+            result.messages, result.root_conversation_start_id, result.root_tool_calls_count
+        )
+        tool_messages = [message for message in preserved_window if isinstance(message, LangchainToolMessage)]
+        self.assertEqual(len(tool_messages), 1)
+        self.assertEqual(tool_messages[0].content, tool_content)
 
     @patch(
         "ee.hogai.core.agent_modes.executables.AgentExecutable._get_model", return_value=FakeChatOpenAI(responses=[])

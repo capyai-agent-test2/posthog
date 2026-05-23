@@ -97,6 +97,7 @@ class BaseAgentLoopRootExecutable(BaseAgentLoopExecutable):
 
 class AgentExecutable(BaseAgentLoopRootExecutable):
     MAX_TOOL_CALLS = 24
+    TOOL_RESULT_COMPACTION_WINDOW_SIZE = 16_384
     """
     Determines the maximum number of tool calls allowed in a single generation.
     """
@@ -158,6 +159,9 @@ class AgentExecutable(BaseAgentLoopRootExecutable):
         if current_token_count > self._window_manager.CONVERSATION_WINDOW_SIZE:
             # Exclude the last message if it's the first turn.
             messages_to_summarize = langchain_messages[:-1] if self._is_first_turn(state) else langchain_messages
+            recent_window_tokens = 2048
+            if self._has_unanalyzed_tool_result(langchain_messages):
+                recent_window_tokens = self.TOOL_RESULT_COMPACTION_WINDOW_SIZE
             summary = await AnthropicConversationSummarizer(
                 self._team,
                 self._user,
@@ -175,6 +179,7 @@ class AgentExecutable(BaseAgentLoopRootExecutable):
                 summary_message,
                 state.agent_mode_or_default,
                 start_id=start_id,
+                max_tokens=recent_window_tokens,
             )
             window_id = insertion_result.updated_window_start_id
             start_id = insertion_result.updated_start_id
@@ -379,6 +384,15 @@ class AgentExecutable(BaseAgentLoopRootExecutable):
 
     def _is_hard_limit_reached(self, tool_calls_count: int | None) -> bool:
         return tool_calls_count is not None and tool_calls_count >= self.MAX_TOOL_CALLS
+
+    @staticmethod
+    def _has_unanalyzed_tool_result(messages: Sequence[BaseMessage]) -> bool:
+        return (
+            len(messages) >= 2
+            and isinstance(messages[-1], LangchainToolMessage)
+            and isinstance(messages[-2], LangchainAIMessage)
+            and bool(messages[-2].tool_calls)
+        )
 
     def _process_output_message(self, message: LangchainAIMessage) -> list[AssistantMessage]:
         """Process the output message."""
