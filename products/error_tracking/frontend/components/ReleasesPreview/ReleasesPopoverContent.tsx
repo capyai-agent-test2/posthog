@@ -36,20 +36,11 @@ export function ReleasePopoverContent({ release }: ReleasesPopoverContentProps):
                         const [displayVersion, build] = release.version.includes('+')
                             ? release.version.split('+', 2)
                             : [release.version, null]
-                        const v = versionDisplay(displayVersion)
                         return (
                             <>
                                 <tr>
                                     <th>Version</th>
-                                    <td className="text-right">
-                                        {v.truncated ? (
-                                            <Tooltip title={displayVersion}>
-                                                <span>{v.display}</span>
-                                            </Tooltip>
-                                        ) : (
-                                            v.display
-                                        )}
-                                    </td>
+                                    <td className="text-right break-all">{displayVersion}</td>
                                 </tr>
                                 {build && (
                                     <tr>
@@ -147,13 +138,6 @@ function PropertyDisplay({
     }
 
     return maybeWrapWithTooltip(renderContent(), tooltip)
-}
-
-function versionDisplay(version: string): { display: string; truncated: boolean } {
-    const MAX_LENGTH = 10
-    return version.length > MAX_LENGTH
-        ? { display: version.slice(0, MAX_LENGTH) + '…', truncated: true }
-        : { display: version, truncated: false }
 }
 
 function commitDisplay(commit: string): string {
