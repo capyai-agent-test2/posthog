@@ -1245,7 +1245,7 @@ class Database(BaseModel):
                     else:
                         table.fields["timestamp"] = ExpressionField(
                             name="timestamp",
-                            expr=ast.Field(chain=[warehouse_modifier.timestamp_field]),
+                            expr=parse_expr(warehouse_modifier.timestamp_field),
                         )
                 else:
                     if modifier_timestamp_field_is_timestamp:
@@ -1253,9 +1253,7 @@ class Database(BaseModel):
                     else:
                         table.fields["timestamp"] = ExpressionField(
                             name="timestamp",
-                            expr=ast.Call(
-                                name="toDateTime", args=[ast.Field(chain=[warehouse_modifier.timestamp_field])]
-                            ),
+                            expr=ast.Call(name="toDateTime", args=[parse_expr(warehouse_modifier.timestamp_field)]),
                         )
 
             # TODO: Need to decide how the distinct_id and person_id fields are going to be handled
