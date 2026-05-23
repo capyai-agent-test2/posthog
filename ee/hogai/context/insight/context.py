@@ -32,6 +32,7 @@ class InsightContext:
         insight_id: str | None = None,
         insight_model_id: int | None = None,
         insight_short_id: str | None = None,
+        artifact_id: str | None = None,
         # Optional dashboard filter handling
         dashboard_filters: dict | None = None,
         filters_override: dict | None = None,
@@ -46,6 +47,7 @@ class InsightContext:
         self.insight_id = insight_id
         self.insight_model_id = insight_model_id
         self.insight_short_id = insight_short_id
+        self.artifact_id = artifact_id
         self.dashboard_filters = dashboard_filters
         self.filters_override = filters_override
         self.variables_override = variables_override
@@ -100,6 +102,7 @@ class InsightContext:
             prompt_template,
             insight_name=self.name or "Insight",
             insight_id=self.insight_id,
+            artifact_id=self.artifact_id,
             insight_description=self.description,
             query_schema=query_schema,
             results=results,
@@ -115,6 +118,7 @@ class InsightContext:
             prompt_template,
             insight_name=self.name,
             insight_id=self.insight_id,
+            artifact_id=self.artifact_id,
             insight_description=self.description,
             query_schema=query_schema,
             include_url_reminder=self.insight_id is None,

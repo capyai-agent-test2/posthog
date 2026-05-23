@@ -173,7 +173,9 @@ class TestReadDataTool(BaseTest):
         result, artifact = await tool._arun_impl({"kind": "insight", "insight_id": "abc123", "execute": False})
 
         assert "Test Insight" in result
-        assert "abc123" in result
+        assert "Conversation artifact ID: abc123" in result
+        assert "Do not construct a URL from it." in result
+        assert "Insight ID:" not in result
         assert "A test description" in result
         assert "TrendsQuery" in result
         assert artifact is None
@@ -231,6 +233,7 @@ class TestReadDataTool(BaseTest):
             assert tool_call_msg.content is not None
             assert "Test Insight" in tool_call_msg.content
             assert "Formatted results" in tool_call_msg.content
+            assert "Conversation artifact ID: abc123" in tool_call_msg.content
 
     async def test_read_insight_not_found(self):
         """Test that not found insight raises MaxToolRetryableError."""
