@@ -70,6 +70,45 @@ describe('maxLogic', () => {
         })
     })
 
+    it('does not copy side panel prompt state into regular AI tabs', async () => {
+        sidePanelStateLogic.mount()
+        await expectLogic(sidePanelStateLogic, () => {
+            sidePanelStateLogic.actions.openSidePanel(SidePanelTab.Max, 'mode=research:!Foo')
+        }).toDispatchActions(['openSidePanel'])
+
+        const sidepanelLogic = maxLogic({ tabId: 'sidepanel' })
+        sidepanelLogic.mount()
+
+        logic = maxLogic({ tabId: 'test' })
+        logic.mount()
+
+        await expectLogic(sidepanelLogic).toMatchValues({
+            autoRun: true,
+            question: 'Foo',
+        })
+
+        await expectLogic(logic).toMatchValues({
+            autoRun: false,
+            question: '',
+        })
+
+        sidepanelLogic.unmount()
+    })
+
+    it('ignores later side panel prompt updates in regular AI tabs', async () => {
+        sidePanelStateLogic.mount()
+
+        logic = maxLogic({ tabId: 'test' })
+        logic.mount()
+
+        await expectLogic(logic, () => {
+            sidePanelStateLogic.actions.openSidePanel(SidePanelTab.Max, '!Foo')
+        }).toMatchValues({
+            autoRun: false,
+            question: '',
+        })
+    })
+
     it('does not reset conversation when 404 occurs during active message generation', async () => {
         router.actions.push('', {}, { panel: 'max' })
         sidePanelStateLogic.mount()
