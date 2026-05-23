@@ -4,6 +4,7 @@ from rest_framework.request import Request
 
 from posthog.models.insight_variable import InsightVariable
 
+from products.endpoints.backend.materialization import analyze_variables_for_materialization
 from products.endpoints.backend.models import Endpoint, EndpointVersion
 
 INSIGHT_VARIABLE_TYPE_TO_OPENAPI: dict[str, dict] = {
@@ -30,6 +31,7 @@ def generate_openapi_spec(
     run_path = f"/api/environments/{team_id}/endpoints/{endpoint.name}/run"
     target_version = version or endpoint.get_version()
     description = target_version.description
+    request_body_required = _is_request_body_required(target_version)
 
     return {
         "openapi": "3.0.3",
@@ -47,7 +49,7 @@ def generate_openapi_spec(
                     "description": description or f"Execute the {endpoint.name} endpoint",
                     "security": [{"PersonalAPIKey": []}],
                     "requestBody": {
-                        "required": False,
+                        "required": request_body_required,
                         "content": {
                             "application/json": {
                                 "schema": {"$ref": "#/components/schemas/EndpointRunRequest"},
@@ -107,7 +109,7 @@ def _build_component_schemas(endpoint: Endpoint, version: EndpointVersion, team_
     query = version.query
     is_materialized = bool(version and version.is_materialized and version.saved_query)
 
-    schemas: dict = {
+    schemas: dict[str, dict[str, object]] = {
         "EndpointRunRequest": {
             "type": "object",
             "properties": {
@@ -221,6 +223,10 @@ def _build_component_schemas(endpoint: Endpoint, version: EndpointVersion, team_
         schemas["EndpointRunRequest"]["properties"]["variables"] = {
             "$ref": "#/components/schemas/Variables",
         }
+        required_variable_names = _get_required_variable_names(query, version)
+        if required_variable_names:
+            schemas["EndpointRunRequest"]["required"] = ["variables"]
+            variables_schema["required"] = required_variable_names
         schemas["Variables"] = variables_schema
 
     return schemas
@@ -244,7 +250,7 @@ BREAKDOWN_SUPPORTED_QUERY_TYPES = {"TrendsQuery", "RetentionQuery"}
 def _build_variables_schema(query: dict, is_materialized: bool, team_id: int) -> dict | None:
     """Build schema for variables based on query type and materialization state."""
     query_kind = query.get("kind")
-    properties: dict = {}
+    properties: dict[str, dict[str, object]] = {}
 
     if query_kind == "HogQLQuery":
         # HogQL: variables from query definition, with types from InsightVariable model
@@ -307,3 +313,33 @@ def _build_variables_schema(query: dict, is_materialized: bool, team_id: int) ->
         "properties": properties,
         "additionalProperties": False,
     }
+
+
+def _is_request_body_required(version: EndpointVersion) -> bool:
+    return bool(_get_required_variable_names(version.query, version))
+
+
+def _get_required_variable_names(query: dict, version: EndpointVersion) -> list[str]:
+    if not version.is_materialized or version.saved_query is None:
+        return []
+
+    query_kind = query.get("kind")
+    if query_kind == "HogQLQuery":
+        try:
+            can_materialize, _reason, variable_infos = analyze_variables_for_materialization(
+                query, bucket_overrides=version.bucket_overrides
+            )
+        except Exception:
+            return []
+
+        if not can_materialize:
+            return []
+
+        return sorted({variable_info.code_name for variable_info in variable_infos})
+
+    if query_kind in BREAKDOWN_SUPPORTED_QUERY_TYPES:
+        breakdown_filter = query.get("breakdownFilter") or {}
+        breakdown = _get_single_breakdown_property(breakdown_filter)
+        return [breakdown] if breakdown else []
+
+    return []
