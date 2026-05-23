@@ -98,6 +98,11 @@
         </warpstream_cyclotron>
     </named_collections>
 
+    <merge_tree>
+        <deduplicate_merge_projection_mode>drop</deduplicate_merge_projection_mode>
+        <lightweight_mutation_projection_mode>drop</lightweight_mutation_projection_mode>
+    </merge_tree>
+
     <macros>
         <shard>01</shard>
         <replica>ch1</replica>
