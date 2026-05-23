@@ -232,15 +232,20 @@ def _build_component_schemas(endpoint: Endpoint, version: EndpointVersion, team_
     return schemas
 
 
-def _get_single_breakdown_property(breakdown_filter: dict) -> str | None:
-    """Extract breakdown property from either legacy or new format."""
+def _get_breakdown_properties(breakdown_filter: dict) -> list[str]:
+    """Extract breakdown properties from either legacy or new format."""
+    properties: list[str] = []
+
     breakdown = breakdown_filter.get("breakdown")
     if breakdown:
-        return breakdown
-    breakdowns = breakdown_filter.get("breakdowns") or []
-    if len(breakdowns) == 1:
-        return breakdowns[0].get("property")
-    return None
+        properties.append(breakdown)
+
+    for breakdown_config in breakdown_filter.get("breakdowns") or []:
+        property_name = breakdown_config.get("property")
+        if property_name:
+            properties.append(property_name)
+
+    return list(dict.fromkeys(properties))
 
 
 # Query types that support user-configurable breakdown filtering
@@ -283,8 +288,7 @@ def _build_variables_schema(query: dict, is_materialized: bool, team_id: int) ->
         # Insight queries - only include breakdown for supported query types
         if query_kind in BREAKDOWN_SUPPORTED_QUERY_TYPES:
             breakdown_filter = query.get("breakdownFilter") or {}
-            breakdown = _get_single_breakdown_property(breakdown_filter)
-            if breakdown:
+            for breakdown in _get_breakdown_properties(breakdown_filter):
                 properties[breakdown] = {
                     "type": "string",
                     "description": f"Filter by {breakdown} breakdown value",
@@ -339,7 +343,6 @@ def _get_required_variable_names(query: dict, version: EndpointVersion) -> list[
 
     if query_kind in BREAKDOWN_SUPPORTED_QUERY_TYPES:
         breakdown_filter = query.get("breakdownFilter") or {}
-        breakdown = _get_single_breakdown_property(breakdown_filter)
-        return [breakdown] if breakdown else []
+        return sorted(_get_breakdown_properties(breakdown_filter))
 
     return []

@@ -59,3 +59,31 @@ def test_generate_openapi_spec_keeps_non_materialized_variables_optional() -> No
     assert post_op["requestBody"]["required"] is False
     assert "required" not in spec["components"]["schemas"]["EndpointRunRequest"]
     assert "required" not in spec["components"]["schemas"]["Variables"]
+
+
+def test_generate_openapi_spec_marks_multi_breakdown_variables_as_required() -> None:
+    endpoint = SimpleNamespace(name="demo-endpoint", current_version=1)
+    request = MagicMock()
+    version = SimpleNamespace(
+        description="",
+        version=1,
+        query={
+            "kind": "TrendsQuery",
+            "breakdownFilter": {
+                "breakdowns": [
+                    {"property": "$browser"},
+                    {"property": "$os"},
+                ]
+            },
+        },
+        is_materialized=True,
+        saved_query=object(),
+        bucket_overrides=None,
+    )
+
+    spec = generate_openapi_spec(endpoint, 1, request, version)
+
+    post_op = spec["paths"]["/api/environments/1/endpoints/demo-endpoint/run"]["post"]
+    assert post_op["requestBody"]["required"] is True
+    assert spec["components"]["schemas"]["EndpointRunRequest"]["required"] == ["variables"]
+    assert spec["components"]["schemas"]["Variables"]["required"] == ["$browser", "$os"]
