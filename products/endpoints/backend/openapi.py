@@ -234,12 +234,11 @@ def _build_component_schemas(endpoint: Endpoint, version: EndpointVersion, team_
 
 def _get_breakdown_properties(breakdown_filter: dict) -> list[str]:
     """Extract breakdown properties from either legacy or new format."""
-    properties: list[str] = []
-
     breakdown = breakdown_filter.get("breakdown")
     if breakdown:
-        properties.append(breakdown)
+        return [breakdown]
 
+    properties: list[str] = []
     for breakdown_config in breakdown_filter.get("breakdowns") or []:
         property_name = breakdown_config.get("property")
         if property_name:

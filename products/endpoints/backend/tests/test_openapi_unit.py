@@ -87,3 +87,29 @@ def test_generate_openapi_spec_marks_multi_breakdown_variables_as_required() -> 
     assert post_op["requestBody"]["required"] is True
     assert spec["components"]["schemas"]["EndpointRunRequest"]["required"] == ["variables"]
     assert spec["components"]["schemas"]["Variables"]["required"] == ["$browser", "$os"]
+
+
+def test_generate_openapi_spec_prefers_legacy_breakdown_over_breakdowns() -> None:
+    endpoint = SimpleNamespace(name="demo-endpoint", current_version=1)
+    request = MagicMock()
+    version = SimpleNamespace(
+        description="",
+        version=1,
+        query={
+            "kind": "TrendsQuery",
+            "breakdownFilter": {
+                "breakdown": "$browser",
+                "breakdowns": [
+                    {"property": "$browser"},
+                    {"property": "$os"},
+                ],
+            },
+        },
+        is_materialized=True,
+        saved_query=object(),
+        bucket_overrides=None,
+    )
+
+    spec = generate_openapi_spec(endpoint, 1, request, version)
+
+    assert spec["components"]["schemas"]["Variables"]["required"] == ["$browser"]
