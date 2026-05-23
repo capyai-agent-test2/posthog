@@ -3,6 +3,7 @@ from typing import cast
 from posthog.test.base import APIBaseTest
 
 from parameterized import parameterized
+from rest_framework.exceptions import ValidationError
 
 from posthog.schema import (
     EventsNode,
@@ -400,3 +401,47 @@ class TestStatsConfig(APIBaseTest):
         runner = ExperimentQueryRunner(query=query, team=self.team)
 
         self.assertEqual(runner.baseline_variant_key, expected_baseline)
+
+    @parameterized.expand(
+        [
+            ("missing_default_baseline", None, "control"),
+            ("missing_custom_baseline", {"baseline_variant_key": "test"}, "test"),
+        ]
+    )
+    def test_experiment_query_runner_requires_baseline_variant_on_feature_flag(
+        self, _name, stats_config, expected_baseline
+    ):
+        feature_flag = FeatureFlag.objects.create(
+            name="Test flag",
+            key="test-flag",
+            team=self.team,
+            filters={
+                "groups": [{"properties": [], "rollout_percentage": None}],
+                "multivariate": {
+                    "variants": [
+                        {"key": "variant-a", "name": "Variant A", "rollout_percentage": 50},
+                        {"key": "variant-b", "name": "Variant B", "rollout_percentage": 50},
+                    ]
+                },
+            },
+            created_by=self.user,
+        )
+        experiment = Experiment.objects.create(
+            name="test-experiment",
+            team=self.team,
+            feature_flag=feature_flag,
+            stats_config=stats_config,
+        )
+
+        metric = self.create_mean_metric()
+        query = ExperimentQuery(
+            experiment_id=experiment.id,
+            kind="ExperimentQuery",
+            metric=metric,
+        )
+
+        with self.assertRaisesMessage(
+            ValidationError,
+            f'Baseline variant "{expected_baseline}" was not found in the associated feature flag.',
+        ):
+            ExperimentQueryRunner(query=query, team=self.team)

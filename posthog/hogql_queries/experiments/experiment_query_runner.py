@@ -146,6 +146,11 @@ class ExperimentQueryRunner(QueryRunner):
 
         stats_config = self.experiment.stats_config or {}
         self.baseline_variant_key = stats_config.get("baseline_variant_key", CONTROL_VARIANT_KEY)
+        if self.baseline_variant_key not in self.variants:
+            raise ValidationError(
+                f'Baseline variant "{self.baseline_variant_key}" was not found in the associated feature flag. '
+                "Restore that variant on the flag or update the experiment baseline variant."
+            )
 
         self.date_range = get_experiment_date_range(self.experiment, self.team, self.override_end_date)
         self.date_range_query = QueryDateRange(
