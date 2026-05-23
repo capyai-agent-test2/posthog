@@ -96,27 +96,17 @@ export const AnnotationsOverlay = React.memo(function AnnotationsOverlay({
         chartHeight,
         datasetIndex
     )
-
-    // Memoize ticks by value to prevent unnecessary kea selector cascades.
-    // chart.scales.x.ticks is a Chart.js internal array that is the same object between renders
-    // when the chart hasn't changed, but .map() would create new references every render,
-    // causing all downstream selectors (tickDates → dateRange → relevantAnnotations →
-    // groupedAnnotations) to recompute unnecessarily.
-    const prevTicksRef = useRef<{ value: number }[]>([])
-    const currentChartTicks = chart.scales.x.ticks
-    if (
-        prevTicksRef.current.length !== currentChartTicks.length ||
-        prevTicksRef.current.some((t, i) => t.value !== currentChartTicks[i]?.value)
-    ) {
-        prevTicksRef.current = currentChartTicks.map(({ value }) => ({ value }))
-    }
+    const allDataPointTicks = React.useMemo(
+        () => Array.from({ length: dates.length }, (_, i) => ({ value: i })),
+        [dates.length]
+    )
 
     const annotationsOverlayLogicProps: AnnotationsOverlayLogicProps = {
         ...insightProps,
         dashboardId: insightProps.dashboardId,
         insightNumericId,
         dates,
-        ticks: prevTicksRef.current,
+        ticks: allDataPointTicks,
         kind,
     }
     const logic = annotationsOverlayLogic(annotationsOverlayLogicProps)

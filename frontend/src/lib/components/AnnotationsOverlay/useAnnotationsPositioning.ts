@@ -21,19 +21,11 @@ export function useAnnotationsPositioning(
         const metasets = chart?._metasets as PointMetaset[] | undefined
         const points = metasets?.[datasetIndex]?.data ?? metasets?.[0]?.data ?? null
 
-        if (chart && chart.scales.x.ticks.length > 1 && points && points.length > 0) {
-            const tickCount = chart.scales.x.ticks.length
-            // NOTE: If there are lots of points on the X axis, Chart.js only renders a tick once n data points
-            // so that the axis is readable. We use that mechanism to aggregate annotations for readability too.
-            // We use the internal _metasets instead just taking graph area width, because it's NOT guaranteed that the
-            // last tick is positioned at the right edge of the graph area. We need to find out where it is.
-            const firstTickPointIndex = chart.scales.x.ticks[0].value
-            const lastTickPointIndex = chart.scales.x.ticks[tickCount - 1].value
-            // Fall back to zero for resiliency against temporary chart inconsistencies during loading
-            const firstTickLeftPx = points[firstTickPointIndex]?.x ?? 0
-            const lastTickLeftPx = points[lastTickPointIndex]?.x ?? 0
+        if (points && points.length > 1) {
+            const firstTickLeftPx = points[0]?.x ?? 0
+            const lastTickLeftPx = points[points.length - 1]?.x ?? 0
             return {
-                tickIntervalPx: (lastTickLeftPx - firstTickLeftPx) / (tickCount - 1),
+                tickIntervalPx: (lastTickLeftPx - firstTickLeftPx) / (points.length - 1),
                 firstTickLeftPx,
                 getDataPointX: (dataIndex: number) => {
                     const point = points[dataIndex]
