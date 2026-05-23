@@ -196,8 +196,20 @@ export function stripRrwebScriptShims(html: string): string {
     return html.replace(NOSCRIPT_BLOCK_RE, '')
 }
 
+const pendingRootFrameRevealFrames = new WeakMap<HTMLDivElement, number>()
+
 export function hideRootFrameDuringReplayerInit(rootFrame: HTMLDivElement | null): void {
-    rootFrame?.style.setProperty('visibility', 'hidden')
+    if (!rootFrame) {
+        return
+    }
+
+    const pendingFrame = pendingRootFrameRevealFrames.get(rootFrame)
+    if (pendingFrame !== undefined) {
+        cancelAnimationFrame(pendingFrame)
+        pendingRootFrameRevealFrames.delete(rootFrame)
+    }
+
+    rootFrame.style.setProperty('visibility', 'hidden')
 }
 
 export function showRootFrameAfterReplayerInit(rootFrame: HTMLDivElement | null): void {
@@ -205,9 +217,17 @@ export function showRootFrameAfterReplayerInit(rootFrame: HTMLDivElement | null)
         return
     }
 
-    requestAnimationFrame(() => {
+    const pendingFrame = pendingRootFrameRevealFrames.get(rootFrame)
+    if (pendingFrame !== undefined) {
+        cancelAnimationFrame(pendingFrame)
+    }
+
+    const frameId = requestAnimationFrame(() => {
+        pendingRootFrameRevealFrames.delete(rootFrame)
         rootFrame.style.removeProperty('visibility')
     })
+
+    pendingRootFrameRevealFrames.set(rootFrame, frameId)
 }
 
 /**

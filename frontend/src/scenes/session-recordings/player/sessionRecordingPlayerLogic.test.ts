@@ -169,6 +169,31 @@ describe('replayer init frame visibility', () => {
 
         requestAnimationFrameSpy.mockRestore()
     })
+
+    it('cancels a pending reveal when a newer init starts first', () => {
+        const rootFrame = document.createElement('div')
+        const queuedCallbacks: FrameRequestCallback[] = []
+        const cancelAnimationFrameSpy = jest.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
+        const requestAnimationFrameSpy = jest
+            .spyOn(window, 'requestAnimationFrame')
+            .mockImplementation((callback: FrameRequestCallback): number => {
+                queuedCallbacks.push(callback)
+                return queuedCallbacks.length
+            })
+
+        showRootFrameAfterReplayerInit(rootFrame)
+        hideRootFrameDuringReplayerInit(rootFrame)
+
+        expect(cancelAnimationFrameSpy).toHaveBeenCalledWith(1)
+        expect(rootFrame.style.visibility).toBe('hidden')
+
+        queuedCallbacks[0](0)
+
+        expect(rootFrame.style.visibility).toBe('hidden')
+
+        cancelAnimationFrameSpy.mockRestore()
+        requestAnimationFrameSpy.mockRestore()
+    })
 })
 
 describe('findSegmentForTimestamp', () => {
