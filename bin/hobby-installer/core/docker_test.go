@@ -27,6 +27,10 @@ func TestDockerInstallCommands(t *testing.T) {
 		t.Fatalf("expected docker install commands to configure docker keyring, got %q", joined)
 	}
 
+	if !strings.Contains(joined, "gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg") {
+		t.Fatalf("expected docker install commands to overwrite an existing keyring on rerun, got %q", joined)
+	}
+
 	if !strings.Contains(joined, "signed-by=/etc/apt/keyrings/docker.gpg") {
 		t.Fatalf("expected docker install commands to use signed-by repository config, got %q", joined)
 	}
