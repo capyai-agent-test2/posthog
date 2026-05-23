@@ -37,8 +37,6 @@ export function NodeJSSnippet({
     samplePropertyName,
 }: FeatureFlagSnippet): JSX.Element {
     const clientSuffix = 'await client.'
-    const flagFunction = payload ? 'getFeatureFlagPayload' : multivariant ? 'getFeatureFlag' : 'isFeatureEnabled'
-
     const propertyName = samplePropertyName || 'is_authorized'
 
     if (remoteConfiguration) {
@@ -66,39 +64,32 @@ const remoteConfigPayload = await client.getRemoteConfigPayload('${flagKey}')`}
         personProperties: {'${propertyName}': 'value'}`
         : ''
 
+    const flagFunction = multivariant ? 'getFeatureFlag' : 'isFeatureEnabled'
+
     const flagSnippet = groupType
-        ? `${clientSuffix}${flagFunction}(
+        ? `${clientSuffix}${payload ? 'getFeatureFlagResult' : flagFunction}(
     '${flagKey}',
-    'user distinct id',${
-        payload
-            ? `
-    undefined,`
-            : ''
-    }
+    'user distinct id',
     {
         groups: { '${groupType.group_type}': '<${groupType.name_singular || 'group'} ID>' },${localEvalAddition}
     }
 )`
         : localEvalAddition
-          ? `${clientSuffix}${flagFunction}(
+          ? `${clientSuffix}${payload ? 'getFeatureFlagResult' : flagFunction}(
     '${flagKey}',
-    'user distinct id',${
-        payload
-            ? `
-    undefined,`
-            : ''
-    }
+    'user distinct id',
     {${localEvalAddition}
     }
 )`
-          : `${clientSuffix}${flagFunction}('${flagKey}', 'user distinct id')`
+          : `${clientSuffix}${payload ? 'getFeatureFlagResult' : flagFunction}('${flagKey}', 'user distinct id')`
 
     const variableName = payload ? 'matchedFlagPayload' : multivariant ? 'enabledVariant' : 'isMyFlagEnabledForUser'
 
     const conditional = multivariant ? `${variableName} === 'example-variant'` : `${variableName}`
 
     const followUpCode = payload
-        ? ''
+        ? `
+const matchedFlagPayload = result?.payload`
         : `
 
 if (${conditional}) {
@@ -108,9 +99,11 @@ if (${conditional}) {
     return (
         <>
             <CodeSnippet language={Language.JavaScript} wrap>
-                {`${
-                    localEvaluation ? '// ' + LOCAL_EVAL_REMINDER : ''
-                }const ${variableName} = ${flagSnippet}${followUpCode}`}
+                {`${localEvaluation ? '// ' + LOCAL_EVAL_REMINDER : ''}${
+                    payload
+                        ? `const result = ${flagSnippet}${followUpCode}`
+                        : `const ${variableName} = ${flagSnippet}${followUpCode}`
+                }`}
             </CodeSnippet>
         </>
     )
@@ -155,7 +148,7 @@ export function PHPSnippet({
     '${flagKey}',
     'user distinct id',${localEvalAddition}
 )`
-          : `${clientSuffix}${flagFunction}('${flagKey}', 'user distinct id')`
+          : `${clientSuffix}${payload ? 'get_feature_flag_result' : flagFunction}('${flagKey}', 'user distinct id')`
     const variableName = multivariant ? '$enabledVariant' : '$isMyFlagEnabledForUser'
 
     const conditional = multivariant ? `${variableName} === 'example-variant'` : `${variableName}`
@@ -185,7 +178,7 @@ export function GolangSnippet({
 }: FeatureFlagSnippet): JSX.Element {
     const clientSuffix = 'client.'
 
-    const flagFunction = payload ? 'GetFeatureFlagPayload' : multivariant ? 'GetFeatureFlag' : 'IsFeatureEnabled'
+    const flagFunction = multivariant ? 'GetFeatureFlag' : 'IsFeatureEnabled'
 
     const propertyName = samplePropertyName || 'is_authorized'
 
@@ -215,13 +208,13 @@ remoteConfigPayload, err := ${clientSuffix}GetRemoteConfigPayload("${flagKey}")`
         : ''
 
     const flagSnippet = groupType
-        ? `${clientSuffix}${flagFunction}(posthog.FeatureFlagPayload{
+        ? `${clientSuffix}${payload ? 'GetFeatureFlagResult' : flagFunction}(posthog.FeatureFlagPayload{
         Key:        "${flagKey}",
         DistinctId: "distinct-id",
         Groups:     Groups{'${groupType.group_type}': '<${groupType.name_singular || 'group'} ID>'},${localEvalAddition}
     }
 )`
-        : `${clientSuffix}${flagFunction}(posthog.FeatureFlagPayload{
+        : `${clientSuffix}${payload ? 'GetFeatureFlagResult' : flagFunction}(posthog.FeatureFlagPayload{
     Key:        '${flagKey}',
     DistinctId: "distinct-id",${localEvalAddition}
 })`
@@ -232,13 +225,23 @@ remoteConfigPayload, err := ${clientSuffix}GetRemoteConfigPayload("${flagKey}")`
     return (
         <>
             <CodeSnippet language={Language.Go} wrap>
-                {`${localEvaluation ? '// ' + LOCAL_EVAL_REMINDER : ''}${variableName} := ${flagSnippet}
+                {`${localEvaluation ? '// ' + LOCAL_EVAL_REMINDER : ''}${
+                    payload ? `result, err := ${flagSnippet}` : `${variableName} := ${flagSnippet}`
+                }
 if err != nil {
     // Handle error (e.g. capture error and fallback to default behaviour)
 }
-if ${conditional} {
+${
+    payload
+        ? `var matchedFlagPayload any
+if result != nil {
+    matchedFlagPayload = result.Payload
+}`
+        : `if ${conditional} {
     // Do something differently for this ${groupType ? groupType.name_singular || 'group' : 'user'}
-}`}
+}`
+}
+`}
             </CodeSnippet>
         </>
     )
@@ -255,7 +258,7 @@ export function RubySnippet({
     samplePropertyName,
 }: FeatureFlagSnippet): JSX.Element {
     const clientSuffix = 'posthog.'
-    const flagFunction = payload ? 'get_feature_flag_payload' : multivariant ? 'get_feature_flag' : 'is_feature_enabled'
+    const flagFunction = multivariant ? 'get_feature_flag' : 'is_feature_enabled'
 
     const propertyName = samplePropertyName || 'is_authorized'
 
@@ -285,23 +288,24 @@ remote_config_payload = posthog.get_remote_config_payload('${flagKey}')`}
         : ''
 
     const flagSnippet = groupType
-        ? `${clientSuffix}${flagFunction}(
+        ? `${clientSuffix}${payload ? 'get_feature_flag_result' : flagFunction}(
     '${flagKey}',
     'user distinct id',
     groups: { '${groupType.group_type}': '<${groupType.name_singular || 'group'} ID>' },${localEvalAddition}
 )`
         : localEvalAddition
-          ? `${clientSuffix}${flagFunction}(
+          ? `${clientSuffix}${payload ? 'get_feature_flag_result' : flagFunction}(
     '${flagKey}',
     'user distinct id',${localEvalAddition}
 )`
-          : `${clientSuffix}${flagFunction}('${flagKey}', 'user distinct id')`
+          : `${clientSuffix}${payload ? 'get_feature_flag_result' : flagFunction}('${flagKey}', 'user distinct id')`
     const variableName = payload ? 'matched_flag_payload' : multivariant ? 'enabled_variant' : 'is_my_flag_enabled'
 
     const conditional = multivariant ? `${variableName} == 'example-variant'` : `${variableName}`
 
     const followUpCode = payload
-        ? ''
+        ? `
+matched_flag_payload = result&.payload`
         : `
 
 if ${conditional}
@@ -311,7 +315,11 @@ end`
     return (
         <>
             <CodeSnippet language={Language.Ruby} wrap>
-                {`${localEvaluation ? '# ' + LOCAL_EVAL_REMINDER : ''}${variableName} = ${flagSnippet}${followUpCode}`}
+                {`${localEvaluation ? '# ' + LOCAL_EVAL_REMINDER : ''}${
+                    payload
+                        ? `result = ${flagSnippet}${followUpCode}`
+                        : `${variableName} = ${flagSnippet}${followUpCode}`
+                }`}
             </CodeSnippet>
         </>
     )
@@ -328,7 +336,7 @@ export function PythonSnippet({
     samplePropertyName,
 }: FeatureFlagSnippet): JSX.Element {
     const clientSuffix = 'posthog.'
-    const flagFunction = payload ? 'get_feature_flag_payload' : multivariant ? 'get_feature_flag' : 'feature_enabled'
+    const flagFunction = multivariant ? 'get_feature_flag' : 'feature_enabled'
 
     const propertyName = samplePropertyName || 'is_authorized'
 
@@ -358,23 +366,24 @@ remote_config_payload = posthog.get_remote_config_payload('${flagKey}')`}
         : ''
 
     const flagSnippet = groupType
-        ? `${clientSuffix}${flagFunction}(
+        ? `${clientSuffix}${payload ? 'get_feature_flag_result' : flagFunction}(
     '${flagKey}',
     'user distinct id',
     groups={ '${groupType.group_type}': '<${groupType.name_singular || 'group'} ID>' },${localEvalAddition}
 )`
         : localEvalAddition
-          ? `${clientSuffix}${flagFunction}(
+          ? `${clientSuffix}${payload ? 'get_feature_flag_result' : flagFunction}(
     '${flagKey}',
     'user distinct id',${localEvalAddition}
 )`
-          : `${clientSuffix}${flagFunction}('${flagKey}', 'user distinct id')`
+          : `${clientSuffix}${payload ? 'get_feature_flag_result' : flagFunction}('${flagKey}', 'user distinct id')`
     const variableName = payload ? 'matched_flag_payload' : multivariant ? 'enabled_variant' : 'is_my_flag_enabled'
 
     const conditional = multivariant ? `${variableName} == 'example-variant'` : `${variableName}`
 
     const followUpCode = payload
-        ? ''
+        ? `
+matched_flag_payload = result.payload if result else None`
         : `
 
 if ${conditional}:
@@ -384,7 +393,11 @@ if ${conditional}:
     return (
         <>
             <CodeSnippet language={Language.Python} wrap>
-                {`${localEvaluation ? '# ' + LOCAL_EVAL_REMINDER : ''}${variableName} = ${flagSnippet}${followUpCode}`}
+                {`${localEvaluation ? '# ' + LOCAL_EVAL_REMINDER : ''}${
+                    payload
+                        ? `result = ${flagSnippet}${followUpCode}`
+                        : `${variableName} = ${flagSnippet}${followUpCode}`
+                }`}
             </CodeSnippet>
         </>
     )
@@ -489,7 +502,8 @@ export function JavaSnippet({ flagKey, multivariant, payload }: FeatureFlagSnipp
     const distinctId = 'user distinct id'
     let snippet = ''
     if (payload) {
-        snippet = `postHog.getFeatureFlagPayload("${distinctId}", "${flagKey}")`
+        snippet = `FeatureFlagResult result = postHog.getFeatureFlagResult("${distinctId}", "${flagKey}");
+Object matchedFlagPayload = result != null ? result.getPayload() : null;`
     } else if (multivariant) {
         snippet = `Object flagValue = postHog.getFeatureFlag("${distinctId}", "${flagKey}");
 if ("example-variant".equals(flagValue)) {
@@ -543,7 +557,8 @@ result.payload?.let { payload ->
     if (payload) {
         return (
             <CodeSnippet language={Language.Kotlin} wrap>
-                {`${clientSuffix}getFeatureFlagPayload("${flagKey}")`}
+                {`val result = ${clientSuffix}getFeatureFlagResult("${flagKey}")
+val matchedFlagPayload = result?.payload`}
             </CodeSnippet>
         )
     }
@@ -594,7 +609,8 @@ if (result.payload != null) {
     if (payload) {
         return (
             <CodeSnippet language={Language.Dart} wrap>
-                {`${clientSuffix}getFeatureFlagPayload('${flagKey}');`}
+                {`final result = ${clientSuffix}getFeatureFlagResult('${flagKey}');
+final matchedFlagPayload = result.payload;`}
             </CodeSnippet>
         )
     }
@@ -646,7 +662,8 @@ if let payload = result.payload {
     if (payload) {
         return (
             <CodeSnippet language={Language.Swift} wrap>
-                {`${clientSuffix}getFeatureFlagPayload("${flagKey}")`}
+                {`let result = ${clientSuffix}getFeatureFlagResult("${flagKey}")
+let matchedFlagPayload = result.payload`}
             </CodeSnippet>
         )
     }
@@ -703,7 +720,8 @@ const MyComponent = () => {
     if (payload) {
         return (
             <CodeSnippet language={Language.JSX} wrap>
-                {`${clientSuffix}getFeatureFlagPayload('${flagKey}')`}
+                {`const result = ${clientSuffix}getFeatureFlagResult('${flagKey}')
+const matchedFlagPayload = result?.payload`}
             </CodeSnippet>
         )
     }
@@ -809,7 +827,8 @@ export function JSSnippet({
         return (
             <>
                 <CodeSnippet language={Language.JavaScript} wrap>
-                    {`posthog.getFeatureFlagPayload('${flagKey ?? ''}')`}
+                    {`const result = posthog.getFeatureFlagResult('${flagKey ?? ''}')
+const matchedFlagPayload = result?.payload`}
                 </CodeSnippet>
             </>
         )

@@ -31,12 +31,12 @@ export const getReactNativeSteps = (ctx: OnboardingComponentsContext): StepDefin
 
                                     function MyComponent() {
                                         const posthog = usePostHog()
-                                        const isMyFlagEnabled = posthog.isFeatureEnabled('flag-key')
+                                        const result = posthog.getFeatureFlagResult('flag-key')
 
-                                        if (isMyFlagEnabled) {
+                                        if (result?.enabled) {
                                             // Do something differently for this user
                                             // Optional: fetch the payload
-                                            const matchedFlagPayload = posthog.getFeatureFlagPayload('flag-key')
+                                            const matchedFlagPayload = result.payload
                                         }
 
                                         return <View>...</View>
@@ -62,12 +62,12 @@ export const getReactNativeSteps = (ctx: OnboardingComponentsContext): StepDefin
 
                                     function MyComponent() {
                                         const posthog = usePostHog()
-                                        const enabledVariant = posthog.getFeatureFlag('flag-key')
+                                        const result = posthog.getFeatureFlagResult('flag-key')
 
-                                        if (enabledVariant === 'variant-key') { // replace 'variant-key' with the key of your variant
+                                        if (result?.variant === 'variant-key') { // replace 'variant-key' with the key of your variant
                                             // Do something differently for this user
                                             // Optional: fetch the payload
-                                            const matchedFlagPayload = posthog.getFeatureFlagPayload('flag-key')
+                                            const matchedFlagPayload = result.payload
                                         }
 
                                         return <View>...</View>
