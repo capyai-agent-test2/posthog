@@ -8,7 +8,7 @@ from parameterized import parameterized
 
 from posthog.temporal.data_imports.sources.common.resumable import ResumableSourceManager
 from posthog.temporal.data_imports.sources.common.webhook_s3 import WebhookSourceManager
-from posthog.temporal.data_imports.sources.slack.settings import ENDPOINTS
+from posthog.temporal.data_imports.sources.slack.settings import ENDPOINTS, SLACK_MESSAGE_INCREMENTAL_FIELDS
 from posthog.temporal.data_imports.sources.slack.slack import (
     SlackResumeConfig,
     _channel_messages_generator,
@@ -17,6 +17,7 @@ from posthog.temporal.data_imports.sources.slack.slack import (
     _fetch_channels_by_type,
     slack_source,
 )
+from posthog.temporal.data_imports.sources.slack.source import SlackSource
 
 
 def _make_response(payload: dict[str, Any]) -> MagicMock:
@@ -392,6 +393,38 @@ class TestSlackSourceGetSchemasForceRefresh:
         assert channel_names(first) == {"C1"}
         assert channel_names(cached) == {"C1"}
         assert channel_names(forced) == {"C2"}
+
+
+class TestSlackSourceSchemas:
+    def test_channel_schemas_advertise_incremental_and_append(self) -> None:
+        config = MagicMock()
+        config.slack_integration_id = 42
+
+        integration = MagicMock()
+        integration.id = 42
+        integration.access_token = "token"
+        integration.config = {"authed_user": {"id": "U_INSTALLER"}}
+
+        source = SlackSource()
+
+        with (
+            patch.object(source, "get_oauth_integration", return_value=integration),
+            patch(
+                "posthog.temporal.data_imports.sources.slack.source.get_channels",
+                return_value=[{"id": "C1", "name": "general"}],
+            ),
+            patch(
+                "posthog.temporal.data_imports.sources.slack.source.is_webhook_feature_flag_enabled",
+                return_value=False,
+            ),
+        ):
+            schemas = source.get_schemas(config, team_id=1)
+
+        channel_schema = next(schema for schema in schemas if schema.name == "C1")
+
+        assert channel_schema.supports_incremental is True
+        assert channel_schema.supports_append is True
+        assert channel_schema.incremental_fields == SLACK_MESSAGE_INCREMENTAL_FIELDS
 
 
 class TestSlackSourceChannelsEndpoint:
