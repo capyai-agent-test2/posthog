@@ -1334,18 +1334,14 @@ async fn test_invalid_project_api_key() {
         status, 401,
         "Should return 401 for invalid token. Body: {body_text}"
     );
-
-    // Verify the response body format (if JSON)
-    if let Ok(body) = serde_json::from_str::<Value>(&body_text) {
-        assert_eq!(body["type"], "authentication_error");
-        assert_eq!(body["code"], "not_authenticated");
-    } else {
-        // If not JSON, verify the error message mentions invalid API key
-        assert!(
-            body_text.contains("API key is invalid") || body_text.contains("expired"),
-            "Body should mention invalid API key. Got: {body_text}"
-        );
-    }
+    let body: Value = serde_json::from_str(&body_text).unwrap();
+    assert_eq!(body["type"], "authentication_error");
+    assert_eq!(body["code"], "authentication_failed");
+    assert_eq!(
+        body["detail"],
+        "The provided API key is invalid or has expired. Please check your API key and try again."
+    );
+    assert_eq!(body["attr"], Value::Null);
 }
 
 #[tokio::test]

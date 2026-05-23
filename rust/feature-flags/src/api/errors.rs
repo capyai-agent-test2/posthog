@@ -378,7 +378,13 @@ impl IntoResponse for FlagError {
                 (StatusCode::UNAUTHORIZED, "No API token provided. Please include a valid API token in your request.".to_string())
             }
             FlagError::TokenValidationError => {
-                (StatusCode::UNAUTHORIZED, "The provided API key is invalid or has expired. Please check your API key and try again.".to_string())
+                let response = AuthenticationErrorResponse {
+                    error_type: "authentication_error".to_string(),
+                    code: "authentication_failed".to_string(),
+                    detail: "The provided API key is invalid or has expired. Please check your API key and try again.".to_string(),
+                    attr: None,
+                };
+                return (StatusCode::UNAUTHORIZED, Json(response)).into_response();
             }
             FlagError::PersonalApiKeyInvalid => {
                 let response = AuthenticationErrorResponse {
@@ -721,6 +727,31 @@ mod tests {
             body.contains("Invalid sent_at"),
             "body should describe the bad sent_at, got: {body}"
         );
+    }
+
+    #[test]
+    fn test_token_validation_error_response_body_is_structured_json() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let response = FlagError::TokenValidationError.into_response();
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        assert_eq!(
+            response.headers().get("content-type").unwrap(),
+            "application/json"
+        );
+
+        let body_bytes = rt
+            .block_on(axum::body::to_bytes(response.into_body(), usize::MAX))
+            .unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
+
+        assert_eq!(body["type"], "authentication_error");
+        assert_eq!(body["code"], "authentication_failed");
+        assert_eq!(
+            body["detail"],
+            "The provided API key is invalid or has expired. Please check your API key and try again."
+        );
+        assert_eq!(body["attr"], serde_json::Value::Null);
     }
 
     #[test]
