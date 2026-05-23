@@ -1239,14 +1239,8 @@ def _is_behavioral_only_dynamic_cohort(cohort: Cohort) -> bool:
     if cohort.is_static:
         return False
 
-    filter_tree = cohort.filters.get("properties") if cohort.filters else None
-    if filter_tree is not None:
-        return _is_behavioral_only_filter_tree(filter_tree)
-
-    if not cohort.groups:
-        return False
-
-    return all(_is_behavioral_only_filter_tree(group.get("properties")) for group in cohort.groups)
+    normalized_filter_tree = cohort.properties.to_dict()
+    return _is_behavioral_only_filter_tree(normalized_filter_tree)
 
 
 def _is_behavioral_only_filter_tree(node: object) -> bool:
