@@ -168,55 +168,10 @@ jobs:
                   retention-days: 1
                   if-no-files-found: warn
 
-    vr-setup:
-        name: Create Visual Review run
-        runs-on: ubuntu-latest
-        timeout-minutes: 5
-        needs: [changes, build-storybook]
-        if: needs.changes.outputs.frontend == 'true' && (github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push')
-        outputs:
-            run_id: ${{ steps.create.outputs.run_id }}
-        steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-              with:
-                  ref: ${{ github.event.pull_request.head.sha || github.sha }}
-                  repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-                  sparse-checkout: |
-                      .nvmrc
-                      frontend/snapshots.yml
-                  sparse-checkout-cone-mode: false
-
-            - name: Set up Node.js
-              uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
-              with:
-                  node-version-file: .nvmrc
-            - name: Create VR run
-              id: create
-              env:
-                  VR_TOKEN: ${{ secrets.VR_API_TOKEN }}
-                  VR_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
-                  VR_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-                  VR_PR: ${{ github.event.pull_request.number }}
-                  # PRs are gating ("review"); master pushes are tracking-only ("observe") since
-                  # there's no PR to approve and we don't want master runs to block or prompt for approval.
-                  VR_PURPOSE: ${{ github.event_name == 'push' && 'observe' || 'review' }}
-                  # Recorded on the run so the VR UI can re-trigger this job via the GitHub API.
-                  JOB_CHECK_RUN_ID: ${{ job.check_run_id }}
-              run: |
-                  RUN_ID=$(vr run create \
-                    --type storybook \
-                    --baseline frontend/snapshots.yml \
-                    --branch "$VR_BRANCH" \
-                    --commit "$VR_COMMIT" \
-                    --pr "$VR_PR" \
-                    --purpose "$VR_PURPOSE" \
-                    --token "$VR_TOKEN")
-                  echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
-
     visual-regression:
         name: Visual regression tests - ${{ matrix.browser }} (${{ matrix.shard }}/${{ matrix.shard_count }})
         runs-on: ubuntu-latest
-        needs: [changes, build-storybook, vr-setup]
+        needs: [changes, build-storybook]
         if: >-
             always()
             && needs.changes.outputs.frontend == 'true'
@@ -341,18 +296,6 @@ jobs:
               run: |
                   pnpm --filter=@posthog/storybook test:visual:ci:update --browsers ${{ matrix.browser }} --shard ${{ matrix.shard }}/${{ matrix.shard_count }}
 
-            # Upload snapshots to Visual Review (runs in parallel across shards)
-            - name: Upload snapshots to Visual Review
-              if: always() && needs.vr-setup.outputs.run_id != ''
-              env:
-                  VR_TOKEN: ${{ secrets.VR_API_TOKEN }}
-              run: |
-                  vr run upload \
-                    --run-id "${{ needs.vr-setup.outputs.run_id }}" \
-                    --dir frontend/__snapshots__/ \
-                    --baseline frontend/snapshots.yml \
-                    --token "$VR_TOKEN"
-
             - name: Upload test results
               if: always()
               uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -439,9 +382,9 @@ jobs:
                   if-no-files-found: ignore
                   retention-days: 5
 
-    # Collate matrix + VR completion status for the required check
+    # Collate matrix status for the required check
     visual_regression_tests:
-        needs: [visual-regression, vr-setup, vr-complete]
+        needs: [visual-regression]
         name: Visual regression tests pass
         runs-on: ubuntu-latest
         timeout-minutes: 5
@@ -454,52 +397,7 @@ jobs:
                     exit 1
                   fi
 
-                  if [[ "${{ needs.vr-setup.result }}" == "failure" ]]; then
-                    echo "Visual Review setup failed — VR CLI or API error."
-                    exit 1
-                  fi
-
-                  if [[ "${{ needs.vr-complete.result }}" != "success" && "${{ needs.vr-complete.result }}" != "skipped" ]]; then
-                    echo "Visual Review did not complete successfully (result: ${{ needs.vr-complete.result }})."
-                    exit 1
-                  fi
-
                   echo "All jobs passed or were skipped successfully."
-
-    vr-complete:
-        name: Complete Visual Review run
-        runs-on: ubuntu-latest
-        timeout-minutes: 15
-        needs: [visual-regression, vr-setup]
-        if: needs.vr-setup.outputs.run_id != '' && needs.visual-regression.result == 'success'
-        steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-              with:
-                  ref: ${{ github.event.pull_request.head.sha || github.sha }}
-                  repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-                  sparse-checkout: |
-                      .nvmrc
-                      frontend/snapshots.yml
-                  sparse-checkout-cone-mode: false
-
-            - name: Set up Node.js
-              uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
-              with:
-                  node-version-file: .nvmrc
-            - name: Complete Visual Review run
-              # On master pushes the run was created with --purpose observe (tracking-only),
-              # but `vr run complete` still exits 1 whenever visual changes are detected.
-              # That makes the Storybook check fail on master even though observe runs are
-              # not gating by design. Treat exit 1 as informational on push events; PRs
-              # still gate as before.
-              continue-on-error: ${{ github.event_name == 'push' }}
-              env:
-                  VR_TOKEN: ${{ secrets.VR_API_TOKEN }}
-              run: |
-                  vr run complete \
-                    --run-id "${{ needs.vr-setup.outputs.run_id }}" \
-                    --baseline frontend/snapshots.yml \
-                    --token "$VR_TOKEN"
 
     calculate-running-time:
         name: Calculate running time
