@@ -8,10 +8,8 @@ import {
 import { RequestLogger, withLogging } from '@/lib/logging'
 import { extractClientInfoFromBody } from '@/lib/mcp-client-info'
 import { getPostHogClient } from '@/lib/posthog'
-import { buildRedirectUrl, matchAuthServerRedirect } from '@/lib/routing'
+import { buildRedirectUrl, getPublicUrl, getRegionFromRequest, matchAuthServerRedirect } from '@/lib/routing'
 import { hash, parseMcpMode, sanitizeHeaderValue } from '@/lib/utils'
-import type { CloudRegion } from '@/tools/types'
-
 import { MCP, RequestProperties } from './mcp'
 import { proxyToHono, shouldProxyToHono } from './proxy'
 
@@ -28,60 +26,6 @@ function extendMcpServerLog(log: RequestLogger, props: RequestProperties): void 
     if (Object.keys(mcpServerLog).length > 0) {
         log.extend(mcpServerLog)
     }
-}
-
-// Helper to get the public-facing URL, respecting reverse proxy headers
-// This is needed for local development with ngrok/cloudflared where request.url
-// shows http://localhost but the actual URL is https://...ngrok-free.dev
-function getPublicUrl(request: Request): URL {
-    const url = new URL(request.url)
-
-    // Check for X-Forwarded-Host (ngrok, cloudflared, and most reverse proxies)
-    const forwardedHost = request.headers.get('X-Forwarded-Host')
-    if (forwardedHost) {
-        url.host = forwardedHost
-    }
-
-    // Check for X-Forwarded-Proto (https vs http)
-    const forwardedProto = request.headers.get('X-Forwarded-Proto')
-    if (forwardedProto) {
-        url.protocol = forwardedProto + ':'
-    }
-
-    return url
-}
-
-// Detect region from hostname for EU subdomain routing.
-// This is a workaround for Claude Code's OAuth bug where it ignores the
-// authorization_servers field from OAuth protected resource metadata and
-// instead fetches /.well-known/oauth-authorization-server directly from the MCP server.
-// See: https://github.com/anthropics/claude-code/issues/2267
-//
-// By using a separate subdomain (mcp-eu.posthog.com), Claude Code's request to
-// /.well-known/oauth-authorization-server will hit our server with the EU hostname,
-// allowing us to redirect to the correct EU OAuth server.
-function getRegionFromHostname(request: Request): CloudRegion | undefined {
-    const publicUrl = getPublicUrl(request)
-
-    // DNS hostnames are case-insensitive, so normalize to lowercase
-    if (publicUrl.hostname.toLowerCase() === 'mcp-eu.posthog.com') {
-        return 'eu'
-    }
-
-    return undefined
-}
-
-// Detect region from hostname (mcp-eu.posthog.com) or query param (?region=eu)
-// Hostname takes precedence as it's the workaround for Claude Code's OAuth bug
-function getRegionFromRequest(request: Request): CloudRegion | null {
-    const hostnameRegion = getRegionFromHostname(request)
-    if (hostnameRegion) {
-        return hostnameRegion
-    }
-
-    const url = new URL(request.url)
-    const queryRegion = url.searchParams.get('region') as CloudRegion | null
-    return queryRegion
 }
 
 // Detect error codes and return appropriate responses
@@ -209,7 +153,7 @@ const handleRequest = async (
     // See: https://github.com/anthropics/claude-code/issues/2267
     const redirect = matchAuthServerRedirect(url.pathname)
     if (redirect) {
-        const authServer = getAuthorizationServerUrl()
+        const authServer = getAuthorizationServerUrl(effectiveRegion)
         const redirectTo = buildRedirectUrl(authServer, url.pathname, url.search, redirect)
 
         log.extend({ redirectTo })
@@ -254,7 +198,7 @@ const handleRequest = async (
 
         // Determine authorization server for OAuth.
         // POSTHOG_API_BASE_URL takes precedence for self-hosted, otherwise routes to oauth.posthog.com.
-        const authorizationServer = getAuthorizationServerUrl()
+        const authorizationServer = getAuthorizationServerUrl(effectiveRegion)
 
         return new Response(
             JSON.stringify({

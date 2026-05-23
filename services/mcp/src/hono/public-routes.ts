@@ -1,7 +1,7 @@
 import { serveStatic } from '@hono/node-server/serve-static'
 import type { Hono } from 'hono'
 
-import { buildRedirectUrl, getPublicUrl, matchAuthServerRedirect } from '@/lib/routing'
+import { buildRedirectUrl, getPublicUrl, getRegionFromRequest, matchAuthServerRedirect } from '@/lib/routing'
 
 import type { Lifecycle } from './app'
 import { AUTH_REDIRECT_PATHS, getAuthorizationServerUrl, MCP_DOCS_URL, OAUTH_SCOPES_SUPPORTED } from './constants'
@@ -51,11 +51,12 @@ const wellKnownHandler = (c: HonoCtx): Response => {
     const resourceUrl = getPublicUrl(c.req.raw)
     resourceUrl.pathname = resourcePath
     resourceUrl.search = ''
+    const region = getRegionFromRequest(c.req.raw)
 
     return c.json(
         {
             resource: resourceUrl.toString().replace(/\/$/, ''),
-            authorization_servers: [getAuthorizationServerUrl()],
+            authorization_servers: [getAuthorizationServerUrl(region)],
             scopes_supported: OAUTH_SCOPES_SUPPORTED,
             bearer_methods_supported: ['header'],
         },
@@ -70,7 +71,12 @@ const authRedirectHandler = (c: HonoCtx): Response => {
     if (!redirect) {
         return c.notFound() as unknown as Response
     }
-    const redirectTo = buildRedirectUrl(getAuthorizationServerUrl(), url.pathname, url.search, redirect)
+    const redirectTo = buildRedirectUrl(
+        getAuthorizationServerUrl(getRegionFromRequest(c.req.raw)),
+        url.pathname,
+        url.search,
+        redirect
+    )
     return c.redirect(redirectTo, redirect.status) as unknown as Response
 }
 

@@ -79,8 +79,11 @@ export const isCloudApi = (): boolean => {
 
 export const isLocalApi = (): boolean => !!getCustomApiBaseUrl()?.includes('localhost')
 
-export const resolveAuthorizationServerUrl = (): string => {
+export const resolveAuthorizationServerUrl = (region?: CloudRegion | null): string => {
     if (isCloudApi()) {
+        if (region) {
+            return getBaseUrlForRegion(region)
+        }
         return OAUTH_PROXY_URL
     }
     return getCustomApiBaseUrl()!

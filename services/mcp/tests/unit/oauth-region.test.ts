@@ -90,6 +90,16 @@ describe('OAuth Region Routing', () => {
             expect(getAuthorizationServerUrl()).toBe('http://localhost:8010')
         })
 
+        it('returns EU cloud URL when region is pinned to eu', () => {
+            process.env.POSTHOG_API_BASE_URL = 'https://us.posthog.com'
+            expect(getAuthorizationServerUrl('eu')).toBe('https://eu.posthog.com')
+        })
+
+        it('returns US cloud URL when region is pinned to us', () => {
+            process.env.POSTHOG_API_BASE_URL = 'https://eu.posthog.com'
+            expect(getAuthorizationServerUrl('us')).toBe('https://us.posthog.com')
+        })
+
         it('returns oauth proxy URL when POSTHOG_API_BASE_URL is a cloud URL', () => {
             process.env.POSTHOG_API_BASE_URL = 'https://us.posthog.com'
             expect(getAuthorizationServerUrl()).toBe('https://oauth.posthog.com')
