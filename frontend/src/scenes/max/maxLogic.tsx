@@ -447,7 +447,7 @@ export const maxLogic = kea<maxLogicType>([
         },
         // Listen for when the side panel state changes and check for initial prompt
         [sidePanelStateLogic.actionTypes.openSidePanel]: ({ tab, options }) => {
-            if (tab === SidePanelTab.Max && options && typeof options === 'string') {
+            if (props.tabId === 'sidepanel' && tab === SidePanelTab.Max && options && typeof options === 'string') {
                 handleCommandString(options, actions)
             }
         },
@@ -610,6 +610,7 @@ export const maxLogic = kea<maxLogicType>([
 
         // If there is a prefill question from side panel state (from opening PostHog AI within the app), use it
         if (
+            props.tabId === 'sidepanel' &&
             !values.question &&
             sidePanelStateLogic.isMounted() &&
             sidePanelStateLogic.values.selectedTab === SidePanelTab.Max &&
