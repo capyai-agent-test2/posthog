@@ -231,7 +231,7 @@ class TestRemoteConfig(_RemoteConfigBase):
 
     @parameterized.expand(
         [
-            (True, {"script": "posthog-recorder"}),
+            (True, {"script": "recorder"}),
             (False, None),
         ]
     )

@@ -50,6 +50,8 @@ from .team_caching import get_team_in_cache, set_team_in_cache
 if TYPE_CHECKING:
     from posthog.models.user import User
 
+DEFAULT_RECORDER_SCRIPT = "recorder"
+
 TIMEZONES = [(tz, tz) for tz in pytz.all_timezones]
 
 # TODO: DEPRECATED; delete when these attributes can be fully removed from `Team` model
@@ -124,7 +126,7 @@ class TeamManager(models.Manager):
 
         if team.extra_settings is None:
             team.extra_settings = {}
-        team.extra_settings.setdefault("recorder_script", "posthog-recorder")
+        team.extra_settings.setdefault("recorder_script", DEFAULT_RECORDER_SCRIPT)
 
         # Create default dashboards
         default_app_template = DashboardTemplate.original_template()

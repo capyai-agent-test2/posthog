@@ -249,8 +249,8 @@ class TestTeam(BaseTest):
 
     @parameterized.expand(
         [
-            (None, {"recorder_script": "posthog-recorder"}),
-            ({"other_setting": "value"}, {"other_setting": "value", "recorder_script": "posthog-recorder"}),
+            (None, {"recorder_script": "recorder"}),
+            ({"other_setting": "value"}, {"other_setting": "value", "recorder_script": "recorder"}),
             ({"recorder_script": "custom-recorder"}, {"recorder_script": "custom-recorder"}),
         ]
     )
