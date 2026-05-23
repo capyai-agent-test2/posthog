@@ -74,10 +74,13 @@ CLICKHOUSE_MAX_BLOCK_SIZE_OVERRIDES: dict[int, int] = dict(
 # Temporal task queues
 # Temporal has a limitation where a worker can only listen to a single queue.
 # To avoid running multiple workers, when running locally (DEBUG=True), we use a single queue for all tasks.
-# In production (DEBUG=False), we use separate queues for each worker type.
+# In production (DEBUG=False), we use separate queues for each worker type unless TEMPORAL_TASK_QUEUE
+# is set to collapse all Python workers onto a single queue (used by hobby self-hosted deployments).
 def _set_temporal_task_queue(task_queue: str) -> str:
     if DEBUG:
         return "development-task-queue"
+    if override_task_queue := os.getenv("TEMPORAL_TASK_QUEUE"):
+        return override_task_queue
     return task_queue
 
 
