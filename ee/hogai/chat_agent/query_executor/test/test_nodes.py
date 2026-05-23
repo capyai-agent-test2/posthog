@@ -144,7 +144,8 @@ class TestQueryExecutorNode(ClickhouseTestMixin, NonAtomicBaseTest):
         mock_process_query_dict.assert_called_once()  # Query processing started
         msg = cast(AssistantToolCallMessage, new_state.messages[0])
         self.assertIn("Here is the results table of the TrendsQuery insight:", msg.content)
-        self.assertIn(f"Insight ID: {insight.short_id}", msg.content)
+        self.assertIn(f"Conversation artifact ID: {insight.short_id}", msg.content)
+        self.assertIn("Do not construct a URL from it.", msg.content)
         self.assertIn("Name: test insight", msg.content)
         self.assertIn("Description: test description", msg.content)
         self.assertEqual(msg.type, "tool")
