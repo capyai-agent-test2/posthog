@@ -74,15 +74,7 @@ func InstallDocker() error {
 
 	logger.WriteString("Installing Docker...\n")
 
-	commands := [][]string{
-		{"apt", "update"},
-		{"apt", "install", "-y", "apt-transport-https", "ca-certificates", "curl", "software-properties-common"},
-		{"sh", "-c", "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -"},
-		{"add-apt-repository", "-y", "deb [arch=amd64] https://download.docker.com/linux/ubuntu jammy stable"},
-		{"apt", "update"},
-		{"apt", "install", "-y", "docker-ce"},
-	}
-
+	commands := dockerInstallCommands()
 	for i, cmdArgs := range commands {
 		logger.Debug("InstallDocker step %d/%d: %v", i+1, len(commands), cmdArgs)
 		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
@@ -99,6 +91,19 @@ func InstallDocker() error {
 	}
 
 	return nil
+}
+
+func dockerInstallCommands() [][]string {
+	return [][]string{
+		{"apt", "update"},
+		{"apt", "install", "-y", "apt-transport-https", "ca-certificates", "curl", "gnupg"},
+		{"install", "-m", "0755", "-d", "/etc/apt/keyrings"},
+		{"sh", "-c", "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg"},
+		{"chmod", "a+r", "/etc/apt/keyrings/docker.gpg"},
+		{"sh", "-c", `echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" > /etc/apt/sources.list.d/docker.list`},
+		{"apt", "update"},
+		{"apt", "install", "-y", "docker-ce"},
+	}
 }
 
 func InstallDockerCompose() error {
