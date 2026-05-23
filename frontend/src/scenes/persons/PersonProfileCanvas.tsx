@@ -14,12 +14,13 @@ import { customerProfileLogic } from 'products/customer_analytics/frontend/custo
 
 type PersonProfileCanvasProps = {
     person: PersonType
+    tabId: string
     attachTo: BuiltLogic | LogicWrapper
 }
 
-const PersonProfileCanvas = ({ person, attachTo }: PersonProfileCanvasProps): JSX.Element | null => {
+const PersonProfileCanvas = ({ person, tabId, attachTo }: PersonProfileCanvasProps): JSX.Element | null => {
     const id = person.id
-    const shortId = `canvas-${id}`
+    const shortId = `canvas-${id}-${tabId}`
     const mode = 'canvas'
     const { reportPersonProfileViewed } = useActions(eventUsageLogic)
 
@@ -27,13 +28,14 @@ const PersonProfileCanvas = ({ person, attachTo }: PersonProfileCanvasProps): JS
         () => ({
             personId: id,
             distinctIds: person.distinct_ids,
+            tabId,
         }),
-        [id, person.distinct_ids]
+        [id, person.distinct_ids, tabId]
     )
     const customerProfileLogicProps = {
         attrs,
         scope: CustomerProfileScope.PERSON,
-        key: `person-${id}`,
+        key: `customer-profile-person-${id}-${tabId}`,
         canvasShortId: shortId,
     }
     const { content } = useValues(customerProfileLogic(customerProfileLogicProps))
