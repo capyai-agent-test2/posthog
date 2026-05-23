@@ -3913,7 +3913,6 @@ class ProductKey(StrEnum):
     REPLAY_VISION = "replay_vision"
     SITE_APPS = "site_apps"
     SUBSCRIPTIONS = "subscriptions"
-    STREAMLIT_APPS = "streamlit_apps"
     SURVEYS = "surveys"
     TASKS = "tasks"
     TEAMS = "teams"

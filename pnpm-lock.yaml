@@ -3299,7 +3299,6 @@ importers:
 
   products/slack_app: {}
 
-  products/streamlit_apps: {}
 
   products/surveys:
     dependencies:
