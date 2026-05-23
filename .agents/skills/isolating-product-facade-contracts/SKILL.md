@@ -24,13 +24,13 @@ Read these before changing code:
 
 Use Visual review as the concrete reference implementation:
 
-- [products/visual_review/backend/facade/contracts.py](products/visual_review/backend/facade/contracts.py)
-- [products/visual_review/backend/facade/api.py](products/visual_review/backend/facade/api.py)
-- [products/visual_review/backend/presentation/views.py](products/visual_review/backend/presentation/views.py)
-- [products/visual_review/backend/presentation/serializers.py](products/visual_review/backend/presentation/serializers.py)
-- [products/visual_review/backend/logic.py](products/visual_review/backend/logic.py)
-- [products/visual_review/backend/tests/test_api.py](products/visual_review/backend/tests/test_api.py)
-- [products/visual_review/backend/tests/test_presentation.py](products/visual_review/backend/tests/test_presentation.py)
+- [products/example_product/backend/facade/contracts.py](products/example_product/backend/facade/contracts.py)
+- [products/example_product/backend/facade/api.py](products/example_product/backend/facade/api.py)
+- [products/example_product/backend/presentation/views.py](products/example_product/backend/presentation/views.py)
+- [products/example_product/backend/presentation/serializers.py](products/example_product/backend/presentation/serializers.py)
+- [products/example_product/backend/logic.py](products/example_product/backend/logic.py)
+- [products/example_product/backend/tests/test_api.py](products/example_product/backend/tests/test_api.py)
+- [products/example_product/backend/tests/test_presentation.py](products/example_product/backend/tests/test_presentation.py)
 
 Before changing code, get the baseline:
 
@@ -90,7 +90,7 @@ The `rg` output is your import map: every line is a caller that needs to migrate
    4. **Narrowed `turbo.json` inputs** — restrict `backend:contract-check`
       inputs to `backend/facade/**` and `backend/presentation/**` so the
       Django suite is only re-run on facade/presentation changes (see
-      `products/visual_review/turbo.json`).
+      `products/example_product/turbo.json`).
    - Verify with `tach check --dependencies --interfaces`, `lint-imports`
      (import-linter contract for presentation → facade), and `hogli product:lint <name>`.
    - Use `hogli product:maturity <name>` for a detailed breakdown of remaining

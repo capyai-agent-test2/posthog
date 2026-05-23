@@ -591,10 +591,6 @@ jobs:
 
             # Visual Review: create run + upload snapshots directly from the test job.
             # Completion happens in handle-screenshots so the baseline lands in the same commit as PNGs.
-            - name: Install VR CLI
-              if: always() && (github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push')
-              run: cd products/visual_review/cli && npm ci && npm run build && npm link
-
             - name: Create VR run
               id: vr-create
               if: always() && (github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push')
@@ -855,8 +851,6 @@ jobs:
                   repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
                   sparse-checkout: |
                       .nvmrc
-                      products/visual_review/cli
-                      products/visual_review/frontend/generated/api.schemas.ts
                       playwright/snapshots.yml
                   sparse-checkout-cone-mode: false
 
@@ -864,10 +858,6 @@ jobs:
               uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
               with:
                   node-version-file: .nvmrc
-
-            - name: Install VR CLI
-              run: cd products/visual_review/cli && npm ci && npm run build && npm link
-
             - name: Complete Visual Review run
               env:
                   VR_TOKEN: ${{ secrets.VR_API_TOKEN }}

@@ -315,7 +315,7 @@ async def emit_signal(team_id, source_product, source_type, source_id, descripti
 
 ```python
 # products/other_product/backend/logic.py
-from products.visual_review.backend.facade.contracts import Artifact
+from products.example_product.backend.facade.contracts import Artifact
 
 def process_artifact(artifact: Artifact) -> None:
     # artifact is a frozen dataclass, not an ORM object
@@ -344,7 +344,7 @@ During migration, existing cross-product model imports are tracked in `tach.toml
 Django allows `ForeignKey` relationships across products. This is still allowed, but ForeignKey relations create **implicit reverse dependencies**, even if you never use them:
 
 ```python
-# visual_review/backend/models.py
+# example_product/backend/models.py
 project = models.ForeignKey(Project, ...)
 ```
 
@@ -385,15 +385,15 @@ Other products depend on a product's **contract files only**. When contract file
 ```text
 other_product tests
        | depends on
-visual_review contracts  (facade/contracts.py, facade/enums.py)
+example_product contracts  (facade/contracts.py, facade/enums.py)
        | does NOT depend on
-visual_review impl       (logic.py, models.py)
+example_product impl       (logic.py, models.py)
 ```
 
-**Scenario: Change `visual_review/logic.py`**
+**Scenario: Change `example_product/logic.py`**
 
-- `visual_review backend:test` → reruns (impl files changed)
-- `visual_review backend:contract-check` → cache hit (contract files unchanged)
+- `example_product backend:test` → reruns (impl files changed)
+- `example_product backend:contract-check` → cache hit (contract files unchanged)
 - `other_product backend:test` → skipped (depends only on contracts, which didn't change)
 
 ## CI commands
@@ -403,7 +403,7 @@ visual_review impl       (logic.py, models.py)
 pnpm turbo run backend:test
 
 # Run specific product tests
-pnpm turbo run backend:test --filter=@posthog/products-visual_review
+pnpm turbo run backend:test --filter=@posthog/products-example_product
 
 # Run contract checks
 pnpm turbo run backend:contract-check

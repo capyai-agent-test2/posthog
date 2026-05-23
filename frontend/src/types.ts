@@ -5388,7 +5388,6 @@ export type APIScopeObject =
     | 'uploaded_media'
     | 'usage_metric'
     | 'user'
-    | 'visual_review'
     | 'warehouse_objects'
     | 'warehouse_table'
     | 'warehouse_view'

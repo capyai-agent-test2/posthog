@@ -122,12 +122,6 @@ from products.user_interviews.backend.presentation.views import (
     UserInterviewTopicViewSet,
     UserInterviewViewSet,
 )
-from products.visual_review.backend.presentation.views import (
-    RepoRunsViewSet as VisualReviewRepoRunsViewSet,
-    RepoViewSet as VisualReviewRepoViewSet,
-    RunViewSet as VisualReviewRunViewSet,
-    SnapshotViewSet as VisualReviewSnapshotViewSet,
-)
 from products.web_analytics.backend.api.heatmaps_api import (
     HeatmapScreenshotViewSet,
     HeatmapViewSet,
@@ -1372,31 +1366,6 @@ user_interview_topics_router.register(
     IntervieweeContextViewSet,
     "environment_user_interview_topic_interviewees",
     ["team_id", "topic_id"],
-)
-
-visual_review_repos_router = projects_router.register(
-    r"visual_review/repos",
-    VisualReviewRepoViewSet,
-    "project_visual_review_repos",
-    ["project_id"],
-)
-visual_review_repos_router.register(
-    r"snapshots",
-    VisualReviewSnapshotViewSet,
-    "project_visual_review_snapshots",
-    ["project_id", "repo_id"],
-)
-visual_review_repos_router.register(
-    r"runs",
-    VisualReviewRepoRunsViewSet,
-    "project_visual_review_repo_runs",
-    ["project_id", "repo_id"],
-)
-projects_router.register(
-    r"visual_review/runs",
-    VisualReviewRunViewSet,
-    "project_visual_review_runs",
-    ["project_id"],
 )
 
 environments_router.register(

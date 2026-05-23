@@ -18996,7 +18996,6 @@
                 "folder_open",
                 "conversations",
                 "toolbar",
-                "visual_review",
                 "settings",
                 "health",
                 "inbox",
@@ -27522,7 +27521,6 @@
                 "tracing",
                 "metrics",
                 "user_interviews",
-                "visual_review",
                 "web_analytics",
                 "workflows"
             ],

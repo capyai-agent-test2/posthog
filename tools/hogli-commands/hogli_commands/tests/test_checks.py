@@ -386,11 +386,6 @@ class TestCombinedScenarios:
 
 _TACH_SAMPLE = """\
 [[modules]]
-path = "products.visual_review"
-depends_on = ["posthog"]
-layer = "modules"
-
-[[modules]]
 path = "products.experiments"
 depends_on = ["ee", "posthog"]
 layer = "modules"
@@ -407,7 +402,7 @@ expose = [
     "backend\\.presentation\\.views.*",
 ]
 from = [
-    "products\\.(experiments|mcp_store|visual_review)",
+    "products\\.(experiments|mcp_store)",
 ]
 
 # Legacy leaks — experiments
@@ -436,7 +431,6 @@ class TestLegacyInterfaceLeaks:
     @pytest.mark.parametrize(
         "module_path, expected",
         [
-            ("products.visual_review", False),
             ("products.experiments", True),
             ("products.mcp_store", True),
             ("products.nonexistent", False),

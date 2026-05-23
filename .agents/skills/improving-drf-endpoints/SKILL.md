@@ -73,7 +73,7 @@ See [viewset-annotations.md](references/viewset-annotations.md) for patterns and
 
 ### Facade products (DataclassSerializer)
 
-For products using the facade pattern (e.g., `visual_review`) with `DataclassSerializer` wrapping frozen dataclasses from `contracts.py`:
+For products using the facade pattern with `DataclassSerializer` wrapping frozen dataclasses from `contracts.py`:
 
 - Field types are auto-derived from the dataclass — fewer typing issues by design
 - Focus on **`help_text`** (dataclass fields don't carry it; add it on the serializer field overrides)
@@ -121,7 +121,7 @@ See [common-anti-patterns.md](references/common-anti-patterns.md) for before/aft
 - **JSONField + @extend_schema_field:** `posthog/api/alert.py`
 - **@validated_request:** `products/tasks/backend/api.py`
 - **help_text + typed responses:** `products/llm_analytics/backend/api/evaluation_summary.py`
-- **Facade product:** `products/visual_review/backend/presentation/views.py`
+- **Facade product:** `products/example_product/backend/presentation/views.py`
 
 ## Related
 

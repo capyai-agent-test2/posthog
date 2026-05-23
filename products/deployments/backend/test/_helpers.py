@@ -5,7 +5,6 @@
 `ProductTeamModel.objects` find a team and don't raise `TeamScopeError`.
 
 Mirrors the pattern at
-`products/visual_review/backend/tests/conftest.py:57-89`.
 """
 
 from __future__ import annotations

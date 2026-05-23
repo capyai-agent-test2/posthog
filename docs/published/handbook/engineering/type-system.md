@@ -53,10 +53,6 @@ Only **Body** schemas are generated — response schemas, path params, query par
 
 Schemas are named `<Operation>Body`:
 
-```ts
-import { VisualReviewReposCreateBody } from '../generated/api.zod'
-```
-
 All exports are annotated with `/* @__PURE__ */` so unused schemas are tree-shaken from the bundle.
 
 ### Regenerating types

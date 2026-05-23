@@ -183,8 +183,6 @@ jobs:
                   repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
                   sparse-checkout: |
                       .nvmrc
-                      products/visual_review/cli
-                      products/visual_review/frontend/generated/api.schemas.ts
                       frontend/snapshots.yml
                   sparse-checkout-cone-mode: false
 
@@ -192,10 +190,6 @@ jobs:
               uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
               with:
                   node-version-file: .nvmrc
-
-            - name: Install VR CLI
-              run: cd products/visual_review/cli && npm ci && npm run build && npm link
-
             - name: Create VR run
               id: create
               env:
@@ -348,10 +342,6 @@ jobs:
                   pnpm --filter=@posthog/storybook test:visual:ci:update --browsers ${{ matrix.browser }} --shard ${{ matrix.shard }}/${{ matrix.shard_count }}
 
             # Upload snapshots to Visual Review (runs in parallel across shards)
-            - name: Install VR CLI
-              if: always() && needs.vr-setup.outputs.run_id != ''
-              run: cd products/visual_review/cli && npm ci && npm run build && npm link
-
             - name: Upload snapshots to Visual Review
               if: always() && needs.vr-setup.outputs.run_id != ''
               env:
@@ -489,8 +479,6 @@ jobs:
                   repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
                   sparse-checkout: |
                       .nvmrc
-                      products/visual_review/cli
-                      products/visual_review/frontend/generated/api.schemas.ts
                       frontend/snapshots.yml
                   sparse-checkout-cone-mode: false
 
@@ -498,10 +486,6 @@ jobs:
               uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
               with:
                   node-version-file: .nvmrc
-
-            - name: Install VR CLI
-              run: cd products/visual_review/cli && npm ci && npm run build && npm link
-
             - name: Complete Visual Review run
               # On master pushes the run was created with --purpose observe (tracking-only),
               # but `vr run complete` still exits 1 whenever visual changes are detected.

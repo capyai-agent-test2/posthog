@@ -20,7 +20,7 @@ rules:
           Use:
               return Response(FooSerializer(instance=foo).data)
 
-          For products on the facade layout (visual_review-style), construct
+          For products on the facade layout, construct
           a contract dataclass and pass it through a `DataclassSerializer` —
           that gives you runtime type validation on top of spec alignment. See
           the `isolating-product-facade-contracts` skill.
