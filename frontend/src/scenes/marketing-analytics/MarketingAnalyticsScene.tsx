@@ -51,7 +51,7 @@ const QueryTileItem = ({ tile }: { tile: QueryTile }): JSX.Element => {
                 'col-span-1 row-span-1 flex flex-col',
                 layout.colSpanClassName ?? 'md:col-span-6',
                 layout.rowSpanClassName ?? 'md:row-span-1',
-                layout.orderWhenLargeClassName ?? 'xxl:order-12',
+                layout.orderWhenLargeClassName ?? '2xl:order-12',
                 layout.className
             )}
         >
@@ -157,7 +157,7 @@ const MarketingAnalyticsDashboard = (): JSX.Element => {
         <>
             {feedbackBanner}
             <MarketingAnalyticsSourceStatusBanner />
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xxl:grid-cols-3 gap-x-4 gap-y-12">
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-x-4 gap-y-12">
                 {marketingTiles?.map((tile, i) => (
                     <QueryTileItem key={i} tile={tile} />
                 ))}
