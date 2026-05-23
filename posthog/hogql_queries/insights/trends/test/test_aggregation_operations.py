@@ -132,13 +132,18 @@ def test_math_multiplier_with_sum():
 
     sum_call = result.args[0]
     assert isinstance(sum_call, ast.Call)
-    assert sum_call.name == "sum"
-    assert len(sum_call.args) == 1
+    assert sum_call.name == "sumIf"
+    assert len(sum_call.args) == 2
 
     mult_call = sum_call.args[0]
     assert isinstance(mult_call, ast.Call)
     assert mult_call.name == "toFloat"
     assert len(mult_call.args) == 1
+
+    is_not_null_call = sum_call.args[1]
+    assert isinstance(is_not_null_call, ast.Call)
+    assert is_not_null_call.name == "isNotNull"
+    assert is_not_null_call.args == [mult_call]
 
     actual_mult = mult_call.args[0]
     assert isinstance(actual_mult, ast.ArithmeticOperation)
@@ -178,15 +183,25 @@ def test_math_multiplier_with_datawarehouse_node():
 
     sum_call = result.args[0]
     assert isinstance(sum_call, ast.Call)
-    assert sum_call.name == "sum"
-    assert len(sum_call.args) == 1
+    assert sum_call.name == "sumIf"
+    assert len(sum_call.args) == 2
 
     convert_call = sum_call.args[0]
     assert isinstance(convert_call, ast.Call)
-    assert convert_call.name == "convertCurrency"
-    assert len(convert_call.args) == 4
+    assert convert_call.name == "toFloat"
+    assert len(convert_call.args) == 1
 
-    mult_expr = convert_call.args[2]
+    is_not_null_call = sum_call.args[1]
+    assert isinstance(is_not_null_call, ast.Call)
+    assert is_not_null_call.name == "isNotNull"
+    assert is_not_null_call.args == [convert_call]
+
+    currency_call = convert_call.args[0]
+    assert isinstance(currency_call, ast.Call)
+    assert currency_call.name == "convertCurrency"
+    assert len(currency_call.args) == 4
+
+    mult_expr = currency_call.args[2]
     assert isinstance(mult_expr, ast.ArithmeticOperation)
     assert mult_expr.op == ast.ArithmeticOperationOp.Mult
 
