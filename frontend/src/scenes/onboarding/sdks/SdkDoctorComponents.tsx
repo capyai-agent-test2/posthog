@@ -11,7 +11,7 @@ import { urls } from 'scenes/urls'
 
 import { ActivityTab } from '~/types'
 
-import { SDK_DOCS_LINKS, SDK_TYPE_READABLE_NAME } from './sdkConstants'
+import { NO_SDK_ACTIVITY_MESSAGE, SDK_DOCS_LINKS, SDK_TYPE_READABLE_NAME } from './sdkConstants'
 import { AugmentedTeamSdkVersionsInfoRelease, type SdkType, sdkDoctorLogic } from './sdkDoctorLogic'
 
 // NOTE: this SQL query, the activity page URL builder below, and the three tooltip
@@ -271,7 +271,7 @@ export function SdkSection({ sdkType }: { sdkType: SdkType }): JSX.Element {
                 loading={loading}
                 columns={COLUMNS}
                 size="small"
-                emptyState="No SDK information found. Try scanning recent events."
+                emptyState={NO_SDK_ACTIVITY_MESSAGE}
             />
         </div>
     )
