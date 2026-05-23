@@ -89,6 +89,8 @@ EMAIL_TASK_KWARGS = {
     "retry_backoff": True,
 }
 
+SMTP_CONNECTION_TIMEOUT_SECONDS = 10
+
 CUSTOMER_IO_TEMPLATE_ID_MAP = {
     # Set up in customer.io
     "2fa_enabled": "31",
@@ -210,6 +212,13 @@ def _send_via_smtp(
     reply_to: Optional[str] = None,
 ) -> None:
     """Sends emails using SMTP"""
+    smtp_port = get_instance_setting("EMAIL_PORT")
+    use_tls = get_instance_setting("EMAIL_USE_TLS")
+    use_ssl = get_instance_setting("EMAIL_USE_SSL")
+
+    if smtp_port == 465 and use_tls and not use_ssl:
+        raise exceptions.ImproperlyConfigured("SMTP port 465 requires EMAIL_USE_SSL=true and EMAIL_USE_TLS=false.")
+
     messages: list = []
     records: list = []
 
@@ -242,11 +251,12 @@ def _send_via_smtp(
             klass = import_string(settings.EMAIL_BACKEND) if settings.EMAIL_BACKEND else EmailBackend
             connection = klass(
                 host=get_instance_setting("EMAIL_HOST"),
-                port=get_instance_setting("EMAIL_PORT"),
+                port=smtp_port,
                 username=get_instance_setting("EMAIL_HOST_USER"),
                 password=get_instance_setting("EMAIL_HOST_PASSWORD"),
-                use_tls=get_instance_setting("EMAIL_USE_TLS"),
-                use_ssl=get_instance_setting("EMAIL_USE_SSL"),
+                use_tls=use_tls,
+                use_ssl=use_ssl,
+                timeout=SMTP_CONNECTION_TIMEOUT_SECONDS,
             )
             connection.open()
             connection.send_messages(messages)

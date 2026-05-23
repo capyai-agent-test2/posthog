@@ -1,5 +1,6 @@
 import datetime
 import dataclasses
+from contextlib import nullcontext
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -11,9 +12,17 @@ from unittest.mock import MagicMock, patch
 from django.conf import settings
 from django.core import mail
 from django.core.exceptions import ImproperlyConfigured
+from django.test import SimpleTestCase
 from django.utils import timezone
 
-from posthog.email import CUSTOMER_IO_TEMPLATE_ID_MAP, EmailMessage, _send_email, sanitize_email_properties
+from posthog.email import (
+    CUSTOMER_IO_TEMPLATE_ID_MAP,
+    SMTP_CONNECTION_TIMEOUT_SECONDS,
+    EmailMessage,
+    _send_email,
+    _send_via_smtp,
+    sanitize_email_properties,
+)
 from posthog.models import Organization, Person, Team, User
 from posthog.models.instance_setting import override_instance_config
 from posthog.models.messaging import MessagingRecord
@@ -442,3 +451,85 @@ class TestEmail(BaseTest):
             "the Customer.io transactional message ID, otherwise the sender will raise "
             "'Unknown template name' at runtime and capture_exception will swallow it.",
         )
+
+
+class TestSMTPConfiguration(SimpleTestCase):
+    @patch("posthog.email.get_instance_setting")
+    def test_rejects_port_465_starttls_smtp_configuration(self, mock_get_instance_setting: MagicMock) -> None:
+        settings_by_key: dict[str, str | int | bool] = {
+            "EMAIL_PORT": 465,
+            "EMAIL_USE_TLS": True,
+            "EMAIL_USE_SSL": False,
+        }
+        mock_get_instance_setting.side_effect = settings_by_key.__getitem__
+
+        with self.assertRaises(ImproperlyConfigured) as error:
+            _send_via_smtp(
+                to=[{"raw_email": "test@posthog.com", "recipient": "test@posthog.com"}],
+                campaign_key="test_campaign",
+                subject="Test subject",
+                txt_body="text",
+                html_body="<p>html</p>",
+                headers={},
+            )
+
+        self.assertEqual(
+            str(error.exception),
+            "SMTP port 465 requires EMAIL_USE_SSL=true and EMAIL_USE_TLS=false.",
+        )
+
+    @patch("posthog.email.transaction.atomic")
+    @patch("posthog.email.MessagingRecord")
+    @patch("posthog.email.import_string")
+    @patch("posthog.email.EmailBackend")
+    @patch("posthog.email.get_instance_setting")
+    def test_smtp_backend_uses_connection_timeout(
+        self,
+        mock_get_instance_setting: MagicMock,
+        mock_email_backend: MagicMock,
+        mock_import_string: MagicMock,
+        mock_messaging_record: MagicMock,
+        mock_atomic: MagicMock,
+    ) -> None:
+        settings_by_key: dict[str, str | int | bool] = {
+            "EMAIL_HOST": "localhost",
+            "EMAIL_PORT": 587,
+            "EMAIL_HOST_USER": "",
+            "EMAIL_HOST_PASSWORD": "",
+            "EMAIL_USE_TLS": True,
+            "EMAIL_USE_SSL": False,
+            "EMAIL_REPLY_TO": "",
+            "EMAIL_DEFAULT_FROM": "root@localhost",
+        }
+        mock_get_instance_setting.side_effect = settings_by_key.__getitem__
+        mock_atomic.return_value = nullcontext()
+        mock_import_string.return_value = mock_email_backend
+
+        record = MagicMock()
+        record.sent_at = None
+        mock_messaging_record.objects.get_or_create.return_value = (record, True)
+        mock_messaging_record.objects.select_for_update.return_value.get.return_value = record
+
+        connection = mock_email_backend.return_value
+
+        _send_via_smtp(
+            to=[{"raw_email": "test@posthog.com", "recipient": "test@posthog.com"}],
+            campaign_key="test_campaign",
+            subject="Test subject",
+            txt_body="text",
+            html_body="<p>html</p>",
+            headers={},
+        )
+
+        mock_email_backend.assert_called_once_with(
+            host="localhost",
+            port=587,
+            username="",
+            password="",
+            use_tls=True,
+            use_ssl=False,
+            timeout=SMTP_CONNECTION_TIMEOUT_SECONDS,
+        )
+        connection.open.assert_called_once()
+        connection.send_messages.assert_called_once()
+        connection.close.assert_called_once()
