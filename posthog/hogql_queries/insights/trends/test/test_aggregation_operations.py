@@ -307,6 +307,51 @@ def test_get_outer_aggregation(
 
 
 @pytest.mark.parametrize(
+    "math,expected_agg_name,expected_percentile",
+    [
+        (PropertyMathType.SUM, "sumIf", None),
+        (PropertyMathType.AVG, "avgIf", None),
+        (PropertyMathType.MIN, "minIf", None),
+        (PropertyMathType.MAX, "maxIf", None),
+        (PropertyMathType.MEDIAN, "quantileIf", 0.5),
+        (PropertyMathType.P75, "quantileIf", 0.75),
+        (PropertyMathType.P90, "quantileIf", 0.9),
+        (PropertyMathType.P95, "quantileIf", 0.95),
+        (PropertyMathType.P99, "quantileIf", 0.99),
+    ],
+)
+def test_property_math_aggregations_filter_out_missing_values(
+    math: PropertyMathType, expected_agg_name: str, expected_percentile: float | None
+):
+    team = Team()
+    series = EventsNode(event="$pageview", math=math, math_property="some_number")
+    query_date_range = QueryDateRange(date_range=None, interval=None, now=datetime.now(), team=team)
+
+    agg_ops = AggregationOperations(team, series, ChartDisplayType.ACTIONS_LINE_GRAPH, query_date_range, False)
+    result = agg_ops.select_aggregation()
+
+    assert isinstance(result, ast.Call)
+    assert result.name == "ifNull"
+    aggregate_call = result.args[0]
+    assert isinstance(aggregate_call, ast.Call)
+    assert aggregate_call.name == expected_agg_name
+
+    if expected_percentile is None:
+        assert aggregate_call.params is None
+    else:
+        assert aggregate_call.params == [ast.Constant(value=expected_percentile)]
+
+    value_expr = aggregate_call.args[0]
+    filter_expr = aggregate_call.args[1]
+
+    assert isinstance(value_expr, ast.Call)
+    assert value_expr.name == "toFloat"
+    assert isinstance(filter_expr, ast.Call)
+    assert filter_expr.name == "isNotNull"
+    assert filter_expr.args == [value_expr]
+
+
+@pytest.mark.parametrize(
     "math,math_group_type_index,expected_group_field",
     [
         [BaseMathType.WEEKLY_ACTIVE, MathGroupTypeIndex.NUMBER_0, "sql(e.$group_0)"],
