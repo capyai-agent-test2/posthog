@@ -2,12 +2,15 @@ package core
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
-	"os/exec"
 	"time"
+
+	"github.com/andybalholm/brotli"
 )
 
-const (
+var (
 	geoIPURL = "https://mmdbcdn.posthog.net/"
 	shareDir = "./share"
 	mmdbFile = "./share/GeoLite2-City.mmdb"
@@ -29,18 +32,35 @@ func DownloadGeoIP() error {
 		return nil
 	}
 
-	if err := installGeoIPDeps(); err != nil {
-		logger.Debug("Failed to install GeoIP deps: %v", err)
-		return err
-	}
-
 	logger.WriteString("Downloading GeoIP database...\n")
 	logger.Debug("Downloading from %s", geoIPURL)
-	cmd := exec.Command("sh", "-c",
-		fmt.Sprintf("curl -L '%s' --http1.1 | brotli --decompress --output=%s", geoIPURL, mmdbFile))
-	if err := cmd.Run(); err != nil {
+	resp, err := http.Get(geoIPURL)
+	if err != nil {
 		logger.Debug("GeoIP download failed: %v", err)
 		return fmt.Errorf("failed to download GeoIP database: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		logger.Debug("GeoIP download returned HTTP %d", resp.StatusCode)
+		return fmt.Errorf("failed to download GeoIP database: unexpected HTTP %d", resp.StatusCode)
+	}
+
+	output, err := os.Create(mmdbFile)
+	if err != nil {
+		logger.Debug("Failed to create GeoIP database file: %v", err)
+		return fmt.Errorf("failed to create GeoIP database file: %w", err)
+	}
+
+	if _, err := io.Copy(output, brotli.NewReader(resp.Body)); err != nil {
+		_ = output.Close()
+		_ = os.Remove(mmdbFile)
+		logger.Debug("GeoIP decompression failed: %v", err)
+		return fmt.Errorf("failed to decompress GeoIP database: %w", err)
+	}
+	if err := output.Close(); err != nil {
+		logger.Debug("Failed to close GeoIP database file: %v", err)
+		return fmt.Errorf("failed to close GeoIP database file: %w", err)
 	}
 	logger.WriteString("GeoIP database downloaded\n")
 
@@ -58,19 +78,6 @@ func DownloadGeoIP() error {
 	}
 
 	return nil
-}
-
-func installGeoIPDeps() error {
-	logger := GetLogger()
-
-	if _, err := exec.LookPath("brotli"); err == nil {
-		logger.Debug("brotli already installed")
-		return nil
-	}
-
-	logger.Debug("Installing brotli")
-	cmd := exec.Command("apt-get", "install", "-y", "--no-install-recommends", "brotli")
-	return cmd.Run()
 }
 
 func GeoIPExists() bool {
