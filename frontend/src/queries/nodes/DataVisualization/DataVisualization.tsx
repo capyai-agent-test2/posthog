@@ -275,6 +275,11 @@ function InternalDataTableVisualization(props: DataTableVisualizationProps): JSX
         return <div className="DataVisualization InsightCard__viz">{component}</div>
     }
 
+    const shouldShowDateRange =
+        showResultControls &&
+        sourceFeatures.has(QueryFeature.dateRangePicker) &&
+        !router.values.location.pathname.includes(urls.sqlEditor())
+
     return (
         <div
             className={clsx('DataVisualization flex flex-1 gap-2', {
@@ -294,18 +299,17 @@ function InternalDataTableVisualization(props: DataTableVisualizationProps): JSX
                                 <div className="flex gap-4 items-center flex-wrap">
                                     <AddVariableButton />
 
-                                    {sourceFeatures.has(QueryFeature.dateRangePicker) &&
-                                        !router.values.location.pathname.includes(urls.sqlEditor()) && ( // decouple this component from insights tab and datawarehouse scene
-                                            <DateRange
-                                                key="date-range"
-                                                query={query.source}
-                                                setQuery={(query) => {
-                                                    if (query.kind === NodeKind.HogQLQuery) {
-                                                        setQuerySource(query)
-                                                    }
-                                                }}
-                                            />
-                                        )}
+                                    {shouldShowDateRange && (
+                                        <DateRange
+                                            key="date-range"
+                                            query={query.source}
+                                            setQuery={(query) => {
+                                                if (query.kind === NodeKind.HogQLQuery) {
+                                                    setQuerySource(query)
+                                                }
+                                            }}
+                                        />
+                                    )}
 
                                     <TableDisplay />
 
@@ -337,6 +341,22 @@ function InternalDataTableVisualization(props: DataTableVisualizationProps): JSX
                                     )}
                                 </div>
                             </div>
+                        </div>
+                    </>
+                )}
+
+                {readOnly && shouldShowDateRange && (
+                    <>
+                        <LemonDivider className="my-0" />
+                        <div className="flex gap-4 justify-end flex-wrap px-px">
+                            <DateRange
+                                query={query.source}
+                                setQuery={(query) => {
+                                    if (query.kind === NodeKind.HogQLQuery) {
+                                        setQuerySource(query)
+                                    }
+                                }}
+                            />
                         </div>
                     </>
                 )}
