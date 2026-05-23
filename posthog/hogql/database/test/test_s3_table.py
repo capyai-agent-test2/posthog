@@ -305,6 +305,24 @@ class TestS3Table(BaseTest):
         )
         assert res == "s3('http://url.com', 'key', 'secret', 'Parquet', 'some structure')"
 
+    def test_s3_build_function_call_disables_compression_autodetect_for_gz_parquet(self):
+        res = build_function_call(
+            "http://url.com/file.gz.parquet", DataWarehouseTable.TableFormat.Parquet, None, "key", "secret", None, None
+        )
+        assert res == "s3('http://url.com/file.gz.parquet', 'key', 'secret', 'Parquet', 'none')"
+
+    def test_s3_build_function_call_disables_compression_autodetect_for_gz_parquet_with_structure(self):
+        res = build_function_call(
+            "http://url.com/file.gz.parquet",
+            DataWarehouseTable.TableFormat.Parquet,
+            None,
+            "key",
+            "secret",
+            "some structure",
+            None,
+        )
+        assert res == "s3('http://url.com/file.gz.parquet', 'key', 'secret', 'Parquet', 'some structure', 'none')"
+
     def test_s3_build_function_call_without_context_and_delta_format(self):
         res = build_function_call(
             "http://url.com", DataWarehouseTable.TableFormat.Delta, None, "key", "secret", None, None
@@ -403,6 +421,22 @@ class TestS3Table(BaseTest):
             4000.0,
         )
         assert res == "s3Cluster('posthog', 'http://url.com', 'key', 'secret', 'Parquet', 'some structure')"
+
+    def test_s3_build_function_call_with_large_gz_parquet_table(self):
+        res = build_function_call(
+            "http://url.com/file.gz.parquet",
+            DataWarehouseTable.TableFormat.Parquet,
+            None,
+            "key",
+            "secret",
+            "some structure",
+            None,
+            4000.0,
+        )
+        assert (
+            res
+            == "s3Cluster('posthog', 'http://url.com/file.gz.parquet', 'key', 'secret', 'Parquet', 'some structure', 'none')"
+        )
 
     def test_s3_build_function_call_with_queryable_folder(self):
         res = build_function_call(

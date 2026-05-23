@@ -13,6 +13,10 @@ from posthog.hogql.escape_sql import escape_hogql_identifier
 from posthog.clickhouse.client.escape import substitute_params
 
 
+def _should_disable_compression_autodetect(url: str, format: str) -> bool:
+    return format == "Parquet" and ".gz.parquet" in urlparse(url).path.lower()
+
+
 def build_function_call(
     url: str,
     format: str,
@@ -159,6 +163,9 @@ def build_function_call(
 
     if structure:
         expr += f", {escaped_structure}"
+
+    if _should_disable_compression_autodetect(url, format):
+        expr += ", 'none'"
 
     return return_expr(expr)
 
