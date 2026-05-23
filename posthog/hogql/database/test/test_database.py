@@ -1042,6 +1042,48 @@ class TestDatabase(BaseTest, QueryMatchingTest):
 
     @parameterized.expand(
         [
+            ("DateTime64(3, 'UTC')", "data.joined_at"),
+            ("String", "toDateTime(data.joined_at)"),
+        ]
+    )
+    def test_data_warehouse_events_modifiers_with_nested_timestamp_field(
+        self, timestamp_type: str, expected_timestamp_expr: str
+    ) -> None:
+        credentials = DataWarehouseCredential.objects.create(
+            access_key="test_key", access_secret="test_secret", team=self.team
+        )
+        DataWarehouseTable.objects.create(
+            name="warehouse_table",
+            format="Parquet",
+            team=self.team,
+            credential=credentials,
+            url_pattern="s3://test/*",
+            columns={
+                "id": "String",
+                "data.joined_at": timestamp_type,
+                "data.user_id": "String",
+            },
+        )
+
+        modifiers = HogQLQueryModifiers(
+            dataWarehouseEventsModifiers=[
+                DataWarehouseEventsModifier(
+                    table_name="warehouse_table",
+                    id_field="id",
+                    timestamp_field="data.joined_at",
+                    distinct_id_field="data.user_id",
+                )
+            ]
+        )
+
+        db = Database.create_for(team=self.team, modifiers=modifiers)
+        warehouse_table = cast(Table, db.get_table("warehouse_table"))
+        timestamp_field = cast(ExpressionField, warehouse_table.fields["timestamp"])
+
+        assert pretty_print_in_tests(str(timestamp_field.expr), self.team.pk) == expected_timestamp_expr
+
+    @parameterized.expand(
+        [
             ("self_managed", False),
             ("external_source", True),
         ]
