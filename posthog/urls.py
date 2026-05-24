@@ -50,6 +50,7 @@ from posthog.temporal.codec_server import decode_payloads
 from products.data_warehouse.backend.api.public_source_configs import PublicSourceConfigViewSet
 from products.deployments.backend.api.internal import InternalDeploymentTransitionsViewSet
 from products.early_access_features.backend.api import early_access_features
+from products.error_tracking.backend.api.symbol_sets import proxy_symbol_set_upload
 from products.legal_documents.backend.presentation.webhook import legal_document_pandadoc_webhook
 from products.llm_analytics.backend.api.personal_spend import personal_spend_eu_redirect
 from products.messaging.backend.api.customerio_webhook import CustomerIOWebhookView
@@ -277,6 +278,8 @@ urlpatterns = [
         "api/environments/<int:parent_lookup_team_id>/property_access_controls/",
         include("products.access_control.backend.presentation.urls"),
     ),
+    path("api/environments/<int:team_id>/error_tracking/symbol_sets/proxy_upload/", proxy_symbol_set_upload),
+    path("api/projects/<int:project_id>/error_tracking/symbol_sets/proxy_upload/", proxy_symbol_set_upload),
     opt_slash_path("api/support/ensure-zendesk-organization", csrf_exempt(ensure_zendesk_organization)),
     path("api/", include(router.urls)),
     # Override the tf_urls QRGeneratorView to use the cache-aware version (handles session race conditions)
