@@ -272,7 +272,7 @@ export const sessionProfileLogic = kea<sessionProfileLogicType>([
                         FROM events
                         WHERE timestamp >= toDateTime(${startDate.toISOString()})
                             AND timestamp <= toDateTime(${endDate.toISOString()})
-                            AND \`$session_id\` = ${props.sessionId}
+                            AND $session_id = ${props.sessionId}
                         ORDER BY timestamp ASC
                         LIMIT 50
                     `
@@ -295,7 +295,7 @@ export const sessionProfileLogic = kea<sessionProfileLogicType>([
                         FROM events
                         WHERE timestamp >= toDateTime(${startDate.toISOString()})
                             AND timestamp <= toDateTime(${endDate.toISOString()})
-                            AND \`$session_id\` = ${props.sessionId}
+                            AND $session_id = ${props.sessionId}
                         ORDER BY timestamp DESC
                         LIMIT 50
                     `
@@ -387,7 +387,7 @@ export const sessionProfileLogic = kea<sessionProfileLogicType>([
                         FROM events
                         WHERE timestamp >= toDateTime(${startDate.toISOString()})
                             AND timestamp <= toDateTime(${endDate.toISOString()})
-                            AND \`$session_id\` = ${props.sessionId}
+                            AND $session_id = ${props.sessionId}
                         ORDER BY timestamp ASC
                         LIMIT 50
                         OFFSET ${offset}
@@ -411,7 +411,7 @@ export const sessionProfileLogic = kea<sessionProfileLogicType>([
                         FROM events
                         WHERE timestamp >= toDateTime(${startDate.toISOString()})
                             AND timestamp <= toDateTime(${endDate.toISOString()})
-                            AND \`$session_id\` = ${props.sessionId}
+                            AND $session_id = ${props.sessionId}
                         ORDER BY timestamp DESC
                         LIMIT 50
                         OFFSET ${offset}
@@ -521,7 +521,7 @@ export const sessionProfileLogic = kea<sessionProfileLogicType>([
                         FROM events
                         WHERE timestamp >= toDateTime(${startDate.toISOString()})
                             AND timestamp <= toDateTime(${endDate.toISOString()})
-                            AND \`$session_id\` = ${props.sessionId}
+                            AND $session_id = ${props.sessionId}
                     `
 
                     const response = await api.queryHogQL(countQuery, {
@@ -564,7 +564,7 @@ export const sessionProfileLogic = kea<sessionProfileLogicType>([
                         FROM events
                         WHERE timestamp >= toDateTime(${startDate.toISOString()})
                             AND timestamp <= toDateTime(${endDate.toISOString()})
-                            AND \`$session_id\` = ${props.sessionId}
+                            AND $session_id = ${props.sessionId}
                             AND event = 'support_ticket'
                         ORDER BY timestamp DESC
                     `
