@@ -25,7 +25,6 @@ from posthog.api.shared import UserBasicSerializer
 from posthog.api.utils import action
 from posthog.auth import ExportRendererAuthentication
 from posthog.clickhouse.query_tagging import Feature, tag_queries
-from posthog.cloud_utils import is_cloud
 from posthog.models import User
 from posthog.models.activity_logging.activity_log import Detail, log_activity
 from posthog.rate_limit import (
@@ -34,12 +33,14 @@ from posthog.rate_limit import (
     ClickHouseBurstRateThrottle,
     ClickHouseSustainedRateThrottle,
 )
-from posthog.security.url_validation import is_url_allowed
 from posthog.utils import relative_date_parse_with_delta_mapping
 
 from products.web_analytics.backend.api.heatmaps_utils import DEFAULT_TARGET_WIDTHS
 from products.web_analytics.backend.models import HeatmapSnapshot, SavedHeatmap
-from products.web_analytics.backend.tasks.heatmap_screenshot import generate_heatmap_screenshot
+from products.web_analytics.backend.tasks.heatmap_screenshot import (
+    generate_heatmap_screenshot,
+    validate_heatmap_screenshot_url,
+)
 
 STALE_PROCESSING_THRESHOLD = timedelta(minutes=10)
 
@@ -578,10 +579,9 @@ class SavedHeatmapRequestSerializer(serializers.ModelSerializer):
     def validate_url(self, value: str) -> str:
         if any(c in _URL_PATTERN_CHARS for c in value):
             raise serializers.ValidationError("Wildcards are not allowed in the page URL.")
-        if is_cloud():
-            ok, err = is_url_allowed(value)
-            if not ok:
-                raise serializers.ValidationError(err or "URL not allowed")
+        ok, err = validate_heatmap_screenshot_url(value)
+        if not ok:
+            raise serializers.ValidationError(err or "URL not allowed")
         return value
 
     class Meta:

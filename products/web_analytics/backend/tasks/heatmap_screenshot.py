@@ -1,4 +1,5 @@
 import os
+import urllib.parse as urlparse
 
 import structlog
 import posthoganalytics
@@ -12,7 +13,7 @@ from playwright.sync_api import (
 
 from posthog.cloud_utils import is_cloud
 from posthog.exceptions_capture import capture_exception
-from posthog.security.url_validation import is_url_allowed, should_block_url
+from posthog.security.url_validation import DISALLOWED_SCHEMES, METADATA_HOSTS, is_url_allowed, should_block_url
 from posthog.tasks.utils import CeleryQueue
 
 from products.web_analytics.backend.api.heatmaps_utils import DEFAULT_TARGET_WIDTHS
@@ -115,7 +116,22 @@ def _block_internal_requests(page: Page) -> None:
     page.route("**/*", lambda route: route.abort() if should_block_url(route.request.url) else route.continue_())
 
 
-def _validate_screenshot_url(url: str) -> tuple[bool, str | None]:
+def validate_heatmap_screenshot_url(url: str) -> tuple[bool, str | None]:
+    try:
+        parsed_url = urlparse.urlparse(url)
+    except Exception:
+        return False, "Invalid URL"
+
+    if parsed_url.scheme not in {"http", "https"} or parsed_url.scheme in DISALLOWED_SCHEMES:
+        return False, "Disallowed scheme"
+
+    if not parsed_url.netloc:
+        return False, "Missing host"
+
+    host = (parsed_url.hostname or "").lower()
+    if host in METADATA_HOSTS:
+        return False, "Local/metadata host"
+
     if not is_cloud():
         return True, None
 
@@ -195,7 +211,7 @@ def generate_heatmap_screenshot(screenshot_id: str) -> None:
         posthoganalytics.tag("screenshot_id", screenshot.id)
 
         try:
-            ok, err = _validate_screenshot_url(screenshot.url)
+            ok, err = validate_heatmap_screenshot_url(screenshot.url)
             if not ok:
                 screenshot.status = SavedHeatmap.Status.FAILED
                 screenshot.exception = f"SSRF blocked: {err}"

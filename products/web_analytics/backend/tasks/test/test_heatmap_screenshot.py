@@ -6,8 +6,8 @@ from django.test import SimpleTestCase, override_settings
 from products.web_analytics.backend.models import HeatmapSnapshot, SavedHeatmap
 from products.web_analytics.backend.tasks.heatmap_screenshot import (
     _block_internal_requests,
-    _validate_screenshot_url,
     generate_heatmap_screenshot,
+    validate_heatmap_screenshot_url,
 )
 
 
@@ -15,14 +15,29 @@ class TestHeatmapScreenshotSecurity(SimpleTestCase):
     @override_settings(CLOUD_DEPLOYMENT=None)
     @patch("products.web_analytics.backend.tasks.heatmap_screenshot.is_url_allowed")
     def test_self_hosted_skips_ssrf_url_validation(self, mock_is_url_allowed: MagicMock) -> None:
-        assert _validate_screenshot_url("http://localhost:3000") == (True, None)
+        assert validate_heatmap_screenshot_url("http://localhost:3000") == (True, None)
         mock_is_url_allowed.assert_not_called()
 
     @override_settings(CLOUD_DEPLOYMENT="US")
     @patch("products.web_analytics.backend.tasks.heatmap_screenshot.is_url_allowed", return_value=(False, "blocked"))
     def test_cloud_keeps_ssrf_url_validation(self, mock_is_url_allowed: MagicMock) -> None:
-        assert _validate_screenshot_url("http://localhost:3000") == (False, "blocked")
+        assert validate_heatmap_screenshot_url("http://localhost:3000") == (False, "blocked")
         mock_is_url_allowed.assert_called_once_with("http://localhost:3000")
+
+    @override_settings(CLOUD_DEPLOYMENT=None)
+    @patch("products.web_analytics.backend.tasks.heatmap_screenshot.is_url_allowed")
+    def test_self_hosted_still_blocks_metadata_hosts(self, mock_is_url_allowed: MagicMock) -> None:
+        assert validate_heatmap_screenshot_url("http://169.254.169.254/latest/meta-data") == (
+            False,
+            "Local/metadata host",
+        )
+        mock_is_url_allowed.assert_not_called()
+
+    @override_settings(CLOUD_DEPLOYMENT=None)
+    @patch("products.web_analytics.backend.tasks.heatmap_screenshot.is_url_allowed")
+    def test_self_hosted_still_blocks_non_http_schemes(self, mock_is_url_allowed: MagicMock) -> None:
+        assert validate_heatmap_screenshot_url("file:///etc/passwd") == (False, "Disallowed scheme")
+        mock_is_url_allowed.assert_not_called()
 
     @override_settings(CLOUD_DEPLOYMENT=None)
     def test_self_hosted_skips_runtime_request_blocking(self) -> None:

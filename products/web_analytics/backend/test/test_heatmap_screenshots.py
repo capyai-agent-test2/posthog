@@ -22,6 +22,13 @@ class TestSavedHeatmapRequestSerializer(SimpleTestCase):
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
+    @override_settings(CLOUD_DEPLOYMENT=None)
+    def test_rejects_metadata_url_on_self_hosted(self):
+        serializer = SavedHeatmapRequestSerializer(data={"url": "http://169.254.169.254/latest/meta-data"})
+
+        self.assertFalse(serializer.is_valid())
+        self.assertEqual(serializer.errors["url"], ["Local/metadata host"])
+
     @override_settings(CLOUD_DEPLOYMENT="US")
     def test_rejects_localhost_url_on_cloud(self):
         serializer = SavedHeatmapRequestSerializer(data={"url": "http://localhost:3000"})
