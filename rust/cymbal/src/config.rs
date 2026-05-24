@@ -182,10 +182,32 @@ pub struct Config {
 
 impl Config {
     pub fn init_with_defaults() -> Result<Self, envconfig::Error> {
-        let res = Self::init_from_env()?;
+        let mut res = Self::init_from_env()?;
+        res.issue_buckets_redis_url = resolve_issue_buckets_redis_url(
+            res.issue_buckets_redis_url.clone(),
+            std::env::var("ISSUE_BUCKETS_REDIS_URL").ok(),
+            std::env::var("REDIS_URL").ok(),
+        );
         init_global_state(&res);
         Ok(res)
     }
+}
+
+fn resolve_issue_buckets_redis_url(
+    issue_buckets_redis_url: String,
+    explicit_issue_buckets_redis_url: Option<String>,
+    redis_url: Option<String>,
+) -> String {
+    if explicit_issue_buckets_redis_url
+        .as_deref()
+        .is_some_and(|value| !value.is_empty())
+    {
+        return issue_buckets_redis_url;
+    }
+
+    redis_url
+        .filter(|value| !value.is_empty())
+        .unwrap_or(issue_buckets_redis_url)
 }
 
 pub fn init_global_state(config: &Config) {
@@ -221,5 +243,40 @@ pub async fn get_aws_config(config: &Config) -> aws_sdk_s3::Config {
             .behavior_version(BehaviorVersion::latest())
             .force_path_style(config.object_storage_force_path_style)
             .build()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_issue_buckets_redis_url;
+
+    #[test]
+    fn it_prefers_explicit_issue_buckets_redis_url() {
+        let resolved = resolve_issue_buckets_redis_url(
+            "redis://issue-buckets:6379/".to_string(),
+            Some("redis://issue-buckets:6379/".to_string()),
+            Some("redis://shared:6379/".to_string()),
+        );
+
+        assert_eq!(resolved, "redis://issue-buckets:6379/");
+    }
+
+    #[test]
+    fn it_falls_back_to_redis_url_when_issue_buckets_url_is_default() {
+        let resolved = resolve_issue_buckets_redis_url(
+            "redis://localhost:6379/".to_string(),
+            None,
+            Some("redis://shared:6379/".to_string()),
+        );
+
+        assert_eq!(resolved, "redis://shared:6379/");
+    }
+
+    #[test]
+    fn it_keeps_default_when_no_redis_url_is_available() {
+        let resolved =
+            resolve_issue_buckets_redis_url("redis://localhost:6379/".to_string(), None, None);
+
+        assert_eq!(resolved, "redis://localhost:6379/");
     }
 }
