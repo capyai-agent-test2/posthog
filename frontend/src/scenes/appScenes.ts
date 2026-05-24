@@ -116,7 +116,6 @@ export const appScenes: Record<Scene | string, () => any> = {
     [Scene.Settings]: () => import('./settings/SettingsScene'),
     [Scene.Signup]: () => import('./authentication/signup/SignupContainer'),
     [Scene.Site]: () => import('./sites/Site'),
-    [Scene.StartupProgram]: () => import('./startups/StartupProgram'),
     [Scene.Survey]: () => import('./surveys/Survey'),
     [Scene.SurveyWizard]: () => import('./surveys/wizard/SurveyWizard'),
     [Scene.SurveyFormBuilder]: () => import('./surveys/forms/SurveyFormBuilder'),

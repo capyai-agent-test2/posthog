@@ -269,7 +269,6 @@ export const urls = {
     sessionProfile: (id: string): string => `/sessions/${id}`,
     wizard: (): string => `/wizard`,
     coupons: (campaign: string): string => `/coupons/${campaign}`,
-    startups: (referrer?: string): string => `/startups${referrer ? `/${referrer}` : ''}`,
     agenticAuthorize: (): string => '/agentic/authorize',
     oauthAuthorize: (): string => '/oauth/authorize',
     dataPipelinesNew: (kind?: DataPipelinesNewSceneKind): string => `/pipeline/new/${kind ?? ''}`,
