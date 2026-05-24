@@ -25,7 +25,7 @@ export const LemonSnack: React.FunctionComponent<LemonSnackProps & React.RefAttr
             <span
                 ref={ref}
                 className={twMerge(
-                    'inline-flex text-primary-alt max-w-full overflow-hidden break-all items-center py-1 leading-5',
+                    'inline-flex min-w-0 text-primary-alt max-w-full overflow-hidden break-all items-center py-1 leading-5',
                     !wrap && 'whitespace-nowrap',
                     isRegular
                         ? 'bg-accent-highlight-secondary px-1.5 rounded'
@@ -36,7 +36,7 @@ export const LemonSnack: React.FunctionComponent<LemonSnackProps & React.RefAttr
                 onClick={onClick}
             >
                 <span
-                    className="overflow-hidden text-ellipsis"
+                    className="min-w-0 overflow-hidden text-ellipsis"
                     title={title ?? (typeof children === 'string' ? children : undefined)}
                 >
                     {children}
