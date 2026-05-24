@@ -4,6 +4,8 @@ from freezegun import freeze_time
 from posthog.test.base import APIBaseTest, ClickhouseTestMixin
 from unittest.mock import ANY, Mock, patch
 
+from django.test import override_settings
+
 from boto3 import resource
 from botocore.config import Config
 from parameterized import parameterized
@@ -18,6 +20,11 @@ from posthog.settings import (
     OBJECT_STORAGE_SECRET_ACCESS_KEY,
 )
 
+from products.error_tracking.backend.api.symbol_sets import (
+    ONE_HUNDRED_MEGABYTES,
+    PRESIGNED_MULTIPLE_UPLOAD_TIMEOUT,
+    generate_symbol_set_upload_presigned_url,
+)
 from products.error_tracking.backend.models import (
     ErrorTrackingIssue,
     ErrorTrackingIssueAssignment,
@@ -35,6 +42,28 @@ TEST_BUCKET = "test_storage_bucket-TestErrorTracking"
 def get_path_to(fixture_file: str) -> str:
     file_dir = os.path.dirname(__file__)
     return os.path.join(file_dir, "fixtures", fixture_file)
+
+
+@override_settings(OBJECT_STORAGE_TRANSFER_ACCELERATION=True)
+@patch("products.error_tracking.backend.api.symbol_sets.object_storage.get_presigned_post")
+@patch("products.error_tracking.backend.api.symbol_sets.object_storage.get_accelerated_presigned_post")
+def test_generate_symbol_set_upload_presigned_url_uses_accelerated_post_when_enabled(
+    patched_accelerated_presigned_post: Mock, patched_presigned_post: Mock
+) -> None:
+    patched_accelerated_presigned_post.return_value = {
+        "url": "https://accelerated.example.com",
+        "fields": {"key": "accelerated-key"},
+    }
+
+    result = generate_symbol_set_upload_presigned_url("symbolsets/test")
+
+    assert result == patched_accelerated_presigned_post.return_value
+    patched_accelerated_presigned_post.assert_called_once_with(
+        file_key="symbolsets/test",
+        conditions=[["content-length-range", 0, ONE_HUNDRED_MEGABYTES]],
+        expiration=PRESIGNED_MULTIPLE_UPLOAD_TIMEOUT,
+    )
+    patched_presigned_post.assert_not_called()
 
 
 class TestErrorTracking(APIBaseTest):
