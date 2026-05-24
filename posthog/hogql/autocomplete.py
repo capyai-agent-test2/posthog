@@ -767,7 +767,11 @@ def get_hogql_autocomplete(
                             kind=AutocompleteCompletionItemKind.FOLDER,
                             details=["Table"] * len(filtered_table_names),
                         )
-            elif isinstance(node, ast.Field) and isinstance(parent_node, ast.Placeholder):
+            elif (
+                query.language == HogLanguage.HOG_QL
+                and isinstance(node, ast.Field)
+                and isinstance(parent_node, ast.Placeholder)
+            ):
                 if node.chain[0] == MATCH_ANY_CHARACTER or (
                     "variables".startswith(str(node.chain[0])) and len(node.chain) == 1
                 ):
