@@ -14,6 +14,13 @@ import { customerAnalyticsConfigLogic } from 'products/customer_analytics/fronte
 import { EventSelectorProps } from './CustomerAnalyticsDashboardEvents'
 import type { customerAnalyticsDashboardEventsLogicType } from './customerAnalyticsDashboardEventsLogicType'
 
+function withTrendsInsight(filters: FilterType): FilterType {
+    return {
+        ...filters,
+        insight: InsightType.TRENDS,
+    }
+}
+
 export const customerAnalyticsDashboardEventsLogic = kea<customerAnalyticsDashboardEventsLogicType>([
     path(['products', 'customerAnalytics', 'components', 'insights', 'eventConfigModal']),
     connect(() => ({
@@ -93,7 +100,7 @@ export const customerAnalyticsDashboardEventsLogic = kea<customerAnalyticsDashbo
             (s) => [s.activityEvent, s.activityEventSelection],
             (activityEvent, activityEventSelection): FilterType => {
                 if (activityEventSelection) {
-                    return activityEventSelection
+                    return withTrendsInsight(activityEventSelection)
                 }
                 return {
                     insight: InsightType.TRENDS,
@@ -105,7 +112,7 @@ export const customerAnalyticsDashboardEventsLogic = kea<customerAnalyticsDashbo
             (s) => [s.signupEvent, s.signupEventSelection],
             (signupEvent, signupEventSelection): FilterType | null => {
                 if (signupEventSelection) {
-                    return signupEventSelection
+                    return withTrendsInsight(signupEventSelection)
                 }
                 if (isEmptyObject(signupEvent)) {
                     return null
@@ -120,7 +127,7 @@ export const customerAnalyticsDashboardEventsLogic = kea<customerAnalyticsDashbo
             (s) => [s.signupPageviewEvent, s.signupPageviewEventSelection],
             (signupPageviewEvent, signupPageviewEventSelection): FilterType | null => {
                 if (signupPageviewEventSelection) {
-                    return signupPageviewEventSelection
+                    return withTrendsInsight(signupPageviewEventSelection)
                 }
                 if (isEmptyObject(signupPageviewEvent as object)) {
                     return null
@@ -135,7 +142,7 @@ export const customerAnalyticsDashboardEventsLogic = kea<customerAnalyticsDashbo
             (s) => [s.paymentEvent, s.paymentEventSelection],
             (paymentEvent, paymentEventSelection): FilterType | null => {
                 if (paymentEventSelection) {
-                    return paymentEventSelection
+                    return withTrendsInsight(paymentEventSelection)
                 }
                 if (isEmptyObject(paymentEvent as object)) {
                     return null
@@ -150,7 +157,7 @@ export const customerAnalyticsDashboardEventsLogic = kea<customerAnalyticsDashbo
             (s) => [s.subscriptionEvent, s.subscriptionEventSelection],
             (subscriptionEvent, subscriptionEventSelection): FilterType | null => {
                 if (subscriptionEventSelection) {
-                    return subscriptionEventSelection
+                    return withTrendsInsight(subscriptionEventSelection)
                 }
                 if (isEmptyObject(subscriptionEvent as object)) {
                     return null
