@@ -343,14 +343,24 @@ export const VariableComponent = ({
     if (!showEditingUI && variable.type === 'List') {
         return (
             <LemonField.Pure label={variable.name} className="gap-0" info={tooltip}>
-                <LemonSelect
-                    disabledReason={variableOverridesAreSet && 'Discard dashboard variables to change'}
-                    value={variable.isNull ? null : (variable.value ?? variable.default_value ?? null)}
-                    onChange={(value) => onChange(variable.id, value, !value)}
-                    options={(variable.values ?? []).map((n) => ({ label: n, value: n }))}
-                    size={size}
-                    allowClear
-                />
+                <div className="flex flex-col gap-1">
+                    <LemonSelect
+                        disabledReason={variableOverridesAreSet && 'Discard dashboard variables to change'}
+                        value={variable.isNull ? null : (variable.value ?? variable.default_value ?? null)}
+                        onChange={(value) => onChange(variable.id, value, !value)}
+                        options={(variable.values ?? []).map((n) => ({ label: n, value: n }))}
+                        size={size}
+                        allowClear
+                    />
+                    <LemonSwitch
+                        size="xsmall"
+                        label="Set to null"
+                        checked={variable.isNull ?? false}
+                        onChange={(value) => onChange(variable.id, null, value)}
+                        disabledReason={variableOverridesAreSet && 'Discard dashboard variables to change'}
+                        bordered
+                    />
+                </div>
             </LemonField.Pure>
         )
     }
