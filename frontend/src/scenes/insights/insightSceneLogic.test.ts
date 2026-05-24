@@ -299,6 +299,29 @@ describe('insightSceneLogic', () => {
         expect(insightApiCall.mock.calls.length).toBeGreaterThan(callCountAfterInitialLoad)
     })
 
+    it('remounts the insight logics when dashboard overrides are discarded on edit', async () => {
+        logic = insightSceneLogic({ tabId })
+        logic.mount()
+
+        router.actions.push(
+            combineUrl(urls.insightView(Insight42), {
+                dashboard: 7,
+                filters_override: { date_from: '-24h' },
+            }).url
+        )
+        await expectLogic(logic).toFinishAllListeners()
+
+        const refBefore = logic.values.insightLogicRef
+        expect(refBefore?.logic.props.filtersOverride).toEqual({ date_from: '-24h' })
+
+        router.actions.push(combineUrl(urls.insightEdit(Insight42), { dashboard: 7 }).url)
+        await expectLogic(logic).toDispatchActions(['setInsightLogicRef']).toFinishAllListeners()
+
+        const refAfter = logic.values.insightLogicRef
+        expect(refAfter).not.toBe(refBefore)
+        expect(refAfter?.logic.props.filtersOverride).toBeNull()
+    })
+
     it.each([
         ['new subscription', 'new', 'new'],
         ['a specific subscription', '5', 5],
