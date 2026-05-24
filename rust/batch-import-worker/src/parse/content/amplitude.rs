@@ -14,6 +14,8 @@ use crate::parse::format::{extract_between, extract_field_name, UserFacingParseE
 
 mod identify;
 
+const AMPLITUDE_SESSION_ID_NAMESPACE: Uuid = Uuid::from_bytes(*b"ph_amplitude_sid");
+
 /// Represents a group that has changed properties
 #[derive(Debug, Clone)]
 pub struct ChangedGroup {
@@ -355,6 +357,7 @@ impl AmplitudeEvent {
                 .as_ref()
                 .and_then(|u| Uuid::parse_str(u).ok())
                 .unwrap_or_else(Uuid::now_v7);
+            let session_id = get_session_id(&amp);
 
             let timestamp = parse_timestamp(&amp)?;
 
@@ -390,6 +393,9 @@ impl AmplitudeEvent {
                     "$amplitude_session_id".to_string(),
                     Value::Number(amp.session_id.into()),
                 );
+            }
+            if let Some(session_id) = &session_id {
+                properties.insert("$session_id".to_string(), Value::String(session_id.clone()));
             }
 
             if let Some(country) = &amp.country {
@@ -667,7 +673,7 @@ impl AmplitudeEvent {
                 let inner = CapturedEvent {
                     uuid: event_uuid,
                     distinct_id,
-                    session_id: None,
+                    session_id,
                     ip: amp.ip_address.unwrap_or_else(|| "127.0.0.1".to_string()),
                     data: serde_json::to_string(&raw_event)?,
                     now: Utc::now().to_rfc3339(),
@@ -701,6 +707,16 @@ fn get_distinct_id(amp: &AmplitudeEvent) -> String {
     }
 
     Uuid::now_v7().to_string()
+}
+
+fn get_session_id(amp: &AmplitudeEvent) -> Option<String> {
+    (amp.session_id != 0).then(|| {
+        Uuid::new_v5(
+            &AMPLITUDE_SESSION_ID_NAMESPACE,
+            amp.session_id.to_string().as_bytes(),
+        )
+        .to_string()
+    })
 }
 
 fn parse_timestamp_string(time_str: &str) -> Result<chrono::DateTime<Utc>, chrono::ParseError> {
@@ -1112,6 +1128,13 @@ mod tests {
             data.properties.get("$amplitude_session_id"),
             Some(&json!(131415))
         );
+        let expected_session_id =
+            Uuid::new_v5(&AMPLITUDE_SESSION_ID_NAMESPACE, b"131415").to_string();
+        assert_eq!(
+            data.properties.get("$session_id"),
+            Some(&json!(expected_session_id))
+        );
+        assert_eq!(result.inner.session_id, Some(expected_session_id));
     }
 
     #[test]
