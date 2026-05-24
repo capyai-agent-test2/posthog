@@ -1,6 +1,7 @@
 import json
 import uuid
 from datetime import datetime
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -51,6 +52,35 @@ def create_mock_event_data(team_id: int, **overrides: Any) -> dict[str, Any]:
         "distinct_id": "test-user",
     }
     return {**defaults, **overrides}
+
+
+@pytest.mark.asyncio
+async def test_emit_evaluation_event_activity_copies_only_custom_source_properties_without_db():
+    event_data = create_mock_event_data(
+        team_id=123,
+        properties={"$ai_input": "test input", "$ai_output": "test output", "stage": "prod", "region": "us"},
+    )
+
+    with patch("posthog.temporal.llm_analytics.run_evaluation.Team.objects.get") as mock_team_get:
+        with patch("posthog.temporal.llm_analytics.run_evaluation.capture_internal") as mock_capture:
+            mock_team_get.return_value = SimpleNamespace(api_token="test-token")
+            mock_capture.return_value = MagicMock(status_code=200, raise_for_status=MagicMock())
+
+            await emit_evaluation_event_activity(
+                EmitEvaluationEventInputs(
+                    evaluation={"id": str(uuid.uuid4()), "name": "Test Evaluation"},
+                    event_data=event_data,
+                    result={"verdict": True, "reasoning": "Test passed", "allows_na": False},
+                    start_time=datetime(2024, 1, 1, 12, 0, 0),
+                )
+            )
+
+            props = mock_capture.call_args[1]["properties"]
+
+    assert props["stage"] == "prod"
+    assert props["region"] == "us"
+    assert "$ai_input" not in props
+    assert "$ai_output" not in props
 
 
 @pytest.fixture
@@ -198,6 +228,8 @@ class TestRunEvaluationWorkflow:
                 assert props["$ai_input_tokens"] == 42
                 assert props["$ai_output_tokens"] == 18
                 assert props["$ai_evaluation_type"] == "online"
+                assert "$ai_input" not in props
+                assert "$ai_output" not in props
 
     @pytest.mark.asyncio
     @pytest.mark.django_db(transaction=True)
