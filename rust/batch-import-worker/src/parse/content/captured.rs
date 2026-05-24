@@ -4,7 +4,7 @@ use common_types::{CapturedEvent, InternallyCapturedEvent, RawEvent};
 use serde_json::Value;
 use uuid::Uuid;
 
-use super::TransformContext;
+use super::{normalize_groups_property, TransformContext};
 use crate::parse::format::{extract_between, extract_field_name, UserFacingParseError};
 
 /// Implement schema-specific error messages for RawEvent (Captured format)
@@ -65,6 +65,7 @@ pub fn captured_parse_fn(
             "$import_job_id".to_string(),
             Value::String(context.job_id.to_string()),
         );
+        normalize_groups_property(&mut raw.properties);
 
         let raw = raw;
 
@@ -250,5 +251,80 @@ mod tests {
             serialized["now"].is_string(),
             "now must be a string in serialized output"
         );
+    }
+
+    #[test]
+    fn test_captured_event_normalizes_bare_groups_property() {
+        let mut properties = HashMap::new();
+        properties.insert("groups".to_string(), json!({"company": "acme"}));
+
+        let raw_event = RawEvent {
+            token: Some("test_token".to_string()),
+            distinct_id: Some(Value::String("user123".to_string())),
+            uuid: Some(Uuid::now_v7()),
+            event: "test_event".to_string(),
+            properties,
+            timestamp: Some("2023-10-15T14:30:00+00:00".to_string()),
+            set: None,
+            set_once: None,
+            offset: None,
+        };
+
+        let context = TransformContext {
+            team_id: 123,
+            token: "test_token".to_string(),
+            job_id: Uuid::now_v7(),
+            identify_cache: std::sync::Arc::new(crate::cache::MockIdentifyCache::new()),
+            group_cache: std::sync::Arc::new(crate::cache::MockGroupCache::new()),
+            import_events: true,
+            generate_identify_events: false,
+            generate_group_identify_events: false,
+        };
+
+        let parser = captured_parse_fn(context, identity_transform);
+        let result = parser(raw_event).unwrap().unwrap();
+
+        let data: RawEvent = serde_json::from_str(&result.inner.data).unwrap();
+        assert_eq!(
+            data.properties.get("$groups"),
+            Some(&json!({"company": "acme"}))
+        );
+        assert!(!data.properties.contains_key("groups"));
+    }
+
+    #[test]
+    fn test_captured_event_preserves_non_object_groups_property() {
+        let mut properties = HashMap::new();
+        properties.insert("groups".to_string(), json!(["acme"]));
+
+        let raw_event = RawEvent {
+            token: Some("test_token".to_string()),
+            distinct_id: Some(Value::String("user123".to_string())),
+            uuid: Some(Uuid::now_v7()),
+            event: "test_event".to_string(),
+            properties,
+            timestamp: Some("2023-10-15T14:30:00+00:00".to_string()),
+            set: None,
+            set_once: None,
+            offset: None,
+        };
+
+        let context = TransformContext {
+            team_id: 123,
+            token: "test_token".to_string(),
+            job_id: Uuid::now_v7(),
+            identify_cache: std::sync::Arc::new(crate::cache::MockIdentifyCache::new()),
+            group_cache: std::sync::Arc::new(crate::cache::MockGroupCache::new()),
+            import_events: true,
+            generate_identify_events: false,
+            generate_group_identify_events: false,
+        };
+
+        let parser = captured_parse_fn(context, identity_transform);
+        let result = parser(raw_event).unwrap().unwrap();
+
+        let data: RawEvent = serde_json::from_str(&result.inner.data).unwrap();
+        assert_eq!(data.properties.get("groups"), Some(&json!(["acme"])));
+        assert!(!data.properties.contains_key("$groups"));
     }
 }
