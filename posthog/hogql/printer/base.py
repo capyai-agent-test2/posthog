@@ -568,12 +568,22 @@ class BasePrinter(Visitor[str]):
 
             self._collect_table_top_level_settings(table_type.table)
 
-            # :IMPORTANT: Ensures team_id filtering on every table. For LEFT JOINs, we add it to the
-            # ON clause (not WHERE) to preserve LEFT JOIN semantics - otherwise NULL rows get filtered out.
+            # :IMPORTANT: Ensures team_id filtering on every table.
+            # For LEFT JOINs, we add it to the ON clause (not WHERE) to preserve LEFT JOIN semantics.
+            # For other joined tables, wrap the table reference in a filtered subquery so ClickHouse
+            # can apply the filter before building the join hash table.
             team_id_expr = self._ensure_team_id_where_clause(table_type, node.type)
             is_left_join = node.join_type is not None and "LEFT" in node.join_type
+            is_joined_table = node.join_type is not None
+            team_id_subquery_expr = (
+                self._ensure_team_id_where_clause(table_type, table_type)
+                if is_joined_table and not is_left_join and team_id_expr is not None
+                else None
+            )
             if is_left_join and team_id_expr is not None and node.constraint is not None:
                 team_id_for_on_clause = team_id_expr
+            elif is_joined_table and team_id_expr is not None:
+                pass
             else:
                 extra_where = team_id_expr
 
@@ -614,14 +624,30 @@ class BasePrinter(Visitor[str]):
             elif node.table_args is not None:
                 raise QueryError(f"Table '{table_type.table.to_printed_hogql()}' does not accept arguments")
 
-            join_strings.append(sql)
+            if is_joined_table and not is_left_join and team_id_subquery_expr is not None:
+                team_id_sql = self.visit(team_id_subquery_expr)
+                alias = node.alias
+                if not alias:
+                    if hasattr(table_type.table, "name") and isinstance(table_type.table.name, str):
+                        alias = table_type.table.name
+                    else:
+                        full_table_name = (
+                            table_type.table.to_printed_clickhouse(self.context)
+                            if self.DIALECT_NAME == "clickhouse"
+                            else table_type.table.to_printed_hogql()
+                        )
+                        alias = full_table_name.split(".")[-1].split("(")[0]
 
-            if (
-                isinstance(node.type, (ast.TableAliasType, ast.ColumnAliasedTableType))
-                and node.alias is not None
-                and node.alias != sql
-            ):
-                join_strings.append(f"AS {self._print_identifier(node.alias)}")
+                join_strings.append(f"(SELECT * FROM {sql} WHERE {team_id_sql}) AS {self._print_identifier(alias)}")
+            else:
+                join_strings.append(sql)
+
+                if (
+                    isinstance(node.type, (ast.TableAliasType, ast.ColumnAliasedTableType))
+                    and node.alias is not None
+                    and node.alias != sql
+                ):
+                    join_strings.append(f"AS {self._print_identifier(node.alias)}")
 
         elif isinstance(node.type, ast.SelectQueryType):
             join_strings.append(self.visit(node.table))
