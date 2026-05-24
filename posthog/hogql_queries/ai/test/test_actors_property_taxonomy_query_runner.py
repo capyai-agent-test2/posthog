@@ -1,8 +1,22 @@
-from posthog.test.base import APIBaseTest, ClickhouseTestMixin, _create_person, snapshot_clickhouse_queries
+from types import SimpleNamespace
+
+from posthog.test.base import (
+    APIBaseTest,
+    ClickhouseTestMixin,
+    _create_event,
+    _create_person,
+    snapshot_clickhouse_queries,
+)
+from unittest.mock import patch
 
 from django.test import override_settings
 
-from posthog.schema import ActorsPropertyTaxonomyQuery, ActorsPropertyTaxonomyResponse
+from posthog.schema import (
+    ActorsPropertyTaxonomyQuery,
+    ActorsPropertyTaxonomyResponse,
+    RevenueAnalyticsEventItem,
+    RevenueCurrencyPropertyConfig,
+)
 
 from posthog.hogql_queries.ai.actors_property_taxonomy_query_runner import ActorsPropertyTaxonomyQueryRunner
 from posthog.models import PropertyDefinition
@@ -10,6 +24,32 @@ from posthog.models.group.util import create_group
 from posthog.test.test_utils import create_group_type_mapping_without_created_at
 
 from products.event_definitions.backend.models.property_definition import PropertyType
+
+
+def test_group_virtual_revenue_property_taxonomy_passes_group_context():
+    query = ActorsPropertyTaxonomyQuery(properties=["$virt_revenue"], groupTypeIndex=3)
+    team = SimpleNamespace(pk=17, id=17)
+    response = SimpleNamespace(results=[], timings=None)
+    runner = ActorsPropertyTaxonomyQueryRunner.__new__(ActorsPropertyTaxonomyQueryRunner)
+    runner.query = query
+    runner.team = team
+    runner.timings = None
+    runner.modifiers = None
+    runner.limit_context = None
+    runner.to_query = lambda: SimpleNamespace()
+
+    with patch(
+        "posthog.hogql_queries.ai.actors_property_taxonomy_query_runner.to_printed_hogql", return_value="SELECT 1"
+    ):
+        with patch(
+            "posthog.hogql_queries.ai.actors_property_taxonomy_query_runner.execute_hogql_query",
+            return_value=response,
+        ) as mock_execute:
+            runner._calculate()
+
+    context = mock_execute.call_args.kwargs["context"]
+    assert context.team is team
+    assert context.globals == {"group_id": 3}
 
 
 @override_settings(IN_UNIT_TESTING=True)
@@ -100,6 +140,42 @@ class TestActorsPropertyTaxonomyQueryRunner(ClickhouseTestMixin, APIBaseTest):
         self.assertEqual(results[0].sample_count, 1)
         # Ensure the value is a string
         self.assertEqual(results[0].sample_values[0], "30")
+
+    @snapshot_clickhouse_queries
+    def test_group_virtual_revenue_property_taxonomy_query_runner(self):
+        create_group_type_mapping_without_created_at(
+            team=self.team, project_id=self.team.project_id, group_type="Company", group_type_index=0
+        )
+        create_group(team_id=self.team.pk, group_type_index=0, group_key="Hooli")
+        create_group(team_id=self.team.pk, group_type_index=0, group_key="Pied Piper")
+        _create_person(distinct_ids=["person1"], team=self.team)
+        _create_event(
+            event="purchase",
+            team=self.team,
+            distinct_id="person1",
+            properties={"revenue": 35042, "$group_0": "Hooli"},
+        )
+        _create_event(
+            event="purchase",
+            team=self.team,
+            distinct_id="person1",
+            properties={"revenue": 3223, "$group_0": "Pied Piper"},
+        )
+        self.team.revenue_analytics_config.events = [
+            RevenueAnalyticsEventItem(
+                eventName="purchase",
+                revenueProperty="revenue",
+                revenueCurrencyProperty=RevenueCurrencyPropertyConfig(static="USD"),
+                currencyAwareDecimal=True,
+            )
+        ]
+        self.team.revenue_analytics_config.save()
+        self.team.save()
+
+        results = self._run(ActorsPropertyTaxonomyQuery(properties=["$virt_revenue"], groupTypeIndex=0))
+
+        self.assertEqual(set(results[0].sample_values), {"350.42", "32.23"})
+        self.assertEqual(results[0].sample_count, 2)
 
     @snapshot_clickhouse_queries
     def test_max_value_count(self):

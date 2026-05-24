@@ -8,6 +8,7 @@ from posthog.schema import (
 
 from posthog.hogql import ast
 from posthog.hogql.constants import HogQLGlobalSettings
+from posthog.hogql.context import HogQLContext
 from posthog.hogql.printer import to_printed_hogql
 from posthog.hogql.query import execute_hogql_query
 
@@ -39,6 +40,10 @@ class ActorsPropertyTaxonomyQueryRunner(TaxonomyCacheMixin, AnalyticsQueryRunner
                 timings=self.timings,
                 modifiers=self.modifiers,
                 limit_context=self.limit_context,
+                context=HogQLContext(
+                    team=self.team,
+                    globals={"group_id": self.query.groupTypeIndex} if self.query.groupTypeIndex is not None else None,
+                ),
             )
 
         # Map results by prop_index (1-based from arrayEnumerate) back to input order
