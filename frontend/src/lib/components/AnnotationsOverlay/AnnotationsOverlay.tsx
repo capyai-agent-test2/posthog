@@ -22,6 +22,7 @@ import { insightLogic } from 'scenes/insights/insightLogic'
 import { annotationsModel } from '~/models/annotationsModel'
 import { AnnotationType, DatedAnnotationType, IntervalType } from '~/types'
 
+import { shouldActivateAnnotationHover } from './annotationHoverUtils'
 import { AnnotationsOverlayLogicProps, annotationsOverlayLogic } from './annotationsOverlayLogic'
 import { useAnnotationsPositioning } from './useAnnotationsPositioning'
 
@@ -29,6 +30,7 @@ const MIN_BADGE_SPACING_PX = 24
 /** Clusters anchor on their starting badge (leftPx) so a chain of near-adjacent badges
  *  can't keep absorbing each other into one oversized cluster spanning a wide date range. */
 const MAX_CLUSTER_WIDTH_PX = 17
+const HOVER_RETRY_DELAY_MS = 150
 const EMPTY_ANNOTATIONS: DatedAnnotationType[] = []
 
 const GROUPING_UNIT_TO_HUMAN_DAYJS_FORMAT: Record<IntervalType, string> = {
@@ -271,7 +273,35 @@ const AnnotationsBadge = React.memo(function AnnotationsBadgeRaw({
 
     const [hovered, setHovered] = useState(false)
     const buttonRef = useRef<HTMLButtonElement>(null)
+    const hoverRetryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const dateKey = date.toISOString()
+
+    const clearHoverRetryTimeout = (): void => {
+        if (hoverRetryTimeoutRef.current) {
+            clearTimeout(hoverRetryTimeoutRef.current)
+            hoverRetryTimeoutRef.current = null
+        }
+    }
+
+    const activateHover = (): void => {
+        if (!shouldActivateAnnotationHover(isDateLocked)) {
+            return
+        }
+        setHovered(true)
+        if (!isDateLocked) {
+            activateDate(date)
+        }
+    }
+
+    const scheduleHoverRetry = (): void => {
+        clearHoverRetryTimeout()
+        hoverRetryTimeoutRef.current = setTimeout(() => {
+            hoverRetryTimeoutRef.current = null
+            if (buttonRef.current?.matches(':hover')) {
+                activateHover()
+            }
+        }, HOVER_RETRY_DELAY_MS)
+    }
 
     useEffect(() => {
         const el = buttonRef.current
@@ -279,6 +309,7 @@ const AnnotationsBadge = React.memo(function AnnotationsBadgeRaw({
             badgeRefs.current.set(dateKey, el)
         }
         return () => {
+            clearHoverRetryTimeout()
             badgeRefs.current.delete(dateKey)
         }
     }, [dateKey, badgeRefs])
@@ -299,18 +330,36 @@ const AnnotationsBadge = React.memo(function AnnotationsBadgeRaw({
                 } as AnnotationsBadgeCSSProperties
             }
             onMouseEnter={() => {
-                setHovered(true)
-                if (!isDateLocked) {
-                    activateDate(date)
+                if (shouldActivateAnnotationHover(isDateLocked)) {
+                    activateHover()
+                } else {
+                    scheduleHoverRetry()
+                }
+            }}
+            onMouseMove={() => {
+                if (!hovered) {
+                    activateHover()
                 }
             }}
             onMouseLeave={() => {
+                clearHoverRetryTimeout()
                 setHovered(false)
                 if (!isDateLocked) {
                     deactivateDate()
                 }
             }}
-            onClick={!isDateLocked ? lockDate : active ? unlockDate : () => activateDate(date)}
+            onClick={
+                !isDateLocked
+                    ? () => {
+                          clearHoverRetryTimeout()
+                          setHovered(true)
+                          activateDate(date)
+                          lockDate()
+                      }
+                    : active
+                      ? unlockDate
+                      : () => activateDate(date)
+            }
         >
             {annotations.length ? (
                 <LemonBadge.Number
