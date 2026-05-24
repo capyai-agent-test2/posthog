@@ -513,4 +513,95 @@ describe('dataVisualizationLogic', () => {
 
         expect(queryWithAxisSettings.chartSettings?.yAxis?.[0].settings?.formatting?.decimalPlaces).toBeUndefined()
     })
+
+    it('does not copy updated settings to the previous y-axis item', async () => {
+        const queryWithAxisSettings: DataVisualizationNode = {
+            ...defaultQuery,
+            chartSettings: {
+                yAxis: [
+                    {
+                        column: 'count_a',
+                        settings: {
+                            formatting: {
+                                prefix: 'A-',
+                                suffix: '',
+                            },
+                            display: {
+                                label: 'Series A',
+                            },
+                        },
+                    },
+                    {
+                        column: 'count_b',
+                        settings: {
+                            formatting: {
+                                prefix: 'B-',
+                                suffix: '',
+                            },
+                            display: {
+                                label: 'Series B',
+                            },
+                        },
+                    },
+                ],
+            },
+        }
+
+        logic.unmount()
+        logic = dataVisualizationLogic({
+            key: testKey,
+            query: queryWithAxisSettings,
+            dataNodeCollectionId,
+        } as DataVisualizationLogicProps)
+        logic.mount()
+
+        dataNodeLogic({ key: testKey, query: defaultQuery.source, dataNodeCollectionId }).actions.setResponse({
+            columns: ['event', 'count_a', 'count_b'],
+            types: [
+                ['event', 'String'],
+                ['count_a', 'Int64'],
+                ['count_b', 'Int64'],
+            ],
+            results: [['pageview', 1, 2]],
+        })
+
+        const firstSeriesSettingsBefore = JSON.parse(JSON.stringify(logic.values.selectedYAxis?.[0]?.settings))
+
+        logic.actions.updateSeriesIndex(1, 'count_b', {
+            display: {
+                label: 'Updated Series B',
+            },
+        })
+
+        await expectLogic(logic).toMatchValues({
+            selectedYAxis: [
+                {
+                    name: 'count_a',
+                    settings: {
+                        formatting: {
+                            prefix: 'A-',
+                            suffix: '',
+                        },
+                        display: {
+                            label: 'Series A',
+                        },
+                    },
+                },
+                {
+                    name: 'count_b',
+                    settings: {
+                        formatting: {
+                            prefix: 'B-',
+                            suffix: '',
+                        },
+                        display: {
+                            label: 'Updated Series B',
+                        },
+                    },
+                },
+            ],
+        })
+
+        expect(logic.values.selectedYAxis?.[0]?.settings).toEqual(firstSeriesSettingsBefore)
+    })
 })

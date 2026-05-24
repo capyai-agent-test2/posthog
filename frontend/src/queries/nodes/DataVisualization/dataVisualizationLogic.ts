@@ -13,7 +13,6 @@ import {
     sharedListeners,
 } from 'kea'
 import { subscriptions } from 'kea-subscriptions'
-import mergeObject from 'lodash.merge'
 
 import { dayjs } from 'lib/dayjs'
 import { RGBToHex, compactNumber, lightenDarkenColor, objectsEqual, uuid } from 'lib/utils'
@@ -352,6 +351,28 @@ const mergeChartSettings = (state: ChartSettings, settings: ChartSettings): Char
     }
 }
 
+const mergeAxisSeriesSettings = (
+    existingSettings?: AxisSeriesSettings,
+    nextSettings?: AxisSeriesSettings
+): AxisSeriesSettings => ({
+    ...(existingSettings?.formatting || nextSettings?.formatting
+        ? {
+              formatting: {
+                  ...existingSettings?.formatting,
+                  ...nextSettings?.formatting,
+              },
+          }
+        : {}),
+    ...(existingSettings?.display || nextSettings?.display
+        ? {
+              display: {
+                  ...existingSettings?.display,
+                  ...nextSettings?.display,
+              },
+          }
+        : {}),
+})
+
 const shouldUseFirstNumericColumnAsContinuousChartXAxis = (
     columns: Column[],
     numericalColumns: Column[],
@@ -529,9 +550,10 @@ export const dataVisualizationLogic = kea<dataVisualizationLogicType>([
                         return ySeries
                     }
 
+                    const existingSettings = ySeries[index]?.settings
                     ySeries[index] = {
                         name: columnName,
-                        settings: mergeObject({}, ySeries[index]?.settings ?? {}, settings),
+                        settings: mergeAxisSeriesSettings(existingSettings, settings),
                     }
                     return ySeries
                 },
@@ -542,9 +564,10 @@ export const dataVisualizationLogic = kea<dataVisualizationLogicType>([
 
                     const ySeries = [...state]
 
+                    const existingSettings = ySeries[seriesIndex]?.settings
                     ySeries[seriesIndex] = {
                         name: columnName,
-                        settings: mergeObject({}, ySeries[seriesIndex]?.settings ?? {}, settings),
+                        settings: mergeAxisSeriesSettings(existingSettings, settings),
                     }
                     return ySeries
                 },
@@ -609,9 +632,10 @@ export const dataVisualizationLogic = kea<dataVisualizationLogicType>([
 
                     const ySeries = [...state]
 
+                    const existingSettings = ySeries[seriesIndex]?.settings
                     ySeries[seriesIndex] = {
                         name: columnName,
-                        settings: mergeObject({}, ySeries[seriesIndex]?.settings ?? {}, settings),
+                        settings: mergeAxisSeriesSettings(existingSettings, settings),
                     }
                     return ySeries
                 },
@@ -627,9 +651,10 @@ export const dataVisualizationLogic = kea<dataVisualizationLogicType>([
                         return ySeries
                     }
 
+                    const existingSettings = ySeries[index]?.settings
                     ySeries[index] = {
                         name: columnName,
-                        settings: mergeObject({}, ySeries[index]?.settings ?? {}, settings),
+                        settings: mergeAxisSeriesSettings(existingSettings, settings),
                     }
                     return ySeries
                 },
