@@ -2,6 +2,8 @@ import { MOCK_DEFAULT_ORGANIZATION } from 'lib/api.mock'
 
 import { expectLogic } from 'kea-test-utils'
 
+import { OrganizationMembershipLevel } from 'lib/constants'
+
 import { initKeaTests } from '~/test/init'
 
 import { AppContext } from '../types'
@@ -76,6 +78,42 @@ describe('organizationLogic', () => {
             await expectLogic(logic).toMatchValues({
                 currentOrganization: { ...MOCK_DEFAULT_ORGANIZATION },
             })
+        })
+    })
+
+    describe('project creation permissions', () => {
+        it('allows organization admins to create projects', () => {
+            window.POSTHOG_APP_CONTEXT = {
+                current_user: {
+                    organization: {
+                        ...MOCK_DEFAULT_ORGANIZATION,
+                        membership_level: OrganizationMembershipLevel.Admin,
+                    },
+                },
+            } as unknown as AppContext
+            initKeaTests()
+            logic = organizationLogic()
+            logic.mount()
+
+            expect(logic.values.projectCreationForbiddenReason).toBeNull()
+        })
+
+        it('blocks organization members from creating projects', () => {
+            window.POSTHOG_APP_CONTEXT = {
+                current_user: {
+                    organization: {
+                        ...MOCK_DEFAULT_ORGANIZATION,
+                        membership_level: OrganizationMembershipLevel.Member,
+                    },
+                },
+            } as unknown as AppContext
+            initKeaTests()
+            logic = organizationLogic()
+            logic.mount()
+
+            expect(logic.values.projectCreationForbiddenReason).toBe(
+                'You need to be an organization admin or above to create new projects.'
+            )
         })
     })
 })
