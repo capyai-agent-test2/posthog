@@ -1,7 +1,10 @@
-import { MOCK_TEAM_ID } from 'lib/api.mock'
+import { MOCK_DEFAULT_PROJECT, MOCK_DEFAULT_TEAM, MOCK_TEAM_ID } from 'lib/api.mock'
 
 import { router } from 'kea-router'
 import { expectLogic } from 'kea-test-utils'
+
+import { projectLogic } from 'scenes/projectLogic'
+import { teamLogic } from 'scenes/teamLogic'
 
 import { useMocks } from '~/mocks/jest'
 import { initKeaTests } from '~/test/init'
@@ -126,6 +129,53 @@ describe('ExperimentForm Integration', () => {
                 .toFinishAllListeners()
 
             expect(routerPushSpy).toHaveBeenCalledWith('/experiments/123')
+        })
+
+        it('submits to the active team project when project logic is stale', async () => {
+            const activeProjectId = MOCK_TEAM_ID + 1
+            const staleProjectId = MOCK_TEAM_ID + 2
+            const mountedTeamLogic = teamLogic.findMounted()!
+            const mountedProjectLogic = projectLogic.findMounted()!
+
+            useMocks({
+                post: {
+                    [`/api/projects/${activeProjectId}/experiments`]: async (req) => {
+                        const body = (await req.json()) as Experiment
+                        return [
+                            200,
+                            {
+                                id: 456,
+                                name: body.name,
+                                description: body.description,
+                                type: body.type || 'product',
+                                feature_flag: { id: 789 },
+                            },
+                        ]
+                    },
+                },
+                patch: {
+                    '/api/environments/:team_id/add_product_intent/': () => [200, {}],
+                },
+            })
+            mountedTeamLogic.actions.loadCurrentTeamSuccess({ ...MOCK_DEFAULT_TEAM, project_id: activeProjectId })
+            mountedProjectLogic.actions.loadCurrentProjectSuccess({ ...MOCK_DEFAULT_PROJECT, id: staleProjectId })
+
+            await expectLogic(mountedTeamLogic).toMatchValues({ currentProjectId: activeProjectId })
+            await expectLogic(logic).toMatchValues({ currentProjectId: activeProjectId })
+
+            await expectLogic(logic, () => {
+                logic.actions.setExperiment({
+                    ...NEW_EXPERIMENT,
+                    name: 'Cross project safety check',
+                    description: 'Should stay in the active project',
+                    feature_flag_key: 'cross-project-safety-check',
+                })
+                logic.actions.saveExperiment()
+            })
+                .toDispatchActions(['saveExperiment', 'createExperimentSuccess'])
+                .toFinishAllListeners()
+
+            expect(routerPushSpy).toHaveBeenCalledWith('/experiments/456')
         })
 
         it('clears errors after successful submission', async () => {
