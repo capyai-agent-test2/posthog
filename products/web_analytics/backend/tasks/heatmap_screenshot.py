@@ -29,7 +29,10 @@ from products.web_analytics.backend.models import HeatmapSnapshot, SavedHeatmap
 logger = structlog.get_logger(__name__)
 
 TMP_DIR = "/tmp"
-METADATA_IPS = {ipaddress.ip_address("169.254.169.254")}
+METADATA_IPS = {
+    ipaddress.ip_address("169.254.169.254"),
+    ipaddress.ip_address("fd00:ec2::254"),
+}
 
 
 def _dismiss_cookie_banners(page: Page) -> None:

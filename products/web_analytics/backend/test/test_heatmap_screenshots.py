@@ -70,7 +70,7 @@ class TestHeatmapsAPI(APIBaseTest):
         self.assertEqual(saved.url, "http://localhost:3000")
         mock_task.assert_called_once_with(saved.id)
 
-    @override_settings(CLOUD_DEPLOYMENT="US")
+    @override_settings(CLOUD_DEPLOYMENT="US", DEBUG=False)
     @patch("products.web_analytics.backend.tasks.heatmap_screenshot.generate_heatmap_screenshot.delay")
     def test_generate_rejects_localhost_url_on_cloud(self, mock_task):
         resp = self.client.post(

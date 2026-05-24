@@ -66,6 +66,21 @@ class TestHeatmapScreenshotSecurity(SimpleTestCase):
         mock_is_url_allowed.assert_not_called()
 
     @override_settings(CLOUD_DEPLOYMENT=None)
+    @patch(
+        "products.web_analytics.backend.tasks.heatmap_screenshot.resolve_host_ips",
+        return_value={ipaddress.ip_address("fd00:ec2::254")},
+    )
+    @patch("products.web_analytics.backend.tasks.heatmap_screenshot.is_url_allowed")
+    def test_self_hosted_blocks_ipv6_metadata_host_aliases(
+        self, mock_is_url_allowed: MagicMock, _mock_resolve_host_ips: MagicMock
+    ) -> None:
+        assert validate_heatmap_screenshot_url("http://metadata-alias.internal/latest/meta-data") == (
+            False,
+            "Local/metadata host",
+        )
+        mock_is_url_allowed.assert_not_called()
+
+    @override_settings(CLOUD_DEPLOYMENT=None)
     def test_self_hosted_skips_runtime_request_blocking(self) -> None:
         page = MagicMock()
 
