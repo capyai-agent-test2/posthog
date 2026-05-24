@@ -391,6 +391,36 @@ describe('new survey appearance defaults', () => {
             }),
         })
     })
+
+    it('does not overwrite custom appearance edits when team defaults arrive later', async () => {
+        const logic = surveyLogic({ id: 'new' })
+        logic.mount()
+
+        await expectLogic(logic, () => {
+            logic.actions.setSurveyValue('appearance', {
+                ...logic.values.survey.appearance,
+                backgroundColor: '#123456',
+                submitButtonColor: '#654321',
+            })
+            teamLogic.actions.loadCurrentTeamSuccess({
+                survey_config: {
+                    appearance: {
+                        backgroundColor: '#ff0000',
+                        submitButtonColor: '#00ff00',
+                        borderColor: '#abcdef',
+                    },
+                },
+            } as TeamType)
+        }).toMatchValues({
+            survey: expect.objectContaining({
+                appearance: expect.objectContaining({
+                    backgroundColor: '#123456',
+                    submitButtonColor: '#654321',
+                    borderColor: '#abcdef',
+                }),
+            }),
+        })
+    })
 })
 
 describe('set response-based survey branching', () => {

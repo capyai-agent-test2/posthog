@@ -259,6 +259,32 @@ function getSurveyAppearanceWithTeamDefaults(
     }
 }
 
+function applyLateTeamAppearanceDefaults(
+    teamAppearance?: Survey['appearance'] | null,
+    currentAppearance?: Survey['appearance'] | null
+): NonNullable<Survey['appearance']> {
+    const appearance = {
+        ...defaultSurveyAppearance,
+        ...currentAppearance,
+    }
+
+    if (!teamAppearance) {
+        return appearance
+    }
+
+    for (const [key, value] of Object.entries(teamAppearance)) {
+        const appearanceKey = key as keyof NonNullable<Survey['appearance']>
+        if (
+            appearance[appearanceKey] === undefined ||
+            appearance[appearanceKey] === defaultSurveyAppearance[appearanceKey]
+        ) {
+            appearance[appearanceKey] = value
+        }
+    }
+
+    return appearance
+}
+
 const isChoiceSurveyQuestion = (question: SurveyQuestion): question is MultipleSurveyQuestion =>
     question.type === SurveyQuestionType.SingleChoice || question.type === SurveyQuestionType.MultipleChoice
 
@@ -1228,7 +1254,7 @@ export const surveyLogic = kea<surveyLogicType>([
                     return
                 }
 
-                const appearance = getSurveyAppearanceWithTeamDefaults(
+                const appearance = applyLateTeamAppearanceDefaults(
                     currentTeam?.survey_config?.appearance,
                     values.survey.appearance
                 )
