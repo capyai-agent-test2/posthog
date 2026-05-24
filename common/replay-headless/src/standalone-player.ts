@@ -33,6 +33,7 @@ async function init(config: PlayerConfig, bridge: HostBridge): Promise<void> {
         {
             skipInactivity: config.skipInactivity,
             endOffsetS: config.endOffsetS,
+            playbackSpeed: config.playbackSpeed,
         },
         bridge
     )

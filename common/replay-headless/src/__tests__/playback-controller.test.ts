@@ -91,6 +91,38 @@ describe('PlaybackController', () => {
             expect(_controller.isStopped).toBe(true)
             expect(bridge.signalEnded).toHaveBeenCalledTimes(1)
         })
+
+        it('holds the last frame until endOffsetS when finish arrives early', () => {
+            jest.useFakeTimers()
+
+            const replayer = mockReplayer()
+            replayer.getCurrentTime.mockReturnValue(9000)
+            const bridge = mockBridge()
+            const controller = new PlaybackController(
+                replayer as any,
+                [],
+                0,
+                {
+                    endOffsetS: 13,
+                    playbackSpeed: 4,
+                },
+                bridge
+            )
+
+            replayer._emit('finish')
+
+            expect(controller.isStopped).toBe(false)
+            expect(bridge.signalEnded).not.toHaveBeenCalled()
+
+            jest.advanceTimersByTime(999)
+            expect(controller.isStopped).toBe(false)
+
+            jest.advanceTimersByTime(1)
+            expect(controller.isStopped).toBe(true)
+            expect(bridge.signalEnded).toHaveBeenCalledTimes(1)
+
+            jest.useRealTimers()
+        })
     })
 
     describe('endOffsetS cutoff', () => {
