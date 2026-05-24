@@ -840,6 +840,16 @@ class TestGetShortUserAgent(TestCase):
         result = get_short_user_agent(request)
         self.assertEqual(result, "Island 1.85.25 on Windows 11")
 
+    def test_low_entropy_client_hints_preserve_user_agent_version(self):
+        request = HttpRequest()
+        request.META = {
+            "HTTP_USER_AGENT": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edg/134.0.1847.76 Chrome/134.0.0.0 Safari/537.36",
+            "HTTP_SEC_CH_UA": '"Chromium";v="134", "Microsoft Edge";v="134", "Not.A/Brand";v="99"',
+        }
+
+        result = get_short_user_agent(request)
+        self.assertEqual(result, "Edge 134.0.1847 on Windows 10")
+
 
 class TestFlatten(TestCase):
     def test_flatten_lots_of_depth(self):

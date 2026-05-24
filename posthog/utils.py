@@ -866,7 +866,9 @@ def get_short_user_agent(request: HttpRequest) -> str:
 
     client_hint_browser = _get_client_hint_browser(request)
     if client_hint_browser is not None:
-        browser_family, browser_version = client_hint_browser
+        browser_family, client_hint_browser_version = client_hint_browser
+        if client_hint_browser_version:
+            browser_version = client_hint_browser_version
 
     client_hint_os = _get_client_hint_os(request)
     if client_hint_os is not None:
@@ -880,6 +882,7 @@ def get_short_user_agent(request: HttpRequest) -> str:
 def _get_client_hint_browser(request: HttpRequest) -> tuple[str, str] | None:
     full_version_list = request.headers.get("sec-ch-ua-full-version-list")
     brands = _parse_client_hint_brands(full_version_list) if full_version_list else []
+    has_full_version = bool(brands)
     if not brands:
         brands = _parse_client_hint_brands(request.headers.get("sec-ch-ua"))
 
@@ -889,6 +892,8 @@ def _get_client_hint_browser(request: HttpRequest) -> tuple[str, str] | None:
     normalized_brands = [(_normalize_client_hint_brand(brand), version) for brand, version in brands]
     preferred_brands = [(brand, version) for brand, version in normalized_brands if brand != "Chrome"]
     browser_family, browser_version = preferred_brands[0] if preferred_brands else normalized_brands[0]
+    if not has_full_version:
+        return browser_family, ""
     return browser_family, ".".join(browser_version.split(".")[:3])
 
 
