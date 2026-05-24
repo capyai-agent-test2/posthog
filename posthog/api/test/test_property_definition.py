@@ -494,6 +494,16 @@ class TestPropertyDefinitionAPI(APIBaseTest):
         assert response.status_code == status.HTTP_200_OK
         assert any(prop["name"] == expected_name for prop in response.json()["results"])
 
+    def test_person_property_search_includes_created_at_metadata(self) -> None:
+        response = self.client.get(f"/api/projects/{self.team.pk}/property_definitions/?type=person&search=created_at")
+
+        assert response.status_code == status.HTTP_200_OK
+        created_at = next(prop for prop in response.json()["results"] if prop["name"] == "created_at")
+        assert created_at["id"] == "$builtin_created_at"
+        assert created_at["is_numerical"] is False
+        assert created_at["property_type"] == "DateTime"
+        assert created_at["virtual"] is True
+
     @parameterized.expand(
         [
             (

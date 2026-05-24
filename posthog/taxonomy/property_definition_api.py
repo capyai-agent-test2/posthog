@@ -592,6 +592,20 @@ class PropertyDefinitionViewSet(
     _BUILTIN_VIRTUAL_PERSON_PROPERTIES = _build_virtual_properties("person_properties")
     _BUILTIN_VIRTUAL_EVENT_PROPERTIES = _build_virtual_properties("event_properties")
     _BUILTIN_VIRTUAL_GROUP_PROPERTIES = _build_virtual_properties("groups")
+    _BUILTIN_SYNTHETIC_PERSON_PROPERTIES = [
+        {
+            "id": "$builtin_created_at",
+            "name": "created_at",
+            "description": "When the person was first created.",
+            "is_numerical": False,
+            "property_type": "DateTime",
+            "tags": [],
+            "is_seen_on_filtered_events": True,
+            "verified": False,
+            "hidden": False,
+            "virtual": True,
+        }
+    ]
 
     def dangerously_get_queryset(self):
         with tracer.start_as_current_span("property_definitions_get_queryset") as span:
@@ -782,7 +796,10 @@ class PropertyDefinitionViewSet(
             if event_type == "event":
                 virtual_properties = self._BUILTIN_VIRTUAL_EVENT_PROPERTIES
             elif event_type == "person":
-                virtual_properties = self._BUILTIN_VIRTUAL_PERSON_PROPERTIES
+                virtual_properties = [
+                    *self._BUILTIN_VIRTUAL_PERSON_PROPERTIES,
+                    *self._BUILTIN_SYNTHETIC_PERSON_PROPERTIES,
+                ]
             else:
                 virtual_properties = self._BUILTIN_VIRTUAL_GROUP_PROPERTIES
 
