@@ -10,7 +10,6 @@ from playwright.sync_api import (
     sync_playwright,
 )
 
-from posthog.cloud_utils import is_cloud
 from posthog.exceptions_capture import capture_exception
 from posthog.security.url_validation import is_url_allowed, should_block_url
 from posthog.tasks.utils import CeleryQueue
@@ -109,17 +108,7 @@ def _dismiss_cookie_banners(page: Page) -> None:
 
 
 def _block_internal_requests(page: Page) -> None:
-    if not is_cloud():
-        return
-
     page.route("**/*", lambda route: route.abort() if should_block_url(route.request.url) else route.continue_())
-
-
-def _validate_screenshot_url(url: str) -> tuple[bool, str | None]:
-    if not is_cloud():
-        return True, None
-
-    return is_url_allowed(url)
 
 
 def _scroll_page(page: Page) -> None:
@@ -195,7 +184,7 @@ def generate_heatmap_screenshot(screenshot_id: str) -> None:
         posthoganalytics.tag("screenshot_id", screenshot.id)
 
         try:
-            ok, err = _validate_screenshot_url(screenshot.url)
+            ok, err = is_url_allowed(screenshot.url)
             if not ok:
                 screenshot.status = SavedHeatmap.Status.FAILED
                 screenshot.exception = f"SSRF blocked: {err}"
