@@ -1035,7 +1035,7 @@ class TestPerson(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
 
         mock_capture.assert_called_once_with(
             token=self.team.api_token,
-            event_name="$delete_person_property",
+            event_name="person property deleted",
             event_source="person_viewset",
             distinct_id="some_distinct_id",
             timestamp=mock.ANY,
@@ -1081,7 +1081,7 @@ class TestPerson(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
 
         mock_capture.assert_called_once_with(
             token=self.team.api_token,
-            event_name="$delete_person_property",
+            event_name="person property deleted",
             event_source="person_viewset",
             distinct_id="some_distinct_id",
             timestamp=mock.ANY,
