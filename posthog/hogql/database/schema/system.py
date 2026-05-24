@@ -554,6 +554,19 @@ surveys: PostgresTable = PostgresTable(
     },
 )
 
+survey_response_archives: PostgresTable = PostgresTable(
+    name="survey_response_archives",
+    postgres_table_name="posthog_surveyresponsearchive",
+    access_scope="survey",
+    fields={
+        "id": UUIDDatabaseField(name="id"),
+        "team_id": IntegerDatabaseField(name="team_id"),
+        "survey_id": UUIDDatabaseField(name="survey_id"),
+        "response_uuid": UUIDDatabaseField(name="response_uuid"),
+        "archived_at": DateTimeDatabaseField(name="archived_at"),
+    },
+)
+
 teams: PostgresTable = PostgresTable(
     name="teams",
     postgres_table_name="posthog_team",
@@ -1179,6 +1192,7 @@ class SystemTables(TableNode):
         "source_schemas": TableNode(name="source_schemas", table=source_schemas),
         "source_sync_jobs": TableNode(name="source_sync_jobs", table=source_sync_jobs),
         "support_tickets": TableNode(name="support_tickets", table=support_tickets),
+        "survey_response_archives": TableNode(name="survey_response_archives", table=survey_response_archives),
         "surveys": TableNode(name="surveys", table=surveys),
         "task_runs": TableNode(name="task_runs", table=task_runs),
         "tasks": TableNode(name="tasks", table=tasks),
