@@ -108,8 +108,8 @@ TOP_ELEMENTS_ARRAY_OF_KEY_SQL = """
     {sessions_join_clauses}
     WHERE
         team_id = %(team_id)s {entity_query} {parsed_date_from} {parsed_date_to} {prop_filters} {null_person_filter}
-    GROUP BY value
-    ORDER BY count DESC, value DESC
+    GROUP BY breakdown_value
+    ORDER BY count DESC, breakdown_value DESC
     LIMIT %(limit)s OFFSET %(offset)s
 """
 
@@ -125,7 +125,7 @@ SELECT {bucketing_expression} FROM (
     {sessions_join_clauses}
     WHERE
         team_id = %(team_id)s {entity_query} {parsed_date_from} {parsed_date_to} {prop_filters} {null_person_filter}
-    GROUP BY value
+    GROUP BY breakdown_value
 )
 """
 

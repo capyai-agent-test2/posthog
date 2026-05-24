@@ -299,19 +299,21 @@ def _to_value_expression(
     if cast_as_float:
         value_expression = f"toFloat64OrNull(toString({value_expression}))"
 
-    return f"{value_expression} AS value", params
+    return f"{value_expression} AS breakdown_value", params
 
 
 def _to_bucketing_expression(bin_count: int) -> str:
     if bin_count <= 1:
-        qunatile_expression = "quantiles(0,1)(value)"
+        qunatile_expression = "quantiles(0,1)(breakdown_value)"
     else:
         quantiles = []
         bin_size = 1.0 / bin_count
         for i in range(bin_count + 1):
             quantiles.append(i * bin_size)
 
-        qunatile_expression = f"quantiles({','.join([f'{quantile:.2f}' for quantile in quantiles])})(value)"
+        qunatile_expression = (
+            f"quantiles({','.join([f'{quantile:.2f}' for quantile in quantiles])})(breakdown_value)"
+        )
 
     return f"arrayCompact(arrayMap(x -> floor(x, 2), {qunatile_expression}))"
 
