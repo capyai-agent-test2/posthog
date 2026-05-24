@@ -10,6 +10,7 @@ import {
     surveyLogic,
 } from 'scenes/surveys/surveyLogic'
 import { OpenEndedColumnMap } from 'scenes/surveys/utils'
+import { teamLogic } from 'scenes/teamLogic'
 
 import { useMocks } from '~/mocks/jest'
 import { initKeaTests } from '~/test/init'
@@ -33,6 +34,7 @@ import {
     SurveyRates,
     SurveySchedule,
     SurveyStats,
+    TeamType,
     SurveyType,
 } from '~/types'
 
@@ -331,6 +333,63 @@ describe('translation validation', () => {
             buttonText: 'Enviar',
         })
         expect(logic.values.aiGeneratedTranslationFields).toEqual(['translations.es.thankYouMessageHeader'])
+    })
+})
+
+describe('new survey appearance defaults', () => {
+    beforeEach(() => {
+        initKeaTests()
+    })
+
+    it('applies team survey appearance after the team loads', async () => {
+        const logic = surveyLogic({ id: 'new' })
+        logic.mount()
+
+        await expectLogic(logic, () => {
+            teamLogic.actions.loadCurrentTeamSuccess({
+                survey_config: {
+                    appearance: {
+                        backgroundColor: '#ff0000',
+                        submitButtonColor: '#00ff00',
+                    },
+                },
+            } as TeamType)
+        }).toMatchValues({
+            survey: expect.objectContaining({
+                appearance: expect.objectContaining({
+                    backgroundColor: '#ff0000',
+                    submitButtonColor: '#00ff00',
+                }),
+            }),
+        })
+    })
+
+    it('preserves behavioral appearance settings when team defaults arrive later', async () => {
+        const logic = surveyLogic({ id: 'new' })
+        logic.mount()
+
+        await expectLogic(logic, () => {
+            logic.actions.setSurveyValue('appearance', {
+                ...logic.values.survey.appearance,
+                position: SurveyPosition.Left,
+                displayThankYouMessage: false,
+            })
+            teamLogic.actions.loadCurrentTeamSuccess({
+                survey_config: {
+                    appearance: {
+                        backgroundColor: '#ff0000',
+                    },
+                },
+            } as TeamType)
+        }).toMatchValues({
+            survey: expect.objectContaining({
+                appearance: expect.objectContaining({
+                    backgroundColor: '#ff0000',
+                    position: SurveyPosition.Left,
+                    displayThankYouMessage: false,
+                }),
+            }),
+        })
     })
 })
 

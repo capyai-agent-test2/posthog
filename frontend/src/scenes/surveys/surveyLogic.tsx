@@ -242,6 +242,23 @@ const SURVEY_QUERY_TAGS = {
     openEndedResults: { ...SURVEY_QUERY_TAG_BASE, name: 'survey_results_open_ended' as const },
 }
 
+function getSurveyAppearanceWithTeamDefaults(
+    teamAppearance?: Survey['appearance'] | null,
+    currentAppearance?: Survey['appearance'] | null
+): NonNullable<Survey['appearance']> {
+    return {
+        ...defaultSurveyAppearance,
+        ...teamAppearance,
+        ...objectClean({
+            displayThankYouMessage: currentAppearance?.displayThankYouMessage,
+            thankYouMessageHeader: currentAppearance?.thankYouMessageHeader,
+            position: currentAppearance?.position,
+            shuffleQuestions: currentAppearance?.shuffleQuestions,
+            surveyPopupDelaySeconds: currentAppearance?.surveyPopupDelaySeconds,
+        }),
+    }
+}
+
 const isChoiceSurveyQuestion = (question: SurveyQuestion): question is MultipleSurveyQuestion =>
     question.type === SurveyQuestionType.SingleChoice || question.type === SurveyQuestionType.MultipleChoice
 
@@ -791,18 +808,17 @@ export const surveyLogic = kea<surveyLogicType>([
                 }
                 if (props.id === 'new' && router.values.hashParams.fromTemplate) {
                     const templatedSurvey = { ...values.survey }
-                    templatedSurvey.appearance = {
-                        ...defaultSurveyAppearance,
-                        ...teamLogic.values.currentTeam?.survey_config?.appearance,
-                    }
+                    templatedSurvey.appearance = getSurveyAppearanceWithTeamDefaults(
+                        teamLogic.values.currentTeam?.survey_config?.appearance,
+                        templatedSurvey.appearance
+                    )
                     return templatedSurvey
                 }
 
                 const newSurvey = { ...NEW_SURVEY }
-                newSurvey.appearance = {
-                    ...defaultSurveyAppearance,
-                    ...teamLogic.values.currentTeam?.survey_config?.appearance,
-                }
+                newSurvey.appearance = getSurveyAppearanceWithTeamDefaults(
+                    teamLogic.values.currentTeam?.survey_config?.appearance
+                )
 
                 return newSurvey
             },
@@ -1205,6 +1221,20 @@ export const surveyLogic = kea<surveyLogicType>([
                 ) {
                     actions.loadSurveyBaseStats()
                     actions.loadSurveyDismissedAndSentCount()
+                }
+            },
+            [teamLogic.actionTypes.loadCurrentTeamSuccess]: ({ currentTeam }) => {
+                if (props.id !== NEW_SURVEY.id || values.survey.id !== NEW_SURVEY.id) {
+                    return
+                }
+
+                const appearance = getSurveyAppearanceWithTeamDefaults(
+                    currentTeam?.survey_config?.appearance,
+                    values.survey.appearance
+                )
+
+                if (JSON.stringify(appearance) !== JSON.stringify(values.survey.appearance)) {
+                    actions.loadSurveySuccess({ ...values.survey, appearance })
                 }
             },
             loadConsolidatedSurveyResultsSuccess: async ({ consolidatedSurveyResults }) => {
@@ -3002,10 +3032,9 @@ export const surveyLogic = kea<surveyLogicType>([
         survey: {
             defaults: {
                 ...NEW_SURVEY,
-                appearance: {
-                    ...defaultSurveyAppearance,
-                    ...teamLogic.values.currentTeam?.survey_config?.appearance,
-                },
+                appearance: getSurveyAppearanceWithTeamDefaults(
+                    teamLogic.values.currentTeam?.survey_config?.appearance
+                ),
             } as NewSurvey | Survey,
             errors: ({ name, questions, appearance, type }) => {
                 const sanitizedAppearance = sanitizeSurveyAppearance(appearance)
