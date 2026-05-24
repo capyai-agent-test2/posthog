@@ -171,8 +171,6 @@ export const OAUTH_SCOPES_SUPPORTED = [
     'user:write',
     'user_interview:read',
     'user_interview:write',
-    'visual_review:read',
-    'visual_review:write',
     'warehouse_objects:read',
     'warehouse_objects:write',
     'warehouse_table:read',

@@ -6,7 +6,7 @@ ProductTeamManager → TeamScopedManager consolidation those tests apply
 unchanged to ProductTeamModel-based models.
 
 Concrete-model integration tests live inside the consuming product
-(e.g. visual_review/backend/tests/) where they can import the model
+within product tests where they can import the model
 internally without crossing tach product-isolation boundaries.
 
 This file just verifies the abstract base itself is wired up correctly.

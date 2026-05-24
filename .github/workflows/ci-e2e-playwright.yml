@@ -258,8 +258,6 @@ jobs:
         # Talk to #team-devex before changing.
         runs-on: depot-ubuntu-latest-8
         timeout-minutes: 45
-        outputs:
-            vr_run_id: ${{ steps.vr-create.outputs.run_id }}
         steps:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
               with:
@@ -589,48 +587,6 @@ jobs:
                   git fetch --no-tags --prune --depth=50 origin "$BASE_SHA"
                   .github/scripts/verify-playwright-new-tests-and-snapshots.sh "$BASE_SHA" 10
 
-            # Visual Review: create run + upload snapshots directly from the test job.
-            # Completion happens in handle-screenshots so the baseline lands in the same commit as PNGs.
-            - name: Install VR CLI
-              if: always() && (github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push')
-              run: cd products/visual_review/cli && npm ci && npm run build && npm link
-
-            - name: Create VR run
-              id: vr-create
-              if: always() && (github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push')
-              env:
-                  VR_TOKEN: ${{ secrets.VR_API_TOKEN }}
-                  VR_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
-                  VR_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-                  VR_PR: ${{ github.event.pull_request.number }}
-                  # PRs are gating ("review"); master pushes are tracking-only ("observe") since
-                  # there's no PR to approve and we don't want master runs to block or prompt for approval.
-                  VR_PURPOSE: ${{ github.event_name == 'push' && 'observe' || 'review' }}
-                  # Recorded on the run so the VR UI can re-trigger this job via the GitHub API.
-                  JOB_CHECK_RUN_ID: ${{ job.check_run_id }}
-              run: |
-                  RUN_ID=$(vr run create \
-                    --type playwright \
-                    --baseline playwright/snapshots.yml \
-                    --branch "$VR_BRANCH" \
-                    --commit "$VR_COMMIT" \
-                    --pr "$VR_PR" \
-                    --purpose "$VR_PURPOSE" \
-                    --token "$VR_TOKEN")
-                  echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
-
-            - name: Upload snapshots to Visual Review
-              if: always() && steps.vr-create.outputs.run_id != ''
-              env:
-                  VR_TOKEN: ${{ secrets.VR_API_TOKEN }}
-                  VR_RUN_ID: ${{ steps.vr-create.outputs.run_id }}
-              run: |
-                  vr run upload \
-                    --run-id "$VR_RUN_ID" \
-                    --dir playwright/__snapshots__/ \
-                    --baseline playwright/snapshots.yml \
-                    --token "$VR_TOKEN"
-
             # ── Artifacts on failure / always ─────────────────────────────────────
             - name: Capture docker logs
               if: always()
@@ -842,44 +798,9 @@ jobs:
                   status-job: 'Playwright tests pass'
                   runner: 'depot'
 
-    vr-complete:
-        name: Complete Visual Review run
-        runs-on: ubuntu-latest
-        timeout-minutes: 15
-        needs: [playwright]
-        if: needs.playwright.outputs.vr_run_id != '' && needs.playwright.result == 'success'
-        steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-              with:
-                  ref: ${{ github.event.pull_request.head.sha || github.sha }}
-                  repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-                  sparse-checkout: |
-                      .nvmrc
-                      products/visual_review/cli
-                      products/visual_review/frontend/generated/api.schemas.ts
-                      playwright/snapshots.yml
-                  sparse-checkout-cone-mode: false
-
-            - name: Set up Node.js
-              uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
-              with:
-                  node-version-file: .nvmrc
-
-            - name: Install VR CLI
-              run: cd products/visual_review/cli && npm ci && npm run build && npm link
-
-            - name: Complete Visual Review run
-              env:
-                  VR_TOKEN: ${{ secrets.VR_API_TOKEN }}
-              run: |
-                  vr run complete \
-                    --run-id "${{ needs.playwright.outputs.vr_run_id }}" \
-                    --baseline playwright/snapshots.yml \
-                    --token "$VR_TOKEN"
-
-    # Collate test + VR completion status for the required check
+    # Collate test status for the required check
     playwright_tests:
-        needs: [playwright, vr-complete]
+        needs: [playwright]
         name: Playwright tests pass
         runs-on: ubuntu-latest
         timeout-minutes: 5
@@ -889,10 +810,5 @@ jobs:
               run: |
                   if [[ "${{ needs.playwright.result }}" != "success" && "${{ needs.playwright.result }}" != "skipped" ]]; then
                     echo "Playwright tests failed."
-                    exit 1
-                  fi
-
-                  if [[ "${{ needs.vr-complete.result }}" != "success" && "${{ needs.vr-complete.result }}" != "skipped" ]]; then
-                    echo "Visual Review did not complete successfully (result: ${{ needs.vr-complete.result }})."
                     exit 1
                   fi

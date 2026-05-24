@@ -8,7 +8,6 @@
 #    alongside `objects`. `0002`'s `CreateModel` for `DeploymentEvent`
 #    didn't record it, so we add the manager here via
 #    `AlterModelManagers`. State-only — no SQL emitted. This mirrors
-#    `products/visual_review/backend/migrations/0011_alter_artifact_managers_and_more.py`.
 #
 # 2. The auto-name hash for unnamed `Meta.indexes` entries changed
 #    between Django 4.2 and 5.2. Renaming via Postgres `ALTER INDEX

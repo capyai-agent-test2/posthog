@@ -193,18 +193,18 @@ A route in `products/db_routing.yaml` declares which app label gets its own data
 
 ```yaml
 routes:
-  - app_label: visual_review
-    database: visual_review
+  - app_label: your_product
+    database: your_product
 ```
 
 This automatically:
 
-- Registers `visual_review_db_writer` and `visual_review_db_reader` as Django database aliases
-- Routes all reads/writes for the `visual_review` app through `ProductDBRouter`
+- Registers `<database>_db_writer` and `<database>_db_reader` as Django database aliases
+- Routes all reads/writes for the configured app through `ProductDBRouter`
 - Runs migrations via `bin/migrate` (calls `migrate_product_databases` management command)
 - Creates the database in local Docker via the Postgres init script
 
-Locally (`DEBUG=1`), it auto-connects to `posthog_visual_review` on localhost. In prod, the infrastructure handles env vars and connections automatically. If the env var is absent, the route is silently skipped.
+Locally (`DEBUG=1`), it auto-connects to `posthog_<database>` on localhost. In prod, the infrastructure handles env vars and connections automatically. If the env var is absent, the route is silently skipped.
 
 ### Adding a new product database
 
@@ -254,7 +254,7 @@ Products use Turborepo for selective testing. Only tests affected by your change
 pnpm turbo run backend:test
 
 # Run specific product tests
-pnpm turbo run backend:test --filter=@posthog/products-visual_review
+pnpm turbo run backend:test --filter=@posthog/products-your_product
 
 # Dry-run to see what would execute
 pnpm turbo run backend:test --dry-run=json
