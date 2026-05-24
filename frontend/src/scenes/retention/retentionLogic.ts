@@ -18,6 +18,7 @@ import { isRetentionQuery, hasBreakdownFilter } from '~/queries/utils'
 import { BreakdownKeyType, CohortType, DateMappingOption, InsightLogicProps, RetentionPeriod } from '~/types'
 
 import type { retentionLogicType } from './retentionLogicType'
+import { getRetentionCellPeriodState } from './utils'
 
 const DEFAULT_RETENTION_LOGIC_KEY = 'default_retention_key'
 export const OVERALL_MEAN_KEY = '__overall__'
@@ -184,18 +185,21 @@ export const retentionLogic = kea<retentionLogicType>([
                             retentionFilter?.retentionReference === 'previous' ? previousCount : totalCount
                         const percentage = referenceCount > 0 ? (value['count'] / referenceCount) * 100 : 0
 
-                        const periodUnit = (
-                            retentionFilter?.period ?? RetentionPeriod.Day
-                        ).toLowerCase() as dayjs.UnitTypeLong
-                        const cellDate = dayjs(result.date).tz(timezone).add(index, periodUnit)
+                        const cohortDate = dayjs(result.date).tz(timezone)
                         const now = dayjs().tz(timezone)
+                        const { cellDate, isCurrentPeriod, isFuture } = getRetentionCellPeriodState(
+                            cohortDate,
+                            now,
+                            index,
+                            retentionFilter
+                        )
 
                         return {
                             ...value,
                             percentage,
                             cellDate,
-                            isCurrentPeriod: cellDate.isSame(now, periodUnit),
-                            isFuture: cellDate.isAfter(now),
+                            isCurrentPeriod,
+                            isFuture,
                         }
                     }),
                 }))
