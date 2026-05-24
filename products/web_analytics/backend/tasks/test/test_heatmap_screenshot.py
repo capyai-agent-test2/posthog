@@ -1,3 +1,5 @@
+import ipaddress
+
 from posthog.test.base import APIBaseTest
 from unittest.mock import MagicMock, patch
 
@@ -46,6 +48,21 @@ class TestHeatmapScreenshotSecurity(SimpleTestCase):
     @patch("products.web_analytics.backend.tasks.heatmap_screenshot.is_url_allowed")
     def test_self_hosted_still_blocks_non_http_schemes(self, mock_is_url_allowed: MagicMock) -> None:
         assert validate_heatmap_screenshot_url("file:///etc/passwd") == (False, "Disallowed scheme")
+        mock_is_url_allowed.assert_not_called()
+
+    @override_settings(CLOUD_DEPLOYMENT=None)
+    @patch(
+        "products.web_analytics.backend.tasks.heatmap_screenshot.resolve_host_ips",
+        return_value={ipaddress.ip_address("169.254.169.254")},
+    )
+    @patch("products.web_analytics.backend.tasks.heatmap_screenshot.is_url_allowed")
+    def test_self_hosted_blocks_metadata_host_aliases(
+        self, mock_is_url_allowed: MagicMock, _mock_resolve_host_ips: MagicMock
+    ) -> None:
+        assert validate_heatmap_screenshot_url("http://metadata-alias.internal/latest/meta-data") == (
+            False,
+            "Local/metadata host",
+        )
         mock_is_url_allowed.assert_not_called()
 
     @override_settings(CLOUD_DEPLOYMENT=None)

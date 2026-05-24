@@ -1,4 +1,5 @@
 import os
+import ipaddress
 import urllib.parse as urlparse
 
 import structlog
@@ -13,7 +14,13 @@ from playwright.sync_api import (
 
 from posthog.cloud_utils import is_cloud
 from posthog.exceptions_capture import capture_exception
-from posthog.security.url_validation import DISALLOWED_SCHEMES, METADATA_HOSTS, is_url_allowed, should_block_url
+from posthog.security.url_validation import (
+    DISALLOWED_SCHEMES,
+    METADATA_HOSTS,
+    is_url_allowed,
+    resolve_host_ips,
+    should_block_url,
+)
 from posthog.tasks.utils import CeleryQueue
 
 from products.web_analytics.backend.api.heatmaps_utils import DEFAULT_TARGET_WIDTHS
@@ -22,6 +29,7 @@ from products.web_analytics.backend.models import HeatmapSnapshot, SavedHeatmap
 logger = structlog.get_logger(__name__)
 
 TMP_DIR = "/tmp"
+METADATA_IPS = {ipaddress.ip_address("169.254.169.254")}
 
 
 def _dismiss_cookie_banners(page: Page) -> None:
@@ -137,6 +145,9 @@ def validate_heatmap_screenshot_url(url: str) -> tuple[bool, str | None]:
         return False, "Local/metadata host"
 
     if not is_cloud():
+        resolved_ips = resolve_host_ips(host)
+        if any(ip in METADATA_IPS for ip in resolved_ips):
+            return False, "Local/metadata host"
         return True, None
 
     return is_url_allowed(url)
