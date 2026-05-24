@@ -498,6 +498,13 @@ class TestAutocomplete(ClickhouseTestMixin, APIBaseTest):
         assert len(results.suggestions) == 1
         assert results.suggestions[0].label == "variable_1"
 
+    def test_autocomplete_variables_are_hidden_for_expressions(self):
+        InsightVariable.objects.create(team=self.team, name="Variable 1", code_name="variable_1")
+        query = "{vari}"
+        results = self._expr(query=query, start=1, end=5)
+
+        assert "variables.variable_1" not in [suggestion.label for suggestion in results.suggestions]
+
     def test_autocomplete_warehouse_table(self):
         credentials = DataWarehouseCredential.objects.create(team=self.team, access_key="key", access_secret="secret")
         DataWarehouseTable.objects.create(
