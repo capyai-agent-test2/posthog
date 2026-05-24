@@ -1109,8 +1109,12 @@ class ClickHousePrinter(BasePrinter):
             if node.op == ast.CompareOperationOp.Eq:
                 if constant_expr.value is None:
                     # "IS NULL" can be interpreted as "does not exist in the map" -- this avoids unnecessarily reading
-                    # the ``values`` subcolumn of the map.
-                    return f"not({property_source.has_expr})"
+                    # the ``values`` subcolumn of the map. However, a JSON ``null`` value is stored as the literal
+                    # string ``'null'`` in the property group map, so we need to treat that as not set too.
+                    return (
+                        f"or(not({property_source.has_expr}), "
+                        f"equals({property_source.value_expr}, {self._print_escaped_string('null')}))"
+                    )
 
                 # Equality comparisons to boolean constants can skip NULL checks while maintaining our desired result
                 # (i.e. comparisons with NULL evaluate to false) since the value expression will return an empty string
@@ -1135,7 +1139,12 @@ class ClickHousePrinter(BasePrinter):
                 if constant_expr.value is None:
                     # "IS NOT NULL" can be interpreted as "does exist in the map" -- this avoids unnecessarily reading
                     # the ``values`` subcolumn of the map, and also allows us to use the data skipping index on keys.
-                    return property_source.has_expr
+                    # A JSON ``null`` value is stored as the literal string ``'null'`` in the property group map, so
+                    # we must exclude that sentinel here as well.
+                    return (
+                        f"and({property_source.has_expr}, "
+                        f"notEquals({property_source.value_expr}, {self._print_escaped_string('null')}))"
+                    )
 
         elif node.op in (ast.CompareOperationOp.In):
             # ``IN`` is _not_ commutative, so we only need to check the left side operand (in contrast with above.)
