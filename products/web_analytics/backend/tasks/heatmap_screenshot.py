@@ -110,10 +110,14 @@ def _dismiss_cookie_banners(page: Page) -> None:
 
 
 def _block_internal_requests(page: Page) -> None:
-    if not is_cloud():
-        return
+    def should_block_runtime_url(url: str) -> bool:
+        if is_cloud():
+            return should_block_url(url)
 
-    page.route("**/*", lambda route: route.abort() if should_block_url(route.request.url) else route.continue_())
+        is_allowed, _ = validate_heatmap_screenshot_url(url)
+        return not is_allowed
+
+    page.route("**/*", lambda route: route.abort() if should_block_runtime_url(route.request.url) else route.continue_())
 
 
 def validate_heatmap_screenshot_url(url: str) -> tuple[bool, str | None]:

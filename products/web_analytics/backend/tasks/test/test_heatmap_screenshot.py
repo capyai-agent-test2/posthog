@@ -54,7 +54,7 @@ class TestHeatmapScreenshotSecurity(SimpleTestCase):
 
         _block_internal_requests(page)
 
-        page.route.assert_not_called()
+        page.route.assert_called_once()
 
     @override_settings(CLOUD_DEPLOYMENT="US")
     def test_cloud_keeps_runtime_request_blocking(self) -> None:
@@ -63,6 +63,36 @@ class TestHeatmapScreenshotSecurity(SimpleTestCase):
         _block_internal_requests(page)
 
         page.route.assert_called_once()
+
+    @override_settings(CLOUD_DEPLOYMENT=None)
+    def test_self_hosted_runtime_request_blocking_blocks_metadata_hosts(self) -> None:
+        page = MagicMock()
+
+        _block_internal_requests(page)
+
+        route_handler = page.route.call_args.args[1]
+        blocked_route = MagicMock()
+        blocked_route.request.url = "http://169.254.169.254/latest/meta-data"
+
+        route_handler(blocked_route)
+
+        blocked_route.abort.assert_called_once()
+        blocked_route.continue_.assert_not_called()
+
+    @override_settings(CLOUD_DEPLOYMENT=None)
+    def test_self_hosted_runtime_request_blocking_allows_localhost(self) -> None:
+        page = MagicMock()
+
+        _block_internal_requests(page)
+
+        route_handler = page.route.call_args.args[1]
+        allowed_route = MagicMock()
+        allowed_route.request.url = "http://localhost:3000/static/app.js"
+
+        route_handler(allowed_route)
+
+        allowed_route.continue_.assert_called_once()
+        allowed_route.abort.assert_not_called()
 
     @override_settings(CLOUD_DEPLOYMENT=None)
     @patch("products.web_analytics.backend.tasks.heatmap_screenshot._generate_screenshots")
