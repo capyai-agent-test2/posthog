@@ -12,15 +12,16 @@ import type { HostBridge } from './host-bridge'
  */
 export class PlaybackController {
     private stopped = false
+    private finishHoldTimeout: number | null = null
 
     constructor(
         private replayer: Replayer,
         private segments: RecordingSegment[],
         private firstTimestamp: number,
-        private options: { skipInactivity?: boolean; endOffsetS?: number },
+        private options: { skipInactivity?: boolean; endOffsetS?: number; playbackSpeed?: number },
         private bridge: HostBridge
     ) {
-        this.replayer.on('finish', () => this.stop())
+        this.replayer.on('finish', () => this.handleFinish())
 
         if (this.options.endOffsetS != null) {
             const endTs = this.firstTimestamp + this.options.endOffsetS * 1000
@@ -49,7 +50,33 @@ export class PlaybackController {
             return
         }
         this.stopped = true
+        if (this.finishHoldTimeout !== null) {
+            window.clearTimeout(this.finishHoldTimeout)
+            this.finishHoldTimeout = null
+        }
         this.bridge.signalEnded()
+    }
+
+    private handleFinish(): void {
+        if (this.options.endOffsetS == null) {
+            this.stop()
+            return
+        }
+
+        const remainingRecordingMs = this.options.endOffsetS * 1000 - this.replayer.getCurrentTime()
+        if (remainingRecordingMs <= 0) {
+            this.stop()
+            return
+        }
+
+        const playbackSpeed =
+            this.options.playbackSpeed && this.options.playbackSpeed > 0 ? this.options.playbackSpeed : 1
+        const remainingWallClockMs = remainingRecordingMs / playbackSpeed
+
+        this.finishHoldTimeout = window.setTimeout(() => {
+            this.finishHoldTimeout = null
+            this.stop()
+        }, remainingWallClockMs)
     }
 
     /**
