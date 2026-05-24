@@ -53,7 +53,6 @@ export const urls = {
     revenueSettings: (): string => '/data-management/revenue',
     coreEvents: (): string => '/data-management/core-events',
     marketingAnalyticsApp: (): string => '/marketing',
-    customCss: (): string => '/themes/custom-css',
     sqlEditor: ({
         query,
         view_id,

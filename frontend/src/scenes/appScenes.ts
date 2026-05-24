@@ -21,7 +21,6 @@ export const appScenes: Record<Scene | string, () => any> = {
     [Scene.Cohort]: () => import('./cohorts/Cohort'),
     [Scene.CohortCalculationHistory]: () => import('./cohorts/CohortCalculationHistory'),
     [Scene.Cohorts]: () => import('./cohorts/Cohorts'),
-    [Scene.CustomCss]: () => import('./themes/CustomCssScene'),
     [Scene.Dashboard]: () => import('./dashboard/Dashboard'),
     [Scene.Dashboards]: () => import('./dashboard/dashboards/Dashboards'),
     [Scene.DataManagement]: () => import('./data-management/DataManagementScene'),

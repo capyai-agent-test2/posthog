@@ -802,7 +802,6 @@ export const routes: Record<string, [Scene | string, string]> = {
     [urls.personByDistinctId('*', false)]: [Scene.Person, 'personByDistinctId'],
     [urls.personByUUID('*', false)]: [Scene.Person, 'personByUUID'],
     [urls.persons()]: [Scene.Persons, 'persons'],
-    [urls.customCss()]: [Scene.CustomCss, 'customCss'],
     [urls.groups(':groupTypeIndex')]: [Scene.Groups, 'groups'],
     [urls.groupsNew(':groupTypeIndex')]: [Scene.GroupsNew, 'groupsNew'],
     [urls.group(':groupTypeIndex', ':groupKey', false)]: [Scene.Group, 'group'],
