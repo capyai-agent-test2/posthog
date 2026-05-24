@@ -1,6 +1,8 @@
 import { resetContext } from 'kea'
 import { expectLogic, testUtilsPlugin } from 'kea-test-utils'
 
+import api from 'lib/api'
+
 import { useMocks } from '~/mocks/jest'
 import { initKeaTests } from '~/test/init'
 import { CyclotronJobInvocationGlobals } from '~/types'
@@ -50,6 +52,10 @@ describe('hogFlowEditorNotificationTestLogic', () => {
 
         logic = hogFlowEditorNotificationTestLogic({ id: 'test-workflow-id' })
         logic.mount()
+    })
+
+    afterEach(() => {
+        jest.restoreAllMocks()
     })
 
     describe('setSampleGlobals reducer', () => {
@@ -453,5 +459,47 @@ describe('hogFlowEditorNotificationTestLogic', () => {
 
             newLogic.unmount()
         })
+    })
+
+    it('uses the unsaved workflow endpoint when workflow.id is missing', async () => {
+        const createTestInvocationSpy = jest.spyOn(api.hogFlows, 'createTestInvocation').mockResolvedValue({
+            status: 'success',
+        } as any)
+
+        workflowLogicInstance.actions.setWorkflowInfo({ id: undefined as any })
+
+        logic.actions.setSampleGlobals(
+            JSON.stringify({
+                person: {
+                    properties: {
+                        email: 'test@example.com',
+                    },
+                },
+            })
+        )
+        logic.actions.setTestInvocationValues({
+            globals: JSON.stringify({
+                person: {
+                    properties: {
+                        email: 'test@example.com',
+                    },
+                },
+            }),
+            mock_async_functions: true,
+        })
+
+        await expectLogic(logic, () => {
+            logic.actions.submitTestInvocation()
+        }).toFinishAllListeners()
+
+        expect(createTestInvocationSpy).toHaveBeenCalledWith(
+            'new',
+            expect.objectContaining({
+                configuration: expect.any(Object),
+                globals: expect.objectContaining({
+                    person: expect.any(Object),
+                }),
+            })
+        )
     })
 })
