@@ -9,10 +9,12 @@ import { addProductIntent } from 'lib/utils/product-intents'
 import { useMaxTool } from 'scenes/max/useMaxTool'
 
 import { iconForType } from '~/layout/panel-layout/ProjectTree/defaultTree'
+import type { MaxExperimentMetricResult } from '~/queries/schema/schema-general'
 import { ProductIntentContext, ProductKey } from '~/queries/schema/schema-general'
 
 import { experimentLogic } from '../experimentLogic'
 import { isLaunched } from '../experimentsLogic'
+import { serializeMetricResultsForSummary } from './SummarizeExperimentButton.utils'
 
 /**
  * Minimal context sent to the backend for experiment summarization.
@@ -22,13 +24,22 @@ import { isLaunched } from '../experimentsLogic'
 interface MinimalExperimentSummaryContext {
     experiment_id: number | string
     experiment_name: string
+    exposures: Record<string, number> | null
+    primary_metrics_results: MaxExperimentMetricResult[]
+    secondary_metrics_results: MaxExperimentMetricResult[]
     /** ISO8601 timestamp of when the frontend last refreshed the data */
     frontend_last_refresh: string | null
 }
 
 function useExperimentSummaryMaxTool(): ReturnType<typeof useMaxTool> {
-    const { experiment, orderedPrimaryMetricsWithResults, primaryMetricsResults, secondaryMetricsResults } =
-        useValues(experimentLogic)
+    const {
+        experiment,
+        exposures,
+        orderedPrimaryMetricsWithResults,
+        orderedSecondaryMetricsWithResults,
+        primaryMetricsResults,
+        secondaryMetricsResults,
+    } = useValues(experimentLogic)
 
     // Get the most recent last_refresh timestamp from metric results
     const frontendLastRefresh = useMemo(() => {
@@ -41,21 +52,39 @@ function useExperimentSummaryMaxTool(): ReturnType<typeof useMaxTool> {
         return timestamps[0] || null
     }, [primaryMetricsResults, secondaryMetricsResults])
 
-    // Simplified context - backend will fetch full data using experiment_id
+    const primaryMetricsForSummary = useMemo(
+        () => serializeMetricResultsForSummary(orderedPrimaryMetricsWithResults),
+        [orderedPrimaryMetricsWithResults]
+    )
+    const secondaryMetricsForSummary = useMemo(
+        () => serializeMetricResultsForSummary(orderedSecondaryMetricsWithResults),
+        [orderedSecondaryMetricsWithResults]
+    )
+
     const maxToolContext = useMemo(
         (): MinimalExperimentSummaryContext => ({
             experiment_id: experiment.id,
             experiment_name: experiment.name || 'Unnamed experiment',
+            exposures: exposures?.total_exposures || null,
+            primary_metrics_results: primaryMetricsForSummary,
+            secondary_metrics_results: secondaryMetricsForSummary,
             frontend_last_refresh: frontendLastRefresh,
         }),
-        [experiment.id, experiment.name, frontendLastRefresh]
+        [
+            experiment.id,
+            experiment.name,
+            exposures?.total_exposures,
+            primaryMetricsForSummary,
+            secondaryMetricsForSummary,
+            frontendLastRefresh,
+        ]
     )
 
     const shouldShowMaxSummaryTool = useMemo(() => {
-        const hasResults = orderedPrimaryMetricsWithResults.length > 0
+        const hasResults = primaryMetricsForSummary.length > 0 || secondaryMetricsForSummary.length > 0
         const hasStarted = isLaunched(experiment)
         return hasResults && hasStarted
-    }, [orderedPrimaryMetricsWithResults, experiment.status, experiment.start_date, experiment.end_date, experiment])
+    }, [primaryMetricsForSummary.length, secondaryMetricsForSummary.length, experiment])
 
     const maxToolResult = useMaxTool({
         identifier: 'experiment_results_summary',
