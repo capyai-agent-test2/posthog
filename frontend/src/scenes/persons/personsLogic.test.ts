@@ -35,6 +35,9 @@ describe('personsLogic', () => {
                             name: 'test@test.com',
                             distinct_ids: ['test@test.com'],
                             uuid: 'abc-123',
+                            properties: {},
+                            is_identified: true,
+                            created_at: '2024-01-01',
                         },
                     ],
                 },
@@ -91,6 +94,9 @@ describe('personsLogic', () => {
                         name: 'test@test.com',
                         distinct_ids: ['test@test.com'],
                         uuid: 'abc-123',
+                        properties: {},
+                        is_identified: true,
+                        created_at: '2024-01-01',
                     },
                 })
 
@@ -518,6 +524,20 @@ describe('personsLogic', () => {
             }).toMatchValues({
                 activeTab: PersonsTabType.EVENTS,
             })
+        })
+
+        it('prefers an explicit tab over sessionRecordingId when routing the person page', async () => {
+            await expectLogic(logic, () => {
+                router.actions.push(
+                    '/person/test%40test.com',
+                    { sessionRecordingId: 'rec-123' },
+                    { activeTab: PersonsTabType.PROPERTIES }
+                )
+            })
+                .toFinishAllListeners()
+                .toMatchValues({
+                    activeTab: PersonsTabType.PROPERTIES,
+                })
         })
 
         it('setActiveTab updates activeTab', async () => {

@@ -487,16 +487,16 @@ export const personsLogic = kea<personsLogicType>([
                 return ['/persons', values.listFilters, undefined, { replace: true }]
             }
         },
-        navigateToTab: () => {
+        navigateToTab: ({ tab }) => {
             if (
                 props.syncWithUrl &&
                 router.values.location.pathname.indexOf('/person') > -1 &&
-                router.values.hashParams.activeTab !== values.activeTab
+                router.values.hashParams.activeTab !== tab
             ) {
                 // When navigating away from recordings tab, clear sessionRecordingId from search params
                 // to prevent urlToAction from forcing back to recordings tab
                 let searchParams = router.values.searchParams
-                if (values.activeTab !== PersonsTabType.SESSION_RECORDINGS && searchParams.sessionRecordingId) {
+                if (tab !== PersonsTabType.SESSION_RECORDINGS && searchParams.sessionRecordingId) {
                     const { sessionRecordingId: _, ...restSearchParams } = searchParams
                     searchParams = restSearchParams
                 }
@@ -505,7 +505,7 @@ export const personsLogic = kea<personsLogicType>([
                     searchParams,
                     {
                         ...router.values.hashParams,
-                        activeTab: values.activeTab,
+                        activeTab: tab,
                     },
                 ]
             }
@@ -514,13 +514,11 @@ export const personsLogic = kea<personsLogicType>([
     tabAwareUrlToAction(({ actions, values, props }) => ({
         '/person/*': ({ _: rawPersonDistinctId }, { sessionRecordingId }, { activeTab }) => {
             if (props.syncWithUrl) {
-                if (sessionRecordingId && values.activeTab !== PersonsTabType.SESSION_RECORDINGS) {
-                    actions.navigateToTab(PersonsTabType.SESSION_RECORDINGS)
-                } else if (activeTab && values.activeTab !== activeTab) {
+                if (activeTab && values.activeTab !== activeTab) {
                     actions.navigateToTab(activeTab as PersonsTabType)
-                }
-
-                if (!activeTab && values.activeTab !== values.defaultTab) {
+                } else if (!activeTab && sessionRecordingId && values.activeTab !== PersonsTabType.SESSION_RECORDINGS) {
+                    actions.navigateToTab(PersonsTabType.SESSION_RECORDINGS)
+                } else if (!activeTab && values.activeTab !== values.defaultTab) {
                     actions.setActiveTab(values.defaultTab)
                 }
 
@@ -536,13 +534,11 @@ export const personsLogic = kea<personsLogicType>([
         },
         '/persons/*': ({ _: rawPersonUUID }, { sessionRecordingId }, { activeTab }) => {
             if (props.syncWithUrl) {
-                if (sessionRecordingId && values.activeTab !== PersonsTabType.SESSION_RECORDINGS) {
-                    actions.navigateToTab(PersonsTabType.SESSION_RECORDINGS)
-                } else if (activeTab && values.activeTab !== activeTab) {
+                if (activeTab && values.activeTab !== activeTab) {
                     actions.navigateToTab(activeTab as PersonsTabType)
-                }
-
-                if (!activeTab) {
+                } else if (!activeTab && sessionRecordingId && values.activeTab !== PersonsTabType.SESSION_RECORDINGS) {
+                    actions.navigateToTab(PersonsTabType.SESSION_RECORDINGS)
+                } else if (!activeTab) {
                     actions.setActiveTab(values.defaultTab)
                 }
 
