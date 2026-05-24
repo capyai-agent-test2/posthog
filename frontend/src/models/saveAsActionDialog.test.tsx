@@ -118,7 +118,7 @@ describe('saveAsActionDialog', () => {
             const step = eventToActionStep(
                 makeAutocaptureEvent({
                     properties: { $current_url: 'https://example.com/page', $el_text: 'Text from properties' },
-                    elements: [{ tag_name: 'button', text: '', attributes: {}, order: 0 }],
+                    elements: [{ tag_name: 'button', text: 'Text from element', attributes: {}, order: 0 }],
                 }) as any,
                 []
             )
