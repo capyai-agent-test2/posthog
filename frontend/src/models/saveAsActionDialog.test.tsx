@@ -110,6 +110,24 @@ describe('saveAsActionDialog', () => {
                 url: 'https://example.com/page',
                 url_matching: 'exact',
                 text: 'Submit',
+                tag_name: 'button',
+            })
+        })
+
+        it('prefers $el_text over element text when building an action step', () => {
+            const step = eventToActionStep(
+                makeAutocaptureEvent({
+                    properties: { $current_url: 'https://example.com/page', $el_text: 'Text from properties' },
+                    elements: [{ tag_name: 'button', text: '', attributes: {}, order: 0 }],
+                }) as any,
+                []
+            )
+            expect(step).toMatchObject({
+                event: '$autocapture',
+                text: 'Text from properties',
+                tag_name: 'button',
+                url: 'https://example.com/page',
+                url_matching: 'exact',
             })
         })
 
@@ -310,6 +328,7 @@ describe('saveAsActionDialog', () => {
             expect(capturedBody.steps[0]).toMatchObject({
                 event: '$autocapture',
                 text: 'Submit',
+                tag_name: 'button',
                 url: 'https://example.com/page',
                 url_matching: 'exact',
             })
