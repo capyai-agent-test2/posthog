@@ -422,6 +422,10 @@ export function positionTooltip(
     }
 }
 
+export function isInsightHoverTooltipVisible(): boolean {
+    return !!hover.element && hover.element.style.opacity === '1' && !hover.element.classList.contains('invisible')
+}
+
 export function useInsightTooltip(options?: { isPinnable?: boolean }): {
     tooltipId: string
     getTooltip: () => [Root, HTMLElement]

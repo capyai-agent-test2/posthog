@@ -22,6 +22,7 @@ import { insightLogic } from 'scenes/insights/insightLogic'
 import { annotationsModel } from '~/models/annotationsModel'
 import { AnnotationType, DatedAnnotationType, IntervalType } from '~/types'
 
+import { shouldActivateAnnotationHover } from './annotationHoverUtils'
 import { AnnotationsOverlayLogicProps, annotationsOverlayLogic } from './annotationsOverlayLogic'
 import { useAnnotationsPositioning } from './useAnnotationsPositioning'
 
@@ -299,6 +300,9 @@ const AnnotationsBadge = React.memo(function AnnotationsBadgeRaw({
                 } as AnnotationsBadgeCSSProperties
             }
             onMouseEnter={() => {
+                if (!shouldActivateAnnotationHover(isDateLocked)) {
+                    return
+                }
                 setHovered(true)
                 if (!isDateLocked) {
                     activateDate(date)
