@@ -1,4 +1,4 @@
-import { S3Client, S3ClientConfig } from '@aws-sdk/client-s3'
+import { S3Client } from '@aws-sdk/client-s3'
 import { CODES, Message, TopicPartition, TopicPartitionOffset, features, librdkafkaVersion } from 'node-rdkafka'
 
 import { instrumentFn } from '~/common/tracing/tracing-utils'
@@ -40,6 +40,7 @@ import { PromiseScheduler } from '../utils/promise-scheduler'
 import { SessionRecordingApiConfig, SessionRecordingConfig, SessionReplayOutputsConfig } from './config'
 import { KafkaOffsetManager } from './kafka/offset-manager'
 import { SessionRecordingIngesterMetrics } from './metrics'
+import { createSessionRecordingS3ClientConfig } from './s3-client-config'
 import { BlackholeSessionBatchFileStorage } from './sessions/blackhole-session-batch-writer'
 import { RetentionAwareStorage } from './sessions/retention-aware-batch-writer'
 import { SessionBatchFileStorage } from './sessions/session-batch-file-storage'
@@ -126,20 +127,7 @@ export class SessionRecordingIngester {
             config.SESSION_RECORDING_V2_S3_BUCKET &&
             config.SESSION_RECORDING_V2_S3_PREFIX
         ) {
-            const s3Config: S3ClientConfig = {
-                region: config.SESSION_RECORDING_V2_S3_REGION,
-                endpoint: config.SESSION_RECORDING_V2_S3_ENDPOINT,
-                forcePathStyle: true,
-            }
-
-            if (config.SESSION_RECORDING_V2_S3_ACCESS_KEY_ID && config.SESSION_RECORDING_V2_S3_SECRET_ACCESS_KEY) {
-                s3Config.credentials = {
-                    accessKeyId: config.SESSION_RECORDING_V2_S3_ACCESS_KEY_ID,
-                    secretAccessKey: config.SESSION_RECORDING_V2_S3_SECRET_ACCESS_KEY,
-                }
-            }
-
-            s3Client = new S3Client(s3Config)
+            s3Client = new S3Client(createSessionRecordingS3ClientConfig(config))
         }
 
         this.topHog = new TopHog({

@@ -1472,6 +1472,9 @@ importers:
       '@segment/action-destinations':
         specifier: ^3.383.0
         version: 3.387.0(ajv@8.18.0)(encoding@0.1.13)
+      '@smithy/node-http-handler':
+        specifier: 4.4.8
+        version: 4.4.8
       '@temporalio/activity':
         specifier: 1.15.0
         version: 1.15.0
