@@ -1,7 +1,10 @@
 import { expectLogic } from 'kea-test-utils'
 
+import api from 'lib/api'
+
 import { initKeaTests } from '~/test/init'
 
+import { workflowLogic } from '../../../workflowLogic'
 import { hogFlowEditorTestLogic } from './hogFlowEditorTestLogic'
 
 describe('hogFlowEditorTestLogic', () => {
@@ -9,6 +12,10 @@ describe('hogFlowEditorTestLogic', () => {
 
     beforeEach(() => {
         initKeaTests()
+    })
+
+    afterEach(() => {
+        jest.restoreAllMocks()
     })
 
     describe('accumulatedVariables reducer', () => {
@@ -155,5 +162,34 @@ describe('hogFlowEditorTestLogic', () => {
                 accumulatedVariables: {},
             })
         })
+    })
+
+    it('uses the unsaved workflow endpoint when workflow.id is missing', async () => {
+        const createTestInvocationSpy = jest.spyOn(api.hogFlows, 'createTestInvocation').mockResolvedValue({
+            status: 'success',
+        } as any)
+
+        const workflowLogicInstance = workflowLogic({ id: 'new' })
+        workflowLogicInstance.mount()
+        workflowLogicInstance.actions.setWorkflowInfo({ id: undefined as any })
+
+        logic = hogFlowEditorTestLogic({ id: 'new' })
+        logic.mount()
+        logic.actions.setTestInvocationValues({
+            globals: JSON.stringify({ event: { event: '$pageview' } }),
+            mock_async_functions: true,
+        })
+
+        await expectLogic(logic, () => {
+            logic.actions.submitTestInvocation()
+        }).toFinishAllListeners()
+
+        expect(createTestInvocationSpy).toHaveBeenCalledWith(
+            'new',
+            expect.objectContaining({
+                configuration: expect.any(Object),
+                globals: expect.any(Object),
+            })
+        )
     })
 })

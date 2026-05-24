@@ -503,7 +503,7 @@ export const hogFlowEditorTestLogic = kea<hogFlowEditorTestLogicType>([
             },
             submit: async (testInvocation: HogflowTestInvocation) => {
                 try {
-                    const apiResponse = await api.hogFlows.createTestInvocation(values.workflow.id, {
+                    const apiResponse = await api.hogFlows.createTestInvocation(values.workflow.id || 'new', {
                         configuration: values.workflowSanitized,
                         globals: {
                             ...JSON.parse(testInvocation.globals),

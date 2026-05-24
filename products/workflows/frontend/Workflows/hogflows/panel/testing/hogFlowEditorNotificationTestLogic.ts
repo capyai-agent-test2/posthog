@@ -193,7 +193,7 @@ export const hogFlowEditorNotificationTestLogic = kea<hogFlowEditorNotificationT
                         }
                     }
 
-                    const apiResponse = await api.hogFlows.createTestInvocation(values.workflow.id, {
+                    const apiResponse = await api.hogFlows.createTestInvocation(values.workflow.id || 'new', {
                         configuration: values.workflowSanitized,
                         globals: {
                             ...parsedGlobals,

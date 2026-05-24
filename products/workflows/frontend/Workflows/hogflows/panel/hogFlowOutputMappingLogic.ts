@@ -229,7 +229,7 @@ export const hogFlowOutputMappingLogic = kea<hogFlowOutputMappingLogicType>([
                         delete currentAction.output_variable
                     }
 
-                    const result: HogflowTestResult = await api.hogFlows.createTestInvocation(workflow.id, {
+                    const result: HogflowTestResult = await api.hogFlows.createTestInvocation(workflow.id || 'new', {
                         configuration: config,
                         globals,
                         mock_async_functions: false,
