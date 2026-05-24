@@ -380,8 +380,15 @@ export const insightSceneLogic = kea<insightSceneLogicType>([
         reloadInsightLogic: () => {
             const logicInsightId = values.insight?.short_id ?? null
             const insightId = values.insightId ?? null
-            const mountedDashboardItemId = values.insightLogicRef?.logic.props.dashboardItemId ?? null
-            const propsMismatch = Boolean(insightId && mountedDashboardItemId && mountedDashboardItemId !== insightId)
+            const mountedLogicProps = values.insightLogicRef?.logic.props
+            const propsMismatch = Boolean(
+                mountedLogicProps &&
+                ((insightId && mountedLogicProps.dashboardItemId && mountedLogicProps.dashboardItemId !== insightId) ||
+                    mountedLogicProps.dashboardId !== (values.dashboardId ?? undefined) ||
+                    !objectsEqual(mountedLogicProps.filtersOverride ?? null, values.filtersOverride ?? null) ||
+                    !objectsEqual(mountedLogicProps.variablesOverride ?? null, values.variablesOverride ?? null) ||
+                    !objectsEqual(mountedLogicProps.tileFiltersOverride ?? null, values.tileFiltersOverride ?? null))
+            )
 
             if (logicInsightId !== insightId || propsMismatch) {
                 const oldRef = values.insightLogicRef // free old logic after mounting new one
