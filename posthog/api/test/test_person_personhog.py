@@ -199,7 +199,7 @@ class TestDeleteProperty(PersonhogTestMixin, APIBaseTest):
         assert resp.status_code == 201
         mock_capture.assert_called_once_with(
             token=self.team.api_token,
-            event_name="$delete_person_property",
+            event_name="person property deleted",
             event_source="person_viewset",
             distinct_id="did1",
             timestamp=mock.ANY,
