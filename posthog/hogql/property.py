@@ -740,7 +740,15 @@ def property_to_expr(
     ),
     team: Team,
     scope: Literal[
-        "event", "person", "group", "session", "replay", "replay_entity", "revenue_analytics", "log_resource"
+        "event",
+        "event_no_person_overrides",
+        "person",
+        "group",
+        "session",
+        "replay",
+        "replay_entity",
+        "revenue_analytics",
+        "log_resource",
     ] = "event",
     strict: bool = False,
 ) -> ast.Expr:
@@ -1206,8 +1214,11 @@ def property_to_expr(
         if not isinstance(property.value, (str, int)):
             raise ValidationError("Cohort property value must be a cohort ID")
         cohort = Cohort.objects.get(team__project_id=team.project_id, id=property.value)
+        left_field = "id" if scope == "person" else "person_id"
+        if scope == "event_no_person_overrides" and _is_behavioral_only_dynamic_cohort(cohort):
+            left_field = "event_person_id"
         return ast.CompareOperation(
-            left=ast.Field(chain=["id" if scope == "person" else "person_id"]),
+            left=ast.Field(chain=[left_field]),
             op=(
                 ast.CompareOperationOp.NotInCohort
                 # Kludge: negation is outdated but still used in places
@@ -1222,6 +1233,33 @@ def property_to_expr(
     raise NotImplementedError(
         f"property_to_expr not implemented for filter type {type(property).__name__} and {property.type}"
     )
+
+
+def _is_behavioral_only_dynamic_cohort(cohort: Cohort) -> bool:
+    if cohort.is_static:
+        return False
+
+    normalized_filter_tree = cohort.properties.to_dict()
+    return _is_behavioral_only_filter_tree(normalized_filter_tree)
+
+
+def _is_behavioral_only_filter_tree(node: object) -> bool:
+    if isinstance(node, list):
+        return len(node) > 0 and all(_is_behavioral_only_filter_tree(child) for child in node)
+
+    if not isinstance(node, dict):
+        return False
+
+    node_type = node.get("type")
+    if node_type in {"AND", "OR"}:
+        values = node.get("values")
+        return (
+            isinstance(values, list)
+            and len(values) > 0
+            and all(_is_behavioral_only_filter_tree(child) for child in values)
+        )
+
+    return node_type == "behavioral"
 
 
 def steps_to_expr(steps: list[ActionStepJSON], team: Team, events_alias: Optional[str] = None) -> ast.Expr:
