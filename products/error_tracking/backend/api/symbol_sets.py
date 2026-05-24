@@ -1,13 +1,16 @@
 import hashlib
 from dataclasses import dataclass
+from ipaddress import ip_address
+from urllib.parse import urlparse
 
 from django.conf import settings
+from django.core import signing
 from django.db import transaction
 
 import structlog
 import posthoganalytics
 from drf_spectacular.utils import extend_schema, extend_schema_field
-from rest_framework import pagination, serializers, status, viewsets
+from rest_framework import decorators, pagination, serializers, status, viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FileUploadParser, JSONParser, MultiPartParser
 from rest_framework.request import Request
@@ -32,6 +35,7 @@ JS_DATA_MAGIC = b"posthog_error_tracking"
 JS_DATA_VERSION = 1
 JS_DATA_TYPE_SOURCE_AND_MAP = 2
 PRESIGNED_MULTIPLE_UPLOAD_TIMEOUT = 60 * 5
+SYMBOL_SET_UPLOAD_PROXY_TOKEN_SALT = "error-tracking-symbol-set-upload-proxy"
 
 
 class ErrorTrackingSymbolSetSerializer(serializers.ModelSerializer):
@@ -371,6 +375,8 @@ class ErrorTrackingSymbolSetViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSe
             file_key=file_key,
             conditions=[["content-length-range", 0, ONE_HUNDRED_MEGABYTES]],
         )
+        if presigned_url:
+            presigned_url = maybe_proxy_symbol_set_upload(request, presigned_url)
 
         symbol_set = create_symbol_set(chunk_id, self.team, release_id, file_key)
 
@@ -467,6 +473,8 @@ class ErrorTrackingSymbolSetViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSe
             skip_on_conflict=skip_on_conflict,
             distinct_id=str(request.user.pk) if request.user.pk else None,
         )
+        for upload_data in chunk_id_url_map.values():
+            upload_data["presigned_url"] = maybe_proxy_symbol_set_upload(request, upload_data["presigned_url"])
         return Response({"id_map": chunk_id_url_map}, status=status.HTTP_201_CREATED)
 
     @extend_schema(request=ErrorTrackingSymbolSetBulkFinishUploadSerializer)
@@ -802,3 +810,87 @@ def generate_symbol_set_upload_presigned_url(file_key: str, *, accelerate: bool 
         conditions=[["content-length-range", 0, ONE_HUNDRED_MEGABYTES]],
         expiration=PRESIGNED_MULTIPLE_UPLOAD_TIMEOUT,
     )
+
+
+def maybe_proxy_symbol_set_upload(request: Request, presigned_url: dict[str, object]) -> dict[str, object]:
+    parsed_upload_url = urlparse(str(presigned_url["url"]))
+    upload_host = parsed_upload_url.hostname
+    request_host = request.get_host().split(":", 1)[0]
+
+    if not upload_host or upload_host == request_host or not _is_internal_upload_host(upload_host):
+        return presigned_url
+
+    fields = presigned_url.get("fields")
+    if not isinstance(fields, dict):
+        return presigned_url
+
+    file_key = fields.get("key")
+    if not file_key:
+        return presigned_url
+
+    proxy_token = signing.dumps({"key": file_key}, salt=SYMBOL_SET_UPLOAD_PROXY_TOKEN_SALT)
+    proxy_path = f"{request.path.rstrip('/').rsplit('/', 1)[0]}/proxy_upload/"
+
+    return {
+        "url": request.build_absolute_uri(f"{proxy_path}?token={proxy_token}"),
+        "fields": {"key": file_key},
+    }
+
+
+@extend_schema(exclude=True)
+@decorators.api_view(["POST"])
+@decorators.authentication_classes([])
+@decorators.permission_classes([])
+@decorators.parser_classes([MultiPartParser])
+@decorators.throttle_classes([])
+def proxy_symbol_set_upload(request: Request, team_id: int | None = None, project_id: int | None = None) -> Response:
+    token = request.query_params.get("token")
+    upload = request.FILES.get("file")
+    file_key = request.data.get("key")
+
+    if not token or not file_key:
+        return Response({"detail": "Signed upload token and key are required."}, status=status.HTTP_400_BAD_REQUEST)
+    if upload is None:
+        return Response({"detail": "file is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        signed_data = signing.loads(
+            token,
+            salt=SYMBOL_SET_UPLOAD_PROXY_TOKEN_SALT,
+            max_age=PRESIGNED_MULTIPLE_UPLOAD_TIMEOUT,
+        )
+    except signing.BadSignature:
+        return Response({"detail": "Invalid or expired upload token."}, status=status.HTTP_403_FORBIDDEN)
+
+    if signed_data.get("key") != file_key or not str(file_key).startswith(
+        f"{settings.OBJECT_STORAGE_ERROR_TRACKING_SOURCE_MAPS_FOLDER}/"
+    ):
+        return Response({"detail": "Invalid upload target."}, status=status.HTTP_403_FORBIDDEN)
+
+    if upload.size > ONE_HUNDRED_MEGABYTES:
+        raise ValidationError(
+            code="file_too_large", detail="Combined source map and symbol set must be less than 100MB"
+        )
+
+    object_storage.write_stream(str(file_key), upload.file)
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def _is_internal_upload_host(hostname: str) -> bool:
+    normalized_hostname = hostname.strip("[]").lower()
+    if normalized_hostname in {"localhost", "objectstorage", "seaweedfs"}:
+        return True
+
+    endpoint_host = urlparse(settings.OBJECT_STORAGE_ENDPOINT).hostname
+    if endpoint_host and normalized_hostname == endpoint_host.lower():
+        return normalized_hostname != _public_upload_host(settings.OBJECT_STORAGE_PUBLIC_ENDPOINT)
+
+    try:
+        return ip_address(normalized_hostname).is_private or ip_address(normalized_hostname).is_loopback
+    except ValueError:
+        return "." not in normalized_hostname
+
+
+def _public_upload_host(endpoint: str) -> str | None:
+    hostname = urlparse(endpoint).hostname
+    return hostname.lower() if hostname else None
