@@ -35,7 +35,7 @@ describe('API_KEY_SCOPE_PRESETS', () => {
 
 describe('API_SCOPES', () => {
     it('stays in sync with backend scope objects except internal-only entries', () => {
-        const scopesPy = fs.readFileSync(path.resolve(process.cwd(), 'posthog/scopes.py'), 'utf-8')
+        const scopesPy = fs.readFileSync(path.resolve(__dirname, '../../../posthog/scopes.py'), 'utf-8')
         const internalScopeMatch = scopesPy.match(/INTERNAL_API_SCOPE_OBJECTS:\s+frozenset\[APIScopeObject\]\s+=\s+frozenset\(\{([^}]*)\}\)/s)
         const internalScopes = new Set(
             [...(internalScopeMatch?.[1].matchAll(/"([^"]+)"/g) ?? [])].map((match) => match[1])
