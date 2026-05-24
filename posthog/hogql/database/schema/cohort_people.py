@@ -9,6 +9,9 @@ from posthog.hogql.database.models import (
 )
 from posthog.hogql.database.schema.persons import join_with_persons_table
 
+COHORT_VERSION_OVERRIDES_DATA_KEY = "cohort_version_overrides"
+
+
 COHORT_PEOPLE_FIELDS: dict[str, FieldOrTable] = {
     "person_id": StringDatabaseField(name="person_id", nullable=False),
     "cohort_id": IntegerDatabaseField(name="cohort_id", nullable=False),
@@ -21,7 +24,11 @@ COHORT_PEOPLE_FIELDS: dict[str, FieldOrTable] = {
 }
 
 
-def select_from_cohort_people_table(requested_fields: dict[str, list[str | int]], project_id: int):
+def select_from_cohort_people_table(
+    requested_fields: dict[str, list[str | int]],
+    project_id: int,
+    cohort_version_overrides: dict[int, int] | None = None,
+):
     from posthog.hogql import ast
 
     from posthog.models import Cohort
@@ -31,6 +38,11 @@ def select_from_cohort_people_table(requested_fields: dict[str, list[str | int]]
         .exclude(version__isnull=True)
         .values_list("id", "version")
     )
+    if cohort_version_overrides:
+        cohort_tuples = [
+            (cohort_id, cohort_version_overrides.get(cohort_id, cohort_version))
+            for cohort_id, cohort_version in cohort_tuples
+        ]
 
     table_name = "raw_cohort_people"
 
@@ -77,7 +89,12 @@ class CohortPeople(LazyTable):
     fields: dict[str, FieldOrTable] = COHORT_PEOPLE_FIELDS
 
     def lazy_select(self, table_to_add: LazyTableToAdd, context, node):
-        return select_from_cohort_people_table(table_to_add.fields_accessed, context.project_id)
+        cohort_version_overrides = context.data_to_ingest.get(COHORT_VERSION_OVERRIDES_DATA_KEY)
+        return select_from_cohort_people_table(
+            table_to_add.fields_accessed,
+            context.project_id,
+            cohort_version_overrides=cohort_version_overrides,
+        )
 
     def to_printed_clickhouse(self, context):
         return "cohortpeople"

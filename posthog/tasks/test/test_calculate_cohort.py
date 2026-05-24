@@ -646,6 +646,7 @@ def calculate_cohort_test_factory(event_factory: Callable, person_factory: Calla
             cohort_a = Cohort.objects.create(
                 team=self.team,
                 name="Cohort A",
+                version=3,
                 filters={
                     "properties": {
                         "type": "AND",
@@ -665,6 +666,7 @@ def calculate_cohort_test_factory(event_factory: Callable, person_factory: Calla
             cohort_b = Cohort.objects.create(
                 team=self.team,
                 name="Cohort B",
+                version=5,
                 filters={
                     "properties": {
                         "type": "AND",
@@ -684,6 +686,7 @@ def calculate_cohort_test_factory(event_factory: Callable, person_factory: Calla
             cohort_c = Cohort.objects.create(
                 team=self.team,
                 name="Cohort C",
+                version=7,
                 filters={
                     "properties": {
                         "type": "AND",
@@ -700,6 +703,7 @@ def calculate_cohort_test_factory(event_factory: Callable, person_factory: Calla
             cohort_d = Cohort.objects.create(
                 team=self.team,
                 name="Cohort D",
+                version=11,
                 filters={
                     "properties": {
                         "type": "AND",
@@ -754,12 +758,14 @@ def calculate_cohort_test_factory(event_factory: Callable, person_factory: Calla
             self.assertLess(b_index, c_index, "Cohort B must be processed before C (dependency)")
             self.assertLess(c_index, d_index, "Cohort C must be processed before D (dependency)")
 
-            # Verify countdown: first task has no countdown, all subsequent have countdown=2
-            # mock_calculate_cohort_ch_si returns mock_task, and .set() is called on it for non-first tasks
-            set_calls = mock_task.set.call_args_list
-            self.assertEqual(len(set_calls), 3, "3 of 4 tasks should have .set(countdown=2) called")
-            for call in set_calls:
-                self.assertEqual(call, ((), {"countdown": 2}))
+            override_maps_by_cohort_id = {call[0][0]: call[0][3] for call in actual_calls}
+            self.assertEqual(override_maps_by_cohort_id[cohort_a.id], {})
+            self.assertEqual(override_maps_by_cohort_id[cohort_b.id], {cohort_a.id: 3})
+            self.assertEqual(override_maps_by_cohort_id[cohort_c.id], {cohort_a.id: 3, cohort_b.id: 5})
+            self.assertEqual(
+                override_maps_by_cohort_id[cohort_d.id],
+                {cohort_a.id: 3, cohort_b.id: 5, cohort_c.id: 7},
+            )
 
             mock_chain.assert_called_once()
             mock_chain_instance.apply_async.assert_called_once()
@@ -793,7 +799,7 @@ def calculate_cohort_test_factory(event_factory: Callable, person_factory: Calla
             self.assertEqual(
                 len(call_args),
                 3,
-                "Single cohort path should use .delay() with no countdown",
+                "Single cohort path should use .delay() with no dependency override payload",
             )
 
         @patch("posthog.tasks.calculate_cohort.chain")
@@ -804,6 +810,7 @@ def calculate_cohort_test_factory(event_factory: Callable, person_factory: Calla
             cohort_a = Cohort.objects.create(
                 team=self.team,
                 name="Cohort A",
+                version=2,
                 filters={
                     "properties": {
                         "type": "AND",
@@ -823,6 +830,7 @@ def calculate_cohort_test_factory(event_factory: Callable, person_factory: Calla
             cohort_with_missing_dependency = Cohort.objects.create(
                 team=self.team,
                 name="Cohort with missing dependency",
+                version=4,
                 filters={
                     "properties": {
                         "type": "AND",
@@ -872,6 +880,8 @@ def calculate_cohort_test_factory(event_factory: Callable, person_factory: Calla
                 expected_cohort_order,
                 "Dependency cohort A should be processed before cohort with missing dependency",
             )
+            self.assertEqual(actual_calls[0][0][3], {})
+            self.assertEqual(actual_calls[1][0][3], {cohort_a.id: 2})
 
             mock_chain.assert_called_once_with(mock_task, mock_task)
             mock_chain_instance.apply_async.assert_called_once()
@@ -884,6 +894,7 @@ def calculate_cohort_test_factory(event_factory: Callable, person_factory: Calla
             static_cohort_a = Cohort.objects.create(
                 team=self.team,
                 name="Static Cohort A",
+                version=13,
                 is_static=True,
             )
 
@@ -940,6 +951,7 @@ def calculate_cohort_test_factory(event_factory: Callable, person_factory: Calla
                 expected_cohort_order,
                 "Only the dynamic cohort should be processed, static dependencies are skipped",
             )
+            self.assertEqual(actual_calls[0][0][3], {})
 
             mock_chain.assert_called_once_with(mock_task)
             mock_chain_instance.apply_async.assert_called_once()
@@ -1175,63 +1187,70 @@ class TestCohortCalculationTasks(APIBaseTest):
             self.assertFalse(cohort.is_calculating, "Cohort should not be in calculating state")
             self.assertGreater(cohort.errors_calculating, 0, "Should have recorded the processing error")
 
-    @patch("posthog.tasks.calculate_cohort.chain")
-    @patch("posthog.tasks.calculate_cohort.calculate_cohort_ch.si")
-    def test_increment_version_and_enqueue_calculate_cohort_with_referencing_cohorts(
-        self, mock_calculate_cohort_ch_si: MagicMock, mock_chain: MagicMock
-    ) -> None:
-        cohort_a = Cohort.objects.create(
-            team=self.team,
-            name="Cohort A",
-            filters={
-                "properties": {"type": "AND", "values": [{"key": "$browser", "value": "Chrome", "type": "person"}]}
-            },
-            is_static=False,
-        )
+        @patch("posthog.tasks.calculate_cohort.chain")
+        @patch("posthog.tasks.calculate_cohort.calculate_cohort_ch.si")
+        def test_increment_version_and_enqueue_calculate_cohort_with_referencing_cohorts(
+            self, mock_calculate_cohort_ch_si: MagicMock, mock_chain: MagicMock
+        ) -> None:
+            cohort_a = Cohort.objects.create(
+                team=self.team,
+                name="Cohort A",
+                version=17,
+                filters={
+                    "properties": {"type": "AND", "values": [{"key": "$browser", "value": "Chrome", "type": "person"}]}
+                },
+                is_static=False,
+            )
 
-        cohort_b = Cohort.objects.create(
-            team=self.team,
-            name="Cohort B (references A)",
-            filters={
-                "properties": {
-                    "type": "AND",
-                    "values": [
-                        {"key": "id", "value": cohort_a.id, "type": "cohort"},
-                        {"key": "$os", "value": "Windows", "type": "person"},
-                    ],
-                }
-            },
-            is_static=False,
-        )
+            cohort_b = Cohort.objects.create(
+                team=self.team,
+                name="Cohort B (references A)",
+                version=19,
+                filters={
+                    "properties": {
+                        "type": "AND",
+                        "values": [
+                            {"key": "id", "value": cohort_a.id, "type": "cohort"},
+                            {"key": "$os", "value": "Windows", "type": "person"},
+                        ],
+                    }
+                },
+                is_static=False,
+            )
 
-        cohort_c = Cohort.objects.create(
-            team=self.team,
-            name="Cohort C (references B)",
-            filters={
-                "properties": {
-                    "type": "AND",
-                    "values": [
-                        {"key": "id", "value": cohort_b.id, "type": "cohort"},
-                        {"key": "$country", "value": "US", "type": "person"},
-                    ],
-                }
-            },
-            is_static=False,
-        )
+            cohort_c = Cohort.objects.create(
+                team=self.team,
+                name="Cohort C (references B)",
+                version=23,
+                filters={
+                    "properties": {
+                        "type": "AND",
+                        "values": [
+                            {"key": "id", "value": cohort_b.id, "type": "cohort"},
+                            {"key": "$country", "value": "US", "type": "person"},
+                        ],
+                    }
+                },
+                is_static=False,
+            )
 
-        mock_chain_instance = MagicMock()
-        mock_chain.return_value = mock_chain_instance
-        mock_task = MagicMock()
-        mock_calculate_cohort_ch_si.return_value = mock_task
+            mock_chain_instance = MagicMock()
+            mock_chain.return_value = mock_chain_instance
+            mock_task = MagicMock()
+            mock_calculate_cohort_ch_si.return_value = mock_task
 
-        increment_version_and_enqueue_calculate_cohort(cohort_a, initiating_user=None)
+            increment_version_and_enqueue_calculate_cohort(cohort_a, initiating_user=None)
 
-        self.assertEqual(mock_calculate_cohort_ch_si.call_count, 3)
+            self.assertEqual(mock_calculate_cohort_ch_si.call_count, 3)
 
-        actual_calls = mock_calculate_cohort_ch_si.call_args_list
-        actual_cohort_ids = {call[0][0] for call in actual_calls}
-        expected_cohort_ids = {cohort_a.id, cohort_b.id, cohort_c.id}
-        self.assertEqual(actual_cohort_ids, expected_cohort_ids)
+            actual_calls = mock_calculate_cohort_ch_si.call_args_list
+            actual_cohort_ids = {call[0][0] for call in actual_calls}
+            expected_cohort_ids = {cohort_a.id, cohort_b.id, cohort_c.id}
+            self.assertEqual(actual_cohort_ids, expected_cohort_ids)
+            override_maps_by_cohort_id = {call[0][0]: call[0][3] for call in actual_calls}
+            self.assertEqual(override_maps_by_cohort_id[cohort_a.id], {})
+            self.assertEqual(override_maps_by_cohort_id[cohort_b.id], {cohort_a.id: 17})
+            self.assertEqual(override_maps_by_cohort_id[cohort_c.id], {cohort_a.id: 17, cohort_b.id: 19})
 
-        mock_chain.assert_called_once()
-        mock_chain_instance.apply_async.assert_called_once()
+            mock_chain.assert_called_once()
+            mock_chain_instance.apply_async.assert_called_once()
