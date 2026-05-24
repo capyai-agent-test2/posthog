@@ -1563,11 +1563,11 @@ class TestPrinter(BaseTest):
     def test_select_cross_join(self):
         self.assertEqual(
             self._select("select 1 from events cross join raw_groups"),
-            f"SELECT 1 FROM events CROSS JOIN groups WHERE and(equals(groups.team_id, {self.team.pk}), equals(events.team_id, {self.team.pk})) LIMIT {MAX_SELECT_RETURNED_ROWS}",
+            f"SELECT 1 FROM events CROSS JOIN (SELECT * FROM groups WHERE equals(groups.team_id, {self.team.pk})) AS groups WHERE equals(events.team_id, {self.team.pk}) LIMIT {MAX_SELECT_RETURNED_ROWS}",
         )
         self.assertEqual(
             self._select("select 1 from events, raw_groups"),
-            f"SELECT 1 FROM events CROSS JOIN groups WHERE and(equals(groups.team_id, {self.team.pk}), equals(events.team_id, {self.team.pk})) LIMIT {MAX_SELECT_RETURNED_ROWS}",
+            f"SELECT 1 FROM events CROSS JOIN (SELECT * FROM groups WHERE equals(groups.team_id, {self.team.pk})) AS groups WHERE equals(events.team_id, {self.team.pk}) LIMIT {MAX_SELECT_RETURNED_ROWS}",
         )
 
     def test_left_join_team_id_in_on_clause(self):
@@ -1611,8 +1611,7 @@ class TestPrinter(BaseTest):
         self.assertIn(f"equals(e2.team_id, {self.team.pk})", on_clause)
         self.assertNotIn("e2.team_id", where_clause)
 
-    def test_inner_join_team_id_in_where_clause(self):
-        # INNER JOINs should still have team_id in WHERE clause (current behavior)
+    def test_inner_join_team_id_in_subquery(self):
         context = HogQLContext(team_id=self.team.pk, enable_select_queries=True)
 
         select_query = ast.SelectQuery(
@@ -1641,11 +1640,29 @@ class TestPrinter(BaseTest):
         )
         result = print_prepared_ast(prepared, context=context, dialect="clickhouse", stack=[])
 
-        # Both tables should have team_id filters in the WHERE clause for INNER JOIN
-        where_start = result.find("WHERE")
+        where_start = result.rfind("WHERE")
         where_clause = result[where_start:] if where_start != -1 else ""
         self.assertIn(f"equals(events.team_id, {self.team.pk})", where_clause)
-        self.assertIn(f"equals(e2.team_id, {self.team.pk})", where_clause)
+        self.assertNotIn("e2.team_id", where_clause)
+        self.assertIn(f"(SELECT * FROM events WHERE equals(events.team_id, {self.team.pk})) AS e2", result)
+
+    def test_events_joined_on_right_side_uses_filtered_subquery(self):
+        context = HogQLContext(team_id=self.team.pk, enable_select_queries=True)
+
+        result = self._select(
+            """
+            WITH scope AS (SELECT 'doesnotmatter' AS distinct_id)
+            SELECT s.distinct_id, e.timestamp
+            FROM scope AS s
+            JOIN events AS e ON e.distinct_id = s.distinct_id
+            """,
+            context,
+        )
+
+        self.assertIn(f"(SELECT * FROM events WHERE equals(events.team_id, {self.team.pk})) AS e", result)
+        where_start = result.find("WHERE")
+        where_clause = result[where_start:] if where_start != -1 else ""
+        self.assertNotIn("e.team_id", where_clause)
 
     @parameterized.expand(
         [
