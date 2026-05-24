@@ -465,7 +465,6 @@ class ErrorTrackingSymbolSetViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSe
             self.team,
             force=force,
             skip_on_conflict=skip_on_conflict,
-            distinct_id=str(request.user.pk) if request.user.pk else None,
         )
         return Response({"id_map": chunk_id_url_map}, status=status.HTTP_201_CREATED)
 
@@ -600,17 +599,8 @@ def bulk_create_symbol_sets(
     team: Team,
     force: bool = False,
     skip_on_conflict: bool = False,
-    distinct_id: str | None = None,
 ) -> dict[str, dict[str, str]]:
-    accelerate = bool(
-        distinct_id
-        and posthoganalytics.feature_enabled(
-            "error-tracking-s3-accelerate",
-            distinct_id,
-            groups={"organization": str(team.organization.id)},
-            send_feature_flag_events=False,
-        )
-    )
+    accelerate = settings.OBJECT_STORAGE_TRANSFER_ACCELERATION
 
     chunk_ids = [x.chunk_id for x in new_symbol_sets]
 
@@ -791,7 +781,7 @@ def generate_symbol_set_file_key():
 
 
 def generate_symbol_set_upload_presigned_url(file_key: str, *, accelerate: bool = False):
-    if accelerate:
+    if accelerate or settings.OBJECT_STORAGE_TRANSFER_ACCELERATION:
         return object_storage.get_accelerated_presigned_post(
             file_key=file_key,
             conditions=[["content-length-range", 0, ONE_HUNDRED_MEGABYTES]],
