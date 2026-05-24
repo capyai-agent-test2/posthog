@@ -12,7 +12,7 @@ const MCPServerSettings = (): JSX.Element => {
                 insights and perform actions on your behalf.
             </p>
             <p>
-                You can install the PostHog MCP server in Cursor, Claude Code, Claude Desktop, VS Code, and Zed by
+                You can install the PostHog MCP server in Cursor, Claude Code, Claude Desktop, Codex, VS Code, and Zed by
                 running the following command:
             </p>
             <div className="pb-2">
