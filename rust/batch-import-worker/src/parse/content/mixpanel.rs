@@ -13,7 +13,7 @@ use uuid::Uuid;
 /// Generated using `uuidgen` - this is a random UUID that serves as our namespace.
 const MIXPANEL_INSERT_ID_NAMESPACE: Uuid = Uuid::from_bytes(*b"posthog_mixpanel");
 
-use super::TransformContext;
+use super::{normalize_groups_property, TransformContext};
 use crate::parse::format::{extract_between, extract_field_name, UserFacingParseError};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -135,7 +135,8 @@ impl MixpanelEvent {
             let properties = mx.properties.other;
             let properties = map_geoip_props(properties);
             let properties = remove_mp_props(properties);
-            let properties = add_source_data(properties, context.job_id);
+            let mut properties = add_source_data(properties, context.job_id);
+            normalize_groups_property(&mut properties);
 
             let raw_event = RawEvent {
                 token: Some(token.clone()),
@@ -522,5 +523,44 @@ mod tests {
             result1.inner.uuid, result2.inner.uuid,
             "Events without $insert_id should have different random UUIDs"
         );
+    }
+
+    #[test]
+    fn test_mixpanel_event_normalizes_bare_groups_property() {
+        let test_job_id = Uuid::now_v7();
+
+        let mut other = HashMap::new();
+        other.insert("groups".to_string(), json!({"company": "acme"}));
+
+        let mx_event = MixpanelEvent {
+            event: "test_event".to_string(),
+            properties: MixpanelProperties {
+                timestamp: 1697379000,
+                distinct_id: Some("user123".to_string()),
+                other,
+            },
+        };
+
+        let context = TransformContext {
+            team_id: 123,
+            token: "test_token".to_string(),
+            job_id: test_job_id,
+            identify_cache: std::sync::Arc::new(crate::cache::MockIdentifyCache::new()),
+            group_cache: std::sync::Arc::new(crate::cache::MockGroupCache::new()),
+            import_events: true,
+            generate_identify_events: false,
+            generate_group_identify_events: false,
+        };
+
+        let parser =
+            MixpanelEvent::parse_fn(context, false, Duration::seconds(0), identity_transform);
+        let result = parser(mx_event).unwrap().unwrap();
+
+        let data: RawEvent = serde_json::from_str(&result.inner.data).unwrap();
+        assert_eq!(
+            data.properties.get("$groups"),
+            Some(&json!({"company": "acme"}))
+        );
+        assert!(!data.properties.contains_key("groups"));
     }
 }

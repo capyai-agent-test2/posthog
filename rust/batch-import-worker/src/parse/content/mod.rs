@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use mixpanel::MixpanelContentConfig;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::cache::{GroupCache, IdentifyCache};
 
@@ -29,4 +30,16 @@ pub struct TransformContext {
     pub import_events: bool,
     pub generate_identify_events: bool,
     pub generate_group_identify_events: bool,
+}
+
+pub fn normalize_groups_property(properties: &mut std::collections::HashMap<String, Value>) {
+    if properties.contains_key("$groups") {
+        return;
+    }
+
+    let Some(Value::Object(groups)) = properties.remove("groups") else {
+        return;
+    };
+
+    properties.insert("$groups".to_string(), Value::Object(groups));
 }
