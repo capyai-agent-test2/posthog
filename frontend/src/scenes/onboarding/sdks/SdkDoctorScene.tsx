@@ -12,7 +12,7 @@ import { SceneExport } from 'scenes/sceneTypes'
 import { SceneContent } from '~/layout/scenes/components/SceneContent'
 import { SceneTitleSection } from '~/layout/scenes/components/SceneTitleSection'
 
-import { SDK_TYPE_READABLE_NAME } from './sdkConstants'
+import { NO_SDK_ACTIVITY_MESSAGE, SDK_TYPE_READABLE_NAME } from './sdkConstants'
 import { SdkSection } from './SdkDoctorComponents'
 import { type OutdatedTrafficAlert, SdkType, sdkDoctorLogic } from './sdkDoctorLogic'
 import { sdkDoctorSceneLogic } from './sdkDoctorSceneLogic'
@@ -94,10 +94,7 @@ export function SdkDoctorScene(): JSX.Element {
                         Error loading SDK information. Please try again later.
                     </div>
                 ) : Object.keys(augmentedData).length === 0 ? (
-                    <div className="text-center text-muted p-4">
-                        No SDK information found. Are you sure you have our SDK installed? You can scan events to get
-                        started.
-                    </div>
+                    <div className="text-center text-muted p-4">{NO_SDK_ACTIVITY_MESSAGE}</div>
                 ) : needsUpdatingCount === 0 ? (
                     <section className="mb-2">
                         <h3>SDK health is good</h3>

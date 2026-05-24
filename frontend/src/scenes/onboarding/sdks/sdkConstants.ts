@@ -15,6 +15,8 @@ export const SDK_TYPE_READABLE_NAME: Record<SdkType, string> = {
     'posthog-elixir': 'Elixir',
 }
 
+export const NO_SDK_ACTIVITY_MESSAGE = 'No events captured by PostHog SDKs in the last 7 days.'
+
 export const SDK_DOCS_LINKS: Record<SdkType, { releases: string; docs: string }> = {
     web: {
         releases: 'https://github.com/PostHog/posthog-js/blob/main/packages/browser/CHANGELOG.md',
