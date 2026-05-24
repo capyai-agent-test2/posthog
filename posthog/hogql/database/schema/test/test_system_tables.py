@@ -520,7 +520,7 @@ def _create_survey_response_archive(team: Team, label: str) -> SurveyResponseArc
     return SurveyResponseArchive.objects.create(
         team=team,
         survey=survey,
-        response_uuid=f"00000000-0000-0000-0000-0000000000{label[-1]}",
+        response_uuid=f"00000000-0000-0000-0000-00000000000{label[-1]}",
     )
 
 
