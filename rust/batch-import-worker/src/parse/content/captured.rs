@@ -291,4 +291,40 @@ mod tests {
         );
         assert!(!data.properties.contains_key("groups"));
     }
+
+    #[test]
+    fn test_captured_event_preserves_non_object_groups_property() {
+        let mut properties = HashMap::new();
+        properties.insert("groups".to_string(), json!(["acme"]));
+
+        let raw_event = RawEvent {
+            token: Some("test_token".to_string()),
+            distinct_id: Some(Value::String("user123".to_string())),
+            uuid: Some(Uuid::now_v7()),
+            event: "test_event".to_string(),
+            properties,
+            timestamp: Some("2023-10-15T14:30:00+00:00".to_string()),
+            set: None,
+            set_once: None,
+            offset: None,
+        };
+
+        let context = TransformContext {
+            team_id: 123,
+            token: "test_token".to_string(),
+            job_id: Uuid::now_v7(),
+            identify_cache: std::sync::Arc::new(crate::cache::MockIdentifyCache::new()),
+            group_cache: std::sync::Arc::new(crate::cache::MockGroupCache::new()),
+            import_events: true,
+            generate_identify_events: false,
+            generate_group_identify_events: false,
+        };
+
+        let parser = captured_parse_fn(context, identity_transform);
+        let result = parser(raw_event).unwrap().unwrap();
+
+        let data: RawEvent = serde_json::from_str(&result.inner.data).unwrap();
+        assert_eq!(data.properties.get("groups"), Some(&json!(["acme"])));
+        assert!(!data.properties.contains_key("$groups"));
+    }
 }

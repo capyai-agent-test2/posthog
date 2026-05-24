@@ -37,6 +37,10 @@ pub fn normalize_groups_property(properties: &mut std::collections::HashMap<Stri
         return;
     }
 
+    let Some(Value::Object(_)) = properties.get("groups") else {
+        return;
+    };
+
     let Some(Value::Object(groups)) = properties.remove("groups") else {
         return;
     };

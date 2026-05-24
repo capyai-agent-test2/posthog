@@ -563,4 +563,40 @@ mod tests {
         );
         assert!(!data.properties.contains_key("groups"));
     }
+
+    #[test]
+    fn test_mixpanel_event_preserves_non_object_groups_property() {
+        let test_job_id = Uuid::now_v7();
+
+        let mut other = HashMap::new();
+        other.insert("groups".to_string(), json!(["acme"]));
+
+        let mx_event = MixpanelEvent {
+            event: "test_event".to_string(),
+            properties: MixpanelProperties {
+                timestamp: 1697379000,
+                distinct_id: Some("user123".to_string()),
+                other,
+            },
+        };
+
+        let context = TransformContext {
+            team_id: 123,
+            token: "test_token".to_string(),
+            job_id: test_job_id,
+            identify_cache: std::sync::Arc::new(crate::cache::MockIdentifyCache::new()),
+            group_cache: std::sync::Arc::new(crate::cache::MockGroupCache::new()),
+            import_events: true,
+            generate_identify_events: false,
+            generate_group_identify_events: false,
+        };
+
+        let parser =
+            MixpanelEvent::parse_fn(context, false, Duration::seconds(0), identity_transform);
+        let result = parser(mx_event).unwrap().unwrap();
+
+        let data: RawEvent = serde_json::from_str(&result.inner.data).unwrap();
+        assert_eq!(data.properties.get("groups"), Some(&json!(["acme"])));
+        assert!(!data.properties.contains_key("$groups"));
+    }
 }
