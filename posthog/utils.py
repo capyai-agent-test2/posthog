@@ -1,5 +1,6 @@
 import os
 import re
+import math
 import gzip
 import json
 import time
@@ -873,11 +874,15 @@ def dict_from_cursor_fetchall(cursor):
     return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
-def convert_property_value(input: Union[str, bool, dict, list, int, Optional[str]]) -> str:
+def convert_property_value(input: Union[str, bool, dict, list, int, float, Optional[str]]) -> str:
     if isinstance(input, bool):
         if input is True:
             return "true"
         return "false"
+    if isinstance(input, float):
+        if math.isfinite(input) and input.is_integer():
+            return str(int(input))
+        return str(input)
     if isinstance(input, dict) or isinstance(input, list):
         return json.dumps(input, sort_keys=True)
     return str(input)

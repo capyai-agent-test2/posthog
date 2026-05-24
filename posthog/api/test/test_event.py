@@ -459,6 +459,25 @@ class TestEvents(ClickhouseTestMixin, APIBaseTest):
             assert args[0] == ExecutionMode[expected_mode_name]
             assert "analytics_props" in kwargs
 
+    @freeze_time("2020-01-20 20:00:00")
+    def test_event_property_values_preserve_integer_formatting_for_float_backed_values(self):
+        _create_event(
+            distinct_id="bla",
+            event="random event",
+            team=self.team,
+            properties={"numeric_prop": 1},
+        )
+        _create_event(
+            distinct_id="bla",
+            event="random event",
+            team=self.team,
+            properties={"numeric_prop": 1.5},
+        )
+
+        response = self.client.get(f"/api/projects/{self.team.id}/events/values/?key=numeric_prop").json()
+
+        assert {result["name"] for result in response["results"]} == {"1", "1.5"}
+
     @also_test_with_materialized_columns(["test_prop"])
     @freeze_time("2020-01-20 20:00:00")
     @snapshot_clickhouse_queries
