@@ -35,6 +35,15 @@ class TestHeatmapScreenshotSecurity(SimpleTestCase):
 
     @override_settings(CLOUD_DEPLOYMENT=None)
     @patch("products.web_analytics.backend.tasks.heatmap_screenshot.is_url_allowed")
+    def test_self_hosted_still_blocks_metadata_hosts_with_trailing_dot(self, mock_is_url_allowed: MagicMock) -> None:
+        assert validate_heatmap_screenshot_url("http://169.254.169.254./latest/meta-data") == (
+            False,
+            "Local/metadata host",
+        )
+        mock_is_url_allowed.assert_not_called()
+
+    @override_settings(CLOUD_DEPLOYMENT=None)
+    @patch("products.web_analytics.backend.tasks.heatmap_screenshot.is_url_allowed")
     def test_self_hosted_still_blocks_non_http_schemes(self, mock_is_url_allowed: MagicMock) -> None:
         assert validate_heatmap_screenshot_url("file:///etc/passwd") == (False, "Disallowed scheme")
         mock_is_url_allowed.assert_not_called()

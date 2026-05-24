@@ -128,7 +128,7 @@ def validate_heatmap_screenshot_url(url: str) -> tuple[bool, str | None]:
     if not parsed_url.netloc:
         return False, "Missing host"
 
-    host = (parsed_url.hostname or "").lower()
+    host = (parsed_url.hostname or "").rstrip(".").lower()
     if host in METADATA_HOSTS:
         return False, "Local/metadata host"
 
