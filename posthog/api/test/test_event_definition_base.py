@@ -1,12 +1,15 @@
-from posthog.test.base import BaseTest
+import unittest
 from unittest.mock import MagicMock
+
+from django.test import SimpleTestCase
 
 from parameterized import parameterized
 
 from posthog.api.event_definition_generators.base import EventDefinitionGenerator
+from posthog.models import EventDefinition, EventSchema
 
 
-class TestGenerator(EventDefinitionGenerator):
+class DummyGenerator(EventDefinitionGenerator):
     """Minimal test generator for testing base class functionality"""
 
     def __init__(self, version: str = "1.0.0"):
@@ -22,7 +25,7 @@ class TestGenerator(EventDefinitionGenerator):
         return ""  # Not needed for hash tests
 
 
-class TestEventDefinitionGeneratorBase(BaseTest):
+class TestEventDefinitionGeneratorBase(SimpleTestCase):
     @parameterized.expand(
         [
             (
@@ -124,10 +127,10 @@ class TestEventDefinitionGeneratorBase(BaseTest):
         version2 = version2 or version1
 
         events1, schema_map1 = self._build_schema(schema1_spec)
-        hash1 = TestGenerator(version1).calculate_schema_hash(events1, schema_map1)  # type: ignore[arg-type]
+        hash1 = DummyGenerator(version1).calculate_schema_hash(events1, schema_map1)  # type: ignore[arg-type]
 
         events2, schema_map2 = self._build_schema(schema2_spec)
-        hash2 = TestGenerator(version2).calculate_schema_hash(events2, schema_map2)  # type: ignore[arg-type]
+        hash2 = DummyGenerator(version2).calculate_schema_hash(events2, schema_map2)  # type: ignore[arg-type]
 
         self.assertEqual(
             hash1 == hash2,
@@ -173,3 +176,29 @@ class TestEventDefinitionGeneratorBase(BaseTest):
             schema_map[event_id] = properties
 
         return events, schema_map
+
+    def test_fetch_event_definitions_and_schemas_includes_custom_events_without_schema(self) -> None:
+        generator = DummyGenerator()
+
+        mock_event_definitions = MagicMock(name="event_definitions")
+        mock_event_definitions.filter.return_value.order_by.return_value = ["custom_without_schema"]
+
+        mock_event_schema_queryset = MagicMock(name="event_schemas")
+        mock_event_schema_queryset.select_related.return_value.prefetch_related.return_value = []
+
+        with (
+            unittest.mock.patch.object(
+                EventDefinition.objects, "filter", return_value=mock_event_definitions
+            ) as filter_mock,
+            unittest.mock.patch.object(EventSchema.objects, "filter", return_value=mock_event_schema_queryset),
+        ):
+            event_definitions, schema_map = generator.fetch_event_definitions_and_schemas(123)
+
+        self.assertEqual(event_definitions, ["custom_without_schema"])
+        self.assertEqual(schema_map, {})
+
+        self.assertEqual(filter_mock.call_args_list[0].kwargs, {"team__project_id": 123})
+        inclusion_filter = mock_event_definitions.filter.call_args.args[0]
+        self.assertEqual(len(inclusion_filter.children), 3)
+        self.assertIn(("name__startswith", "$"), inclusion_filter.children[2].children)
+        self.assertTrue(inclusion_filter.children[2].negated)
