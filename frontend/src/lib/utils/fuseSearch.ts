@@ -12,6 +12,30 @@ export function createFuse<T>(items: T[], options: IFuseOptions<T>): FuseClass<T
     return new FuseClass<T>(items, { ...FUSE_DEFAULTS, ...options } as IFuseOptions<T>)
 }
 
+export function createFuseMemoizer<T, Args extends readonly unknown[]>(
+    buildItems: (...args: Args) => T[],
+    options: IFuseOptions<T>
+): (...args: Args) => FuseClass<T> {
+    let previousArgs: Args | null = null
+    let previousFuse: FuseClass<T> | null = null
+
+    return (...args: Args): FuseClass<T> => {
+        if (
+            previousArgs &&
+            previousFuse &&
+            previousArgs.length === args.length &&
+            previousArgs.every((previousArg, index) => previousArg === args[index])
+        ) {
+            return previousFuse
+        }
+
+        const nextFuse = createFuse(buildItems(...args), options)
+        previousArgs = args
+        previousFuse = nextFuse
+        return nextFuse
+    }
+}
+
 export type FuseSearch<T> = (items: T[], term: string) => T[]
 
 export function createFuseSearch<T>(keys: (keyof T & string)[]): FuseSearch<T> {

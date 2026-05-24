@@ -7,7 +7,7 @@ import api from 'lib/api'
 import { FEATURE_FLAGS } from 'lib/constants'
 import { lemonToast } from 'lib/lemon-ui/LemonToast/LemonToast'
 import { featureFlagLogic, FeatureFlagsSet } from 'lib/logic/featureFlagLogic'
-import { createFuse } from 'lib/utils/fuseSearch'
+import { createFuseMemoizer } from 'lib/utils/fuseSearch'
 import { billingLogic } from 'scenes/billing/billingLogic'
 import { organizationLogic } from 'scenes/organizationLogic'
 import { preflightLogic } from 'scenes/PreflightCheck/preflightLogic'
@@ -76,6 +76,101 @@ const getSectionStringValue = (section: SettingSection): string => {
     }
     return section.id
 }
+
+const getSettingsFuse = createFuseMemoizer(
+    (settings: Setting[]): (Setting & { searchValue: string })[] =>
+        settings.map((setting) => ({
+            ...setting,
+            searchValue: getSettingStringValue(setting),
+        })),
+    {
+        keys: ['searchValue', 'id'],
+        threshold: FUSE_THRESHOLD,
+    }
+)
+
+const getSectionsFuse = createFuseMemoizer(
+    (sections: SettingSection[]): (SettingSection & { searchValue: string; settingsSearchValues: string })[] =>
+        sections.map((section) => ({
+            ...section,
+            searchValue: getSectionStringValue(section),
+            settingsSearchValues: section.settings.map(getSettingStringValue).join(' '),
+        })),
+    {
+        keys: ['searchValue', 'settingsSearchValues', 'id'],
+        threshold: FUSE_THRESHOLD,
+    }
+)
+
+const getGlobalSearchIndex = createFuseMemoizer(
+    (
+        sections: SettingSection[],
+        doesMatchFlags: (flagDefinition: Pick<Setting, 'flag'>) => boolean,
+        preflight,
+        currentTeam
+    ): SearchIndexEntry[] => {
+        const entries: SearchIndexEntry[] = []
+
+        for (const section of sections.filter((s) => !s.hideFromNavigation)) {
+            const sectionTitle = typeof section.title === 'string' ? section.title : section.id.replace(/[-]/g, ' ')
+
+            for (const setting of section.settings) {
+                if (!doesMatchFlags(setting)) {
+                    continue
+                }
+                if (setting.hideOn?.includes(Realm.Cloud) && preflight?.cloud) {
+                    continue
+                }
+                if (setting.allowForTeam && !setting.allowForTeam(currentTeam)) {
+                    continue
+                }
+
+                const settingTitle = typeof setting.title === 'string' ? setting.title : setting.id.replace(/[-]/g, ' ')
+
+                entries.push({
+                    settingId: setting.id,
+                    settingTitle,
+                    sectionId: section.id,
+                    sectionTitle,
+                    level: section.level,
+                    keywords: (setting.keywords ?? []).join(' '),
+                    description:
+                        setting.searchDescription ??
+                        (typeof setting.description === 'string' ? setting.description : ''),
+                })
+            }
+        }
+
+        for (const section of sections.filter((s) => !s.hideFromNavigation)) {
+            if (section.settings.length === 0) {
+                const sectionTitle = typeof section.title === 'string' ? section.title : section.id.replace(/[-]/g, ' ')
+
+                entries.push({
+                    settingId: section.id as SettingId,
+                    settingTitle: sectionTitle,
+                    sectionId: section.id,
+                    sectionTitle,
+                    level: section.level,
+                    keywords: '',
+                    description: '',
+                })
+            }
+        }
+
+        return entries
+    },
+    {
+        keys: [
+            { name: 'settingTitle', weight: 2 },
+            { name: 'keywords', weight: 1.5 },
+            { name: 'sectionTitle', weight: 1 },
+            { name: 'description', weight: 0.5 },
+            { name: 'settingId', weight: 0.5 },
+        ],
+        threshold: FUSE_THRESHOLD,
+        includeScore: true,
+    }
+)
 
 export const matchesFlagDefinition = (
     flagKey: Pick<Setting, 'flag'>['flag'],
@@ -489,106 +584,16 @@ export const settingsLogic = kea<settingsLogicType>([
             },
         ],
 
-        settingsFuse: [
-            (s) => [s.settings],
-            (settings: Setting[]): SettingsFuse => {
-                const settingsWithSearchValues = settings.map((setting) => ({
-                    ...setting,
-                    searchValue: getSettingStringValue(setting),
-                }))
+        settingsFuse: [(s) => [s.settings], (settings: Setting[]): SettingsFuse => getSettingsFuse(settings)],
 
-                return createFuse(settingsWithSearchValues || [], {
-                    keys: ['searchValue', 'id'],
-                    threshold: FUSE_THRESHOLD,
-                })
-            },
-        ],
-
-        sectionsFuse: [
-            (s) => [s.sections],
-            (sections: SettingSection[]): SectionsFuse => {
-                const sectionsWithSearchValues = sections.map((section) => ({
-                    ...section,
-                    searchValue: getSectionStringValue(section),
-                    settingsSearchValues: section.settings.map(getSettingStringValue).join(' '),
-                }))
-
-                return createFuse(sectionsWithSearchValues || [], {
-                    keys: ['searchValue', 'settingsSearchValues', 'id'],
-                    threshold: FUSE_THRESHOLD,
-                })
-            },
-        ],
+        sectionsFuse: [(s) => [s.sections], (sections: SettingSection[]): SectionsFuse => getSectionsFuse(sections)],
 
         isSearching: [(s) => [s.searchTerm], (searchTerm: string): boolean => searchTerm.trim().length > 0],
 
         globalSearchIndex: [
             (s) => [s.sections, s.doesMatchFlags, s.preflight, s.currentTeam],
-            (sections, doesMatchFlags, preflight, currentTeam): GlobalSearchFuse => {
-                const entries: SearchIndexEntry[] = []
-
-                for (const section of sections.filter((s) => !s.hideFromNavigation)) {
-                    const sectionTitle =
-                        typeof section.title === 'string' ? section.title : section.id.replace(/[-]/g, ' ')
-
-                    for (const setting of section.settings) {
-                        if (!doesMatchFlags(setting)) {
-                            continue
-                        }
-                        if (setting.hideOn?.includes(Realm.Cloud) && preflight?.cloud) {
-                            continue
-                        }
-                        if (setting.allowForTeam && !setting.allowForTeam(currentTeam)) {
-                            continue
-                        }
-
-                        const settingTitle =
-                            typeof setting.title === 'string' ? setting.title : setting.id.replace(/[-]/g, ' ')
-
-                        entries.push({
-                            settingId: setting.id,
-                            settingTitle,
-                            sectionId: section.id,
-                            sectionTitle,
-                            level: section.level,
-                            keywords: (setting.keywords ?? []).join(' '),
-                            description:
-                                setting.searchDescription ??
-                                (typeof setting.description === 'string' ? setting.description : ''),
-                        })
-                    }
-                }
-
-                // Index sections that are top-level links with no settings (e.g. Billing)
-                for (const section of sections.filter((s) => !s.hideFromNavigation)) {
-                    if (section.settings.length === 0) {
-                        const sectionTitle =
-                            typeof section.title === 'string' ? section.title : section.id.replace(/[-]/g, ' ')
-
-                        entries.push({
-                            settingId: section.id as SettingId,
-                            settingTitle: sectionTitle,
-                            sectionId: section.id,
-                            sectionTitle,
-                            level: section.level,
-                            keywords: '',
-                            description: '',
-                        })
-                    }
-                }
-
-                return createFuse(entries, {
-                    keys: [
-                        { name: 'settingTitle', weight: 2 },
-                        { name: 'keywords', weight: 1.5 },
-                        { name: 'sectionTitle', weight: 1 },
-                        { name: 'description', weight: 0.5 },
-                        { name: 'settingId', weight: 0.5 },
-                    ],
-                    threshold: FUSE_THRESHOLD,
-                    includeScore: true,
-                })
-            },
+            (sections, doesMatchFlags, preflight, currentTeam): GlobalSearchFuse =>
+                getGlobalSearchIndex(sections, doesMatchFlags, preflight, currentTeam),
         ],
 
         searchResults: [

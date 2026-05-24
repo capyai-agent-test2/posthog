@@ -3,7 +3,7 @@ import { actions, kea, key, path, props, reducers, selectors } from 'kea'
 
 import { STL as HOG_STL } from '@posthog/hogvm'
 
-import { createFuse } from 'lib/utils/fuseSearch'
+import { createFuseMemoizer } from 'lib/utils/fuseSearch'
 
 import type { cyclotronJobTemplateSuggestionsLogicType } from './cyclotronJobTemplateSuggestionsLogicType'
 
@@ -24,6 +24,10 @@ export type CyclotronJobTemplateSuggestionsLogicProps = {
 
 // Helping kea-typegen navigate the exported default class for Fuse
 export interface Fuse extends FuseClass<CyclotronJobTemplateOption> {}
+
+const getOptionsFuse = createFuseMemoizer((allOptions: CyclotronJobTemplateOption[]) => allOptions, {
+    keys: ['description', 'example'],
+})
 
 const HOG_USAGE_EXAMPLES: CyclotronJobTemplateOption[] = [
     {
@@ -97,14 +101,7 @@ export const cyclotronJobTemplateSuggestionsLogic = kea<cyclotronJobTemplateSugg
             },
         ],
 
-        optionsFuse: [
-            (s) => [s.allOptions],
-            (allOptions): Fuse => {
-                return createFuse(allOptions, {
-                    keys: ['description', 'example'],
-                })
-            },
-        ],
+        optionsFuse: [(s) => [s.allOptions], (allOptions): Fuse => getOptionsFuse(allOptions)],
 
         optionsFiltered: [
             (s) => [s.allOptions, s.optionsFuse, s.search],

@@ -3,10 +3,16 @@ import { loaders } from 'kea-loaders'
 import { actionToUrl, router, urlToAction } from 'kea-router'
 
 import api from 'lib/api'
-import { createFuse, Fuse } from 'lib/utils/fuseSearch'
+import { createFuseMemoizer, Fuse } from 'lib/utils/fuseSearch'
 
 import type { HogFlowTemplate } from '../hogflows/types'
 import type { workflowTemplatesLogicType } from './workflowTemplatesLogicType'
+
+const getWorkflowTemplateFuse = createFuseMemoizer((workflowTemplates: HogFlowTemplate[]) => workflowTemplates || [], {
+    keys: [{ name: 'name', weight: 2 }, 'description'],
+    threshold: 0.3,
+    ignoreLocation: true,
+})
 
 export const workflowTemplatesLogic = kea<workflowTemplatesLogicType>([
     path(['products', 'workflows', 'frontend', 'Workflows', 'workflowTemplatesLogic']),
@@ -47,13 +53,7 @@ export const workflowTemplatesLogic = kea<workflowTemplatesLogicType>([
     selectors({
         workflowTemplateFuse: [
             (s) => [s.workflowTemplates],
-            (workflowTemplates: HogFlowTemplate[]): Fuse<HogFlowTemplate> => {
-                return createFuse(workflowTemplates || [], {
-                    keys: [{ name: 'name', weight: 2 }, 'description'],
-                    threshold: 0.3,
-                    ignoreLocation: true,
-                })
-            },
+            (workflowTemplates: HogFlowTemplate[]): Fuse<HogFlowTemplate> => getWorkflowTemplateFuse(workflowTemplates),
         ],
         filteredTemplates: [
             (s) => [s.workflowTemplates, s.templateFilter, s.tagFilter, s.workflowTemplateFuse],
