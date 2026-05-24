@@ -57,6 +57,11 @@ class TestTemplateMetaAds(BaseHogFunctionTemplateTest):
             },
         )
 
+    def test_fbc_default_uses_captured_cookie_value(self):
+        user_data_schema = next(input_schema for input_schema in self.template.inputs_schema if input_schema["key"] == "userData")
+
+        assert user_data_schema["default"]["fbc"] == "{person.properties.fbc ?? person.properties.$initial_fbc}"
+
     def test_function_handles_arrays_in_custom_data(self):
         self.mock_fetch_response = lambda *args: {"status": 200, "body": {"ok": True}}  # type: ignore
         inputs = self._inputs(
