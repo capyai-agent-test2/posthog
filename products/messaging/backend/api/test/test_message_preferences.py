@@ -1,15 +1,16 @@
 import json
 
 from posthog.test.base import APIBaseTest, BaseTest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
-from django.test import Client
+from django.test import Client, RequestFactory, SimpleTestCase
 from django.urls import reverse
 
 from parameterized import parameterized
 from requests import Response
 
 import posthog.plugins.plugin_server_api as plugin_server_api
+from posthog.views import preferences_page
 
 from products.messaging.backend.models.message_category import MessageCategory
 from products.messaging.backend.models.message_preferences import (
@@ -74,6 +75,7 @@ class TestMessagePreferencesViews(BaseTest):
         self.assertEqual(categories[1]["name"], "Product Updates")
         self.assertEqual(categories[2]["name"], "All marketing communications")
         self.assertEqual(categories[2]["id"], ALL_MESSAGE_PREFERENCE_CATEGORY_ID)
+        self.assertEqual(categories[2]["description"], "Unsubscribing here overrides individual preferences.")
 
     @patch("posthog.views.validate_messaging_preferences_token")
     def test_preferences_page_one_click_unsubscribe_get(self, mock_validate_messaging_preferences_token):
@@ -189,6 +191,48 @@ class TestMessagePreferencesViews(BaseTest):
         response = self.client.post(reverse("message_preferences_update"), data)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(json.loads(response.content), {"error": "Preference values must be 'true' or 'false'"})
+
+
+class TestMessagePreferencesPageCopy(SimpleTestCase):
+    @parameterized.expand(
+        [
+            ("single_category", ["Newsletter Updates"], ""),
+            ("multiple_categories", ["Newsletter Updates", "Product Updates"], "Unsubscribing here overrides individual preferences."),
+        ]
+    )
+    @patch("posthog.views.render")
+    @patch("posthog.views.MessageCategory.objects.filter")
+    @patch("posthog.views.MessageRecipientPreference.objects.get_or_create")
+    @patch("posthog.views.validate_messaging_preferences_token")
+    def test_preferences_page_all_marketing_description(
+        self,
+        _,
+        category_names,
+        expected_description,
+        mock_validate_messaging_preferences_token,
+        mock_get_or_create,
+        mock_filter,
+        mock_render,
+    ):
+        request = RequestFactory().get("/messaging-preferences/test-token/")
+        recipient = Mock()
+        recipient.get_all_preferences.return_value = {}
+        mock_validate_messaging_preferences_token.return_value = mock_response(
+            200, {"valid": True, "team_id": 1, "identifier": "test@example.com"}
+        )
+        mock_get_or_create.return_value = (recipient, False)
+        mock_filter.return_value.order_by.return_value = [
+            Mock(id=index, name=name, public_description=f"{name} description")
+            for index, name in enumerate(category_names, start=123)
+        ]
+        mock_render.return_value = Mock(status_code=200)
+
+        preferences_page(request, "test-token")
+
+        context = mock_render.call_args.args[2]
+        self.assertEqual(len(context["categories"]), len(category_names) + 1)
+        self.assertEqual(context["categories"][-1]["name"], "All marketing communications")
+        self.assertEqual(context["categories"][-1]["description"], expected_description)
 
 
 class TestMessagePreferencesAPIViewSet(APIBaseTest):
