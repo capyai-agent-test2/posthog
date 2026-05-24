@@ -1,4 +1,6 @@
 import os
+import ipaddress
+import urllib.parse as urlparse
 
 import structlog
 import posthoganalytics
@@ -10,8 +12,15 @@ from playwright.sync_api import (
     sync_playwright,
 )
 
+from posthog.cloud_utils import is_cloud
 from posthog.exceptions_capture import capture_exception
-from posthog.security.url_validation import is_url_allowed, should_block_url
+from posthog.security.url_validation import (
+    DISALLOWED_SCHEMES,
+    METADATA_HOSTS,
+    is_url_allowed,
+    resolve_host_ips,
+    should_block_url,
+)
 from posthog.tasks.utils import CeleryQueue
 
 from products.web_analytics.backend.api.heatmaps_utils import DEFAULT_TARGET_WIDTHS
@@ -20,6 +29,10 @@ from products.web_analytics.backend.models import HeatmapSnapshot, SavedHeatmap
 logger = structlog.get_logger(__name__)
 
 TMP_DIR = "/tmp"
+METADATA_IPS = {
+    ipaddress.ip_address("169.254.169.254"),
+    ipaddress.ip_address("fd00:ec2::254"),
+}
 
 
 def _dismiss_cookie_banners(page: Page) -> None:
@@ -108,7 +121,41 @@ def _dismiss_cookie_banners(page: Page) -> None:
 
 
 def _block_internal_requests(page: Page) -> None:
-    page.route("**/*", lambda route: route.abort() if should_block_url(route.request.url) else route.continue_())
+    def should_block_runtime_url(url: str) -> bool:
+        if is_cloud():
+            return should_block_url(url)
+
+        is_allowed, _ = validate_heatmap_screenshot_url(url)
+        return not is_allowed
+
+    page.route("**/*", lambda route: route.abort() if should_block_runtime_url(route.request.url) else route.continue_())
+
+
+def validate_heatmap_screenshot_url(url: str) -> tuple[bool, str | None]:
+    try:
+        parsed_url = urlparse.urlparse(url)
+    except Exception:
+        return False, "Invalid URL"
+
+    if parsed_url.scheme not in {"http", "https"} or parsed_url.scheme in DISALLOWED_SCHEMES:
+        return False, "Disallowed scheme"
+
+    if not parsed_url.netloc:
+        return False, "Missing host"
+
+    host = (parsed_url.hostname or "").rstrip(".").lower()
+    if host in METADATA_HOSTS:
+        return False, "Local/metadata host"
+
+    if not is_cloud():
+        resolved_ips = resolve_host_ips(host)
+        if not resolved_ips:
+            return False, "Could not resolve host"
+        if any(ip in METADATA_IPS for ip in resolved_ips):
+            return False, "Local/metadata host"
+        return True, None
+
+    return is_url_allowed(url)
 
 
 def _scroll_page(page: Page) -> None:
@@ -184,7 +231,7 @@ def generate_heatmap_screenshot(screenshot_id: str) -> None:
         posthoganalytics.tag("screenshot_id", screenshot.id)
 
         try:
-            ok, err = is_url_allowed(screenshot.url)
+            ok, err = validate_heatmap_screenshot_url(screenshot.url)
             if not ok:
                 screenshot.status = SavedHeatmap.Status.FAILED
                 screenshot.exception = f"SSRF blocked: {err}"

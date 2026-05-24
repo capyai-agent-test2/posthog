@@ -3,6 +3,7 @@ from datetime import timedelta
 from posthog.test.base import APIBaseTest
 from unittest.mock import patch
 
+from django.test import SimpleTestCase, override_settings
 from django.utils import timezone
 
 from rest_framework.test import APIClient
@@ -10,7 +11,30 @@ from rest_framework.test import APIClient
 from posthog.jwt import PosthogJwtAudience, encode_jwt
 from posthog.models import Team
 
+from products.web_analytics.backend.api.heatmaps_api import SavedHeatmapRequestSerializer
 from products.web_analytics.backend.models import HeatmapSnapshot, SavedHeatmap
+
+
+class TestSavedHeatmapRequestSerializer(SimpleTestCase):
+    @override_settings(CLOUD_DEPLOYMENT=None)
+    def test_allows_localhost_url_on_self_hosted(self):
+        serializer = SavedHeatmapRequestSerializer(data={"url": "http://localhost:3000"})
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    @override_settings(CLOUD_DEPLOYMENT=None)
+    def test_rejects_metadata_url_on_self_hosted(self):
+        serializer = SavedHeatmapRequestSerializer(data={"url": "http://169.254.169.254/latest/meta-data"})
+
+        self.assertFalse(serializer.is_valid())
+        self.assertEqual(serializer.errors["url"], ["Local/metadata host"])
+
+    @override_settings(CLOUD_DEPLOYMENT="US", DEBUG=False)
+    def test_rejects_localhost_url_on_cloud(self):
+        serializer = SavedHeatmapRequestSerializer(data={"url": "http://localhost:3000"})
+
+        self.assertFalse(serializer.is_valid())
+        self.assertEqual(serializer.errors["url"], ["Local/Loopback host not allowed"])
 
 
 class TestHeatmapsAPI(APIBaseTest):
@@ -32,6 +56,31 @@ class TestHeatmapsAPI(APIBaseTest):
         self.assertEqual(saved.status, SavedHeatmap.Status.PROCESSING)
         self.assertEqual(saved.target_widths, [768, 1024])
         mock_task.assert_called_once_with(saved.id)
+
+    @override_settings(CLOUD_DEPLOYMENT=None)
+    @patch("products.web_analytics.backend.tasks.heatmap_screenshot.generate_heatmap_screenshot.delay")
+    def test_generate_accepts_localhost_url_on_self_hosted(self, mock_task):
+        resp = self.client.post(
+            f"/api/environments/{self.team.id}/saved/",
+            {"url": "http://localhost:3000", "widths": [1024]},
+        )
+
+        self.assertEqual(resp.status_code, 201)
+        saved = SavedHeatmap.objects.get(id=resp.data["id"])
+        self.assertEqual(saved.url, "http://localhost:3000")
+        mock_task.assert_called_once_with(saved.id)
+
+    @override_settings(CLOUD_DEPLOYMENT="US", DEBUG=False)
+    @patch("products.web_analytics.backend.tasks.heatmap_screenshot.generate_heatmap_screenshot.delay")
+    def test_generate_rejects_localhost_url_on_cloud(self, mock_task):
+        resp = self.client.post(
+            f"/api/environments/{self.team.id}/saved/",
+            {"url": "http://localhost:3000", "widths": [1024]},
+        )
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json()["url"], ["Local/Loopback host not allowed"])
+        mock_task.assert_not_called()
 
     def test_content_returns_202_until_snapshot_exists(self):
         saved = SavedHeatmap.objects.create(team=self.team, url="https://example.com", created_by=self.user)
