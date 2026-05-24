@@ -119,15 +119,6 @@ def _process_nested_value(value: Any) -> Any:
         return value
 
 
-def get_indexes(collection: Collection) -> list[str]:
-    """Get all indexes for a MongoDB collection."""
-    try:
-        index_cursor = collection.list_indexes()
-        return [field for index in index_cursor for field in index["key"].keys()]
-    except Exception:
-        return []
-
-
 def get_leading_index_keys(collection: Collection) -> set[str] | None:
     """Return the set of fields that are the first key of any index.
 
@@ -152,17 +143,10 @@ def get_leading_index_keys(collection: Collection) -> set[str] | None:
         return None
 
 
-def filter_mongo_incremental_fields(
-    columns: list[tuple[str, str]], collection: Collection
-) -> list[tuple[str, IncrementalFieldType]]:
+def filter_mongo_incremental_fields(columns: list[tuple[str, str]]) -> list[tuple[str, IncrementalFieldType]]:
     results: list[tuple[str, IncrementalFieldType]] = []
-    indexed_fields = get_indexes(collection)
 
     for column_name, type in columns:
-        # Only include fields that have indexes
-        if column_name not in indexed_fields:
-            continue
-
         type = type.lower()
         if type == "timestamp":
             results.append((column_name, IncrementalFieldType.Timestamp))

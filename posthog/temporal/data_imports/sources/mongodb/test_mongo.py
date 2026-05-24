@@ -15,6 +15,7 @@ from posthog.temporal.data_imports.sources.mongodb.mongo import (
     _make_safe_server_selector,
     _process_doc_with_field_logging,
     _process_nested_value,
+    filter_mongo_incremental_fields,
     get_leading_index_keys,
 )
 
@@ -316,3 +317,31 @@ class TestGetLeadingIndexKeys(SimpleTestCase):
     def test_returns_empty_set_for_collection_with_no_indexes(self):
         coll = self._collection_with_indexes([])
         assert get_leading_index_keys(coll) == set()
+
+
+class TestFilterMongoIncrementalFields(SimpleTestCase):
+    def test_includes_timestamp_fields_without_indexes(self):
+        result = filter_mongo_incremental_fields(
+            [
+                ("_id", "string"),
+                ("createdAt", "timestamp"),
+                ("updatedAt", "timestamp"),
+                ("name", "string"),
+            ]
+        )
+
+        assert result == [
+            ("_id", "objectid"),
+            ("createdAt", "timestamp"),
+            ("updatedAt", "timestamp"),
+        ]
+
+    @parameterized.expand(
+        [
+            ("int", "integer", "integer"),
+            ("long_as_integer", "integer", "integer"),
+            ("double", "double", "numeric"),
+        ]
+    )
+    def test_includes_supported_non_timestamp_types(self, _name: str, field_type: str, incremental_type: str):
+        assert filter_mongo_incremental_fields([("field", field_type)]) == [("field", incremental_type)]
