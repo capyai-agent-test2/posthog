@@ -1640,7 +1640,7 @@ class TestPrinter(BaseTest):
         )
         result = print_prepared_ast(prepared, context=context, dialect="clickhouse", stack=[])
 
-        where_start = result.find("WHERE")
+        where_start = result.rfind("WHERE")
         where_clause = result[where_start:] if where_start != -1 else ""
         self.assertIn(f"equals(events.team_id, {self.team.pk})", where_clause)
         self.assertNotIn("e2.team_id", where_clause)
