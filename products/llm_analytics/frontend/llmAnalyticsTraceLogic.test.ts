@@ -54,6 +54,19 @@ describe('llmAnalyticsTraceLogic', () => {
         })
     })
 
+    it('properly loads trace scene when trace ID contains a slash', async () => {
+        const traceIdWithSlash = 'session-summary:group/name:trace-123'
+        const traceUrl = combineUrl(urls.llmAnalyticsTrace(traceIdWithSlash))
+
+        expect(traceUrl.url).toContain(encodeURIComponent(traceIdWithSlash))
+        expect(traceUrl.url).not.toContain(`/traces/${traceIdWithSlash}`)
+
+        router.actions.push(addProjectIdIfMissing(traceUrl.url, MOCK_TEAM_ID))
+        await expectLogic(logic).toMatchValues({
+            traceId: traceIdWithSlash,
+        })
+    })
+
     it('handles trace ID with event and timestamp parameters', async () => {
         const traceIdWithColon = 'session-summary:group:16-16:81008d53ff0a708b:da6c0390-409f-485c-aab3-5e910bcf8b33'
         const eventId = 'event123'
