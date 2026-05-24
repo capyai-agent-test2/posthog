@@ -1,8 +1,17 @@
-from posthog.test.base import APIBaseTest, ClickhouseTestMixin
+from posthog.test.base import APIBaseTest, ClickhouseTestMixin, flush_persons_and_events
+from unittest import mock
+
+from django.utils import timezone
 
 from rest_framework import status
 
+from posthog.schema import Breakdown, BreakdownFilter, BreakdownType, EventsNode, TrendsQuery
+
+from posthog.models.insight_variable import InsightVariable
+
+from products.data_modeling.backend.models.datawarehouse_saved_query import DataWarehouseSavedQuery
 from products.endpoints.backend.tests.conftest import create_endpoint_with_version
+from products.warehouse_sources.backend.models.table import DataWarehouseTable
 
 
 class TestEndpointOpenAPISpec(ClickhouseTestMixin, APIBaseTest):
@@ -14,6 +23,42 @@ class TestEndpointOpenAPISpec(ClickhouseTestMixin, APIBaseTest):
             "kind": "HogQLQuery",
             "query": "SELECT count(1) FROM events",
         }
+        self.sync_workflow_patcher = mock.patch(
+            "products.data_warehouse.backend.data_load.saved_query_service.sync_saved_query_workflow"
+        )
+        self.sync_workflow_patcher.start()
+
+    def tearDown(self):
+        self.sync_workflow_patcher.stop()
+        super().tearDown()
+
+    def _materialize_endpoint(self, endpoint):
+        flush_persons_and_events()
+
+        response = self.client.patch(
+            f"/api/environments/{self.team.id}/endpoints/{endpoint.name}/",
+            {"is_materialized": True, "data_freshness_seconds": 86400},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK, response.json()
+
+        version = endpoint.versions.first()
+        assert version is not None
+        version.refresh_from_db()
+        saved_query = version.saved_query
+        assert saved_query is not None
+
+        saved_query.status = DataWarehouseSavedQuery.Status.COMPLETED
+        saved_query.last_run_at = timezone.now()
+        saved_query.table = DataWarehouseTable.objects.create(
+            team=self.team,
+            name=endpoint.name,
+            format=DataWarehouseTable.TableFormat.Parquet,
+            url_pattern=f"s3://test-bucket/{endpoint.name}",
+        )
+        saved_query.save()
+
+        return saved_query
 
     def test_openapi_spec_basic(self):
         """Test generating OpenAPI spec for a basic endpoint."""
@@ -53,8 +98,6 @@ class TestEndpointOpenAPISpec(ClickhouseTestMixin, APIBaseTest):
         self.assertEqual(response_schema["properties"]["results"]["type"], "array")
 
     def test_openapi_spec_with_variables(self):
-        from posthog.models.insight_variable import InsightVariable
-
         variable = InsightVariable.objects.create(
             team=self.team,
             name="Country Filter",
@@ -92,8 +135,6 @@ class TestEndpointOpenAPISpec(ClickhouseTestMixin, APIBaseTest):
         self.assertEqual(variables_schema["properties"]["country"]["type"], "string")
 
     def test_openapi_spec_variable_types(self):
-        from posthog.models.insight_variable import InsightVariable
-
         test_cases = [
             (InsightVariable.Type.NUMBER, "number", None),
             (InsightVariable.Type.BOOLEAN, "boolean", None),
@@ -243,8 +284,6 @@ class TestEndpointOpenAPISpec(ClickhouseTestMixin, APIBaseTest):
 
     def test_openapi_spec_insight_endpoint_with_date_variables(self):
         """Test that non-materialized insight endpoints include date variables in spec."""
-        from posthog.schema import EventsNode, TrendsQuery
-
         create_endpoint_with_version(
             name="trends-endpoint",
             team=self.team,
@@ -271,8 +310,6 @@ class TestEndpointOpenAPISpec(ClickhouseTestMixin, APIBaseTest):
 
     def test_openapi_spec_insight_endpoint_with_breakdown(self):
         """Test that insight endpoints with breakdown include breakdown property in spec."""
-        from posthog.schema import Breakdown, BreakdownFilter, BreakdownType, EventsNode, TrendsQuery
-
         create_endpoint_with_version(
             name="trends-breakdown",
             team=self.team,
@@ -314,3 +351,78 @@ class TestEndpointOpenAPISpec(ClickhouseTestMixin, APIBaseTest):
 
         # Should not have Variables schema since no variables defined
         self.assertNotIn("Variables", spec["components"]["schemas"])
+
+    def test_openapi_spec_materialized_hogql_marks_variables_as_required(self):
+        variable = InsightVariable.objects.create(
+            team=self.team,
+            name="Event Name",
+            code_name="event_name",
+            type=InsightVariable.Type.STRING,
+            default_value="$pageview",
+        )
+
+        endpoint = create_endpoint_with_version(
+            name="materialized-hogql-vars",
+            team=self.team,
+            query={
+                "kind": "HogQLQuery",
+                "query": "SELECT count() FROM events WHERE event = {variables.event_name}",
+                "variables": {
+                    str(variable.id): {
+                        "variableId": str(variable.id),
+                        "code_name": "event_name",
+                        "value": "$pageview",
+                    }
+                },
+            },
+            created_by=self.user,
+            is_active=True,
+        )
+        self._materialize_endpoint(endpoint)
+
+        response = self.client.get(f"/api/environments/{self.team.id}/endpoints/{endpoint.name}/openapi.json/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        spec = response.json()
+        post_op = spec["paths"][f"/api/environments/{self.team.id}/endpoints/{endpoint.name}/run"]["post"]
+        self.assertTrue(post_op["requestBody"]["required"])
+        self.assertEqual(spec["components"]["schemas"]["EndpointRunRequest"]["required"], ["variables"])
+        self.assertEqual(spec["components"]["schemas"]["Variables"]["required"], ["event_name"])
+
+    def test_openapi_spec_non_materialized_hogql_keeps_variables_optional(self):
+        variable = InsightVariable.objects.create(
+            team=self.team,
+            name="Event Name",
+            code_name="event_name_optional",
+            type=InsightVariable.Type.STRING,
+            default_value="$pageview",
+        )
+
+        create_endpoint_with_version(
+            name="non-materialized-hogql-vars",
+            team=self.team,
+            query={
+                "kind": "HogQLQuery",
+                "query": "SELECT count() FROM events WHERE event = {variables.event_name_optional}",
+                "variables": {
+                    str(variable.id): {
+                        "variableId": str(variable.id),
+                        "code_name": "event_name_optional",
+                        "value": "$pageview",
+                    }
+                },
+            },
+            created_by=self.user,
+            is_active=True,
+        )
+
+        response = self.client.get(
+            f"/api/environments/{self.team.id}/endpoints/non-materialized-hogql-vars/openapi.json/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        spec = response.json()
+        post_op = spec["paths"][f"/api/environments/{self.team.id}/endpoints/non-materialized-hogql-vars/run"]["post"]
+        self.assertFalse(post_op["requestBody"]["required"])
+        self.assertNotIn("required", spec["components"]["schemas"]["EndpointRunRequest"])
+        self.assertNotIn("required", spec["components"]["schemas"]["Variables"])
