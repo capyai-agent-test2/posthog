@@ -32,11 +32,14 @@ export function eventToActionStep(event: EventType | RecordingEventType, dataAtt
     const hasElements = (event.elements?.length ?? 0) > 0
     const hasUrl = Boolean(event.properties.$current_url)
     const supportsUrl = event.event === '$pageview' || event.event === '$autocapture'
+    const actionText = event.properties.$el_text || event.elements?.[0]?.text
 
     const step: ActionStepType = {
         event: event.event,
         ...(hasUrl && supportsUrl ? { url: event.properties.$current_url, url_matching: 'exact' } : {}),
         ...(hasElements ? elementsToAction(event.elements) : {}),
+        ...(actionText ? { text: actionText } : {}),
+        ...(hasElements && event.elements?.[0]?.tag_name ? { tag_name: event.elements[0].tag_name } : {}),
     }
 
     if (hasElements) {
