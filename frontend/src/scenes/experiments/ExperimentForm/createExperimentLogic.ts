@@ -7,7 +7,6 @@ import { SetupTaskId, globalSetupLogic } from 'lib/components/ProductSetup'
 import { lemonToast } from 'lib/lemon-ui/LemonToast/LemonToast'
 import { eventUsageLogic } from 'lib/utils/eventUsageLogic'
 import { featureFlagsLogic } from 'scenes/feature-flags/featureFlagsLogic'
-import { projectLogic } from 'scenes/projectLogic'
 import { teamLogic } from 'scenes/teamLogic'
 import { urls } from 'scenes/urls'
 
@@ -90,7 +89,7 @@ export const createExperimentLogic = kea<createExperimentLogicType>([
         values: [
             variantsPanelLogic({ experiment: { ...NEW_EXPERIMENT }, disabled: false, tabId: props.tabId }),
             ['featureFlagKeyValidation', 'featureFlagKeyValidationLoading'],
-            projectLogic,
+            teamLogic,
             ['currentProjectId'],
         ],
         actions: [
