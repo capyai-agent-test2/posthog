@@ -55,6 +55,11 @@ DEFAULT_JUDGE_MODEL = "gpt-5-mini"
 
 SOURCE_AI_PROPERTIES_TO_COPY = ("$ai_prompt_name", "$ai_prompt_version")
 
+
+def get_source_custom_properties(source_props: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in source_props.items() if value is not None and not key.startswith("$")}
+
+
 # Retry policy for LLM judge activity with exponential backoff to prevent amplifying load during outages
 LLM_JUDGE_RETRY_POLICY = RetryPolicy(
     maximum_attempts=3,
@@ -1010,6 +1015,7 @@ async def emit_evaluation_event_activity(inputs: EmitEvaluationEventInputs) -> N
         )
 
         properties: dict[str, Any] = {
+            **get_source_custom_properties(source_props),
             # Evaluation-specific properties
             "$ai_evaluation_id": evaluation["id"],
             "$ai_evaluation_name": evaluation["name"],
