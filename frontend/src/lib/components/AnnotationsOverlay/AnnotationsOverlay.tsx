@@ -351,7 +351,9 @@ const AnnotationsBadge = React.memo(function AnnotationsBadgeRaw({
             onClick={
                 !isDateLocked
                     ? () => {
-                          activateHover()
+                          clearHoverRetryTimeout()
+                          setHovered(true)
+                          activateDate(date)
                           lockDate()
                       }
                     : active
