@@ -859,13 +859,75 @@ def get_short_user_agent(request: HttpRequest) -> str:
 
     user_agent = parse(user_agent_str)
 
-    # strip the last (patch/build) number from the version, it can change frequently
+    browser_family = user_agent.browser.family
     browser_version = ".".join(str(x) for x in user_agent.browser.version[:3])
+    os_family = user_agent.os.family
     os_version = ".".join(str(x) for x in user_agent.os.version[:2])
+
+    client_hint_browser = _get_client_hint_browser(request)
+    if client_hint_browser is not None:
+        browser_family, browser_version = client_hint_browser
+
+    client_hint_os = _get_client_hint_os(request)
+    if client_hint_os is not None:
+        os_family, os_version = client_hint_os
 
     # this value is not directly returned by an http route
     # nosemgrep: python.flask.security.audit.directly-returned-format-string.directly-returned-format-string
-    return f"{user_agent.browser.family} {browser_version} on {user_agent.os.family} {os_version}"
+    return f"{browser_family} {browser_version} on {os_family} {os_version}"
+
+
+def _get_client_hint_browser(request: HttpRequest) -> tuple[str, str] | None:
+    full_version_list = request.headers.get("sec-ch-ua-full-version-list")
+    brands = _parse_client_hint_brands(full_version_list) if full_version_list else []
+    if not brands:
+        brands = _parse_client_hint_brands(request.headers.get("sec-ch-ua"))
+
+    if not brands:
+        return None
+
+    normalized_brands = [(_normalize_client_hint_brand(brand), version) for brand, version in brands]
+    preferred_brands = [(brand, version) for brand, version in normalized_brands if brand != "Chrome"]
+    browser_family, browser_version = preferred_brands[0] if preferred_brands else normalized_brands[0]
+    return browser_family, ".".join(browser_version.split(".")[:3])
+
+
+def _get_client_hint_os(request: HttpRequest) -> tuple[str, str] | None:
+    platform = request.headers.get("sec-ch-ua-platform")
+    if not platform:
+        return None
+
+    platform = platform.strip('"')
+    platform_version = request.headers.get("sec-ch-ua-platform-version", "").strip('"')
+
+    if platform == "Windows" and platform_version:
+        major_version = platform_version.split(".", 1)[0]
+        if major_version.isdigit() and int(major_version) >= 13:
+            return "Windows", "11"
+
+    return None
+
+
+def _parse_client_hint_brands(header_value: str | None) -> list[tuple[str, str]]:
+    if not header_value:
+        return []
+
+    matches = re.findall(r'"([^"]+)";\s*v="([^"]+)"', header_value)
+    return [(brand, version) for brand, version in matches if not _is_grease_client_hint_brand(brand)]
+
+
+def _is_grease_client_hint_brand(brand: str) -> bool:
+    lowered_brand = brand.lower()
+    return "brand" in lowered_brand and "not" in lowered_brand
+
+
+def _normalize_client_hint_brand(brand: str) -> str:
+    brand_map = {
+        "Google Chrome": "Chrome",
+        "Microsoft Edge": "Edge",
+        "Chromium": "Chrome",
+    }
+    return brand_map.get(brand, brand)
 
 
 def dict_from_cursor_fetchall(cursor):
