@@ -51,6 +51,25 @@ sleep_per_attempt_in_seconds = 30
 _PERMISSION_DENIED_MESSAGE = "Spreadsheet access denied. Please share the spreadsheet with the PostHog service account."
 
 
+def _is_numeric_cell_value(value: Any) -> bool:
+    if isinstance(value, int | float):
+        return True
+
+    if isinstance(value, str):
+        stripped_value = value.strip()
+        if stripped_value == "":
+            return False
+
+        try:
+            float(stripped_value)
+        except ValueError:
+            return False
+
+        return True
+
+    return False
+
+
 @cached(cache)
 def _get_worksheet(spreadsheet_url: str, worksheet_id: int) -> gspread.Worksheet:
     """Attempt to get a worksheet with linear backoff. Google Sheets has a 300
@@ -109,7 +128,7 @@ def get_schema_incremental_fields(config: GoogleSheetsSourceConfig, worksheet_na
     if len(rows) > 1 and "id" in rows[0]:
         index_of_id = rows[0].index("id")
         value_of_id_col = rows[1][index_of_id]
-        if isinstance(value_of_id_col, int | float):
+        if _is_numeric_cell_value(value_of_id_col):
             return [
                 {
                     "label": "id",

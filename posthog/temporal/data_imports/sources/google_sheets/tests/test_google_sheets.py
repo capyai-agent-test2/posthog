@@ -7,6 +7,7 @@ from posthog.temporal.data_imports.sources.generated_configs import GoogleSheets
 from posthog.temporal.data_imports.sources.google_sheets.google_sheets import (
     _PERMISSION_DENIED_MESSAGE,
     _get_worksheet,
+    get_schema_incremental_fields,
     get_schemas,
 )
 from posthog.temporal.data_imports.sources.google_sheets.source import GoogleSheetsSource
@@ -101,3 +102,34 @@ def test_permission_error_is_non_retryable():
     error_msg = str(raised)
 
     assert any(key in error_msg for key in non_retryable_errors)
+
+
+@pytest.mark.parametrize(
+    ("id_value", "expected_fields"),
+    [
+        pytest.param("2", ["id"], id="string-integer"),
+        pytest.param("2.5", ["id"], id="string-float"),
+        pytest.param(" 7 ", ["id"], id="string-with-whitespace"),
+        pytest.param("abc", [], id="non-numeric-string"),
+        pytest.param("", [], id="blank-string"),
+    ],
+)
+def test_get_schema_incremental_fields_detects_numeric_id_column(id_value, expected_fields):
+    config = GoogleSheetsSourceConfig(spreadsheet_url="https://docs.google.com/spreadsheets/d/fake")
+
+    worksheet = mock.MagicMock()
+    worksheet.get_all_values.return_value = [["id", "name"], [id_value, "alice"]]
+
+    with (
+        mock.patch(
+            "posthog.temporal.data_imports.sources.google_sheets.google_sheets.get_schemas",
+            return_value=[("sheet_1", 123)],
+        ),
+        mock.patch(
+            "posthog.temporal.data_imports.sources.google_sheets.google_sheets._get_worksheet",
+            return_value=worksheet,
+        ),
+    ):
+        incremental_fields = get_schema_incremental_fields(config, "sheet_1")
+
+    assert [field["field"] for field in incremental_fields] == expected_fields
