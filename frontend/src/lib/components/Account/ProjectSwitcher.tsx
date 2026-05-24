@@ -11,7 +11,6 @@ import { MenuSeparator } from 'lib/ui/Menus/Menus'
 import { cn } from 'lib/utils/css-classes'
 import { getProjectSwitchTargetUrl } from 'lib/utils/router-utils'
 import { organizationLogic } from 'scenes/organizationLogic'
-import { preflightLogic } from 'scenes/PreflightCheck/preflightLogic'
 import { isAuthenticatedTeam, teamLogic } from 'scenes/teamLogic'
 import { urls } from 'scenes/urls'
 
@@ -46,7 +45,6 @@ interface CreateProjectItem {
 type ListItem = ProjectListItem | PendingInviteListItem | CreateProjectItem
 
 export function ProjectSwitcher({ dialog = true }: { dialog?: boolean }): JSX.Element | null {
-    const { preflight } = useValues(preflightLogic)
     const { guardAvailableFeature } = useValues(upgradeModalLogic)
     const { showCreateProjectModal } = useActions(globalModalsLogic)
     const { currentTeam } = useValues(teamLogic)
@@ -167,7 +165,7 @@ export function ProjectSwitcher({ dialog = true }: { dialog?: boolean }): JSX.El
         return item.team.name
     }, [])
 
-    const canCreateProject = preflight?.can_create_org !== false && !projectCreationForbiddenReason
+    const canCreateProject = !projectCreationForbiddenReason
 
     if (!isAuthenticatedTeam(currentTeam)) {
         return null

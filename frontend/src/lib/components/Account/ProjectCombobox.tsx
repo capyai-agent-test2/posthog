@@ -11,7 +11,6 @@ import { Label } from 'lib/ui/Label/Label'
 import { MenuSeparator } from 'lib/ui/Menus/Menus'
 import { getProjectSwitchTargetUrl } from 'lib/utils/router-utils'
 import { organizationLogic } from 'scenes/organizationLogic'
-import { preflightLogic } from 'scenes/PreflightCheck/preflightLogic'
 import { isAuthenticatedTeam, teamLogic } from 'scenes/teamLogic'
 import { urls } from 'scenes/urls'
 
@@ -22,7 +21,6 @@ import { pendingInvitesLogic } from './pendingInvitesLogic'
 import { ProjectName } from './ProjectMenu'
 
 export function ProjectCombobox(): JSX.Element | null {
-    const { preflight } = useValues(preflightLogic)
     const { guardAvailableFeature } = useValues(upgradeModalLogic)
     const { showCreateProjectModal } = useActions(globalModalsLogic)
     const { currentTeam } = useValues(teamLogic)
@@ -171,28 +169,26 @@ export function ProjectCombobox(): JSX.Element | null {
                 )}
 
                 <MenuSeparator />
-                {preflight?.can_create_org && (
-                    <Combobox.Item
-                        asChild
-                        onClick={() =>
-                            guardAvailableFeature(AvailableFeature.ORGANIZATIONS_PROJECTS, showCreateProjectModal, {
-                                currentUsage: currentOrganization?.teams?.length,
-                            })
-                        }
+                <Combobox.Item
+                    asChild
+                    onClick={() =>
+                        guardAvailableFeature(AvailableFeature.ORGANIZATIONS_PROJECTS, showCreateProjectModal, {
+                            currentUsage: currentOrganization?.teams?.length,
+                        })
+                    }
+                >
+                    <ButtonPrimitive
+                        menuItem
+                        data-attr="new-project-button"
+                        tooltip={projectCreationForbiddenReason || 'Create a new project'}
+                        tooltipPlacement="right"
+                        className="shrink-0"
+                        disabled={!!projectCreationForbiddenReason}
                     >
-                        <ButtonPrimitive
-                            menuItem
-                            data-attr="new-project-button"
-                            tooltip="Create a new project"
-                            tooltipPlacement="right"
-                            className="shrink-0"
-                            disabled={!!projectCreationForbiddenReason}
-                        >
-                            <IconPlusSmall className="text-tertiary" />
-                            New project
-                        </ButtonPrimitive>
-                    </Combobox.Item>
-                )}
+                        <IconPlusSmall className="text-tertiary" />
+                        New project
+                    </ButtonPrimitive>
+                </Combobox.Item>
             </Combobox.Content>
         </Combobox>
     )
