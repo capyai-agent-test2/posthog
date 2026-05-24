@@ -430,6 +430,8 @@ async fn it_rejects_missing_token() -> Result<()> {
 
 #[tokio::test]
 async fn it_rejects_invalid_token() -> Result<()> {
+    use serde_json::Value;
+
     let config = DEFAULT_TEST_CONFIG.clone();
     let server = ServerHandle::for_config(config).await;
 
@@ -442,10 +444,14 @@ async fn it_rejects_invalid_token() -> Result<()> {
         .send_flags_request(payload.to_string(), Some("1"), None)
         .await;
     assert_eq!(StatusCode::UNAUTHORIZED, res.status());
+    let body: Value = serde_json::from_str(&res.text().await?)?;
+    assert_eq!(body["type"], "authentication_error");
+    assert_eq!(body["code"], "authentication_failed");
     assert_eq!(
-        res.text().await?,
+        body["detail"],
         "The provided API key is invalid or has expired. Please check your API key and try again."
     );
+    assert_eq!(body["attr"], Value::Null);
     Ok(())
 }
 
