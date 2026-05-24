@@ -16,9 +16,11 @@ from unittest.mock import patch
 from rest_framework import status
 
 from posthog.schema import (
+    ActorsQuery,
     CachedEventsQueryResponse,
     CachedHogQLQueryResponse,
     CachedRetentionQueryResponse,
+    CohortPropertyFilter,
     EventPropertyFilter,
     EventsQuery,
     HogLanguage,
@@ -656,6 +658,20 @@ class TestQuery(ClickhouseTestMixin, APIBaseTest):
         response = self.client.post(f"/api/environments/{self.team.id}/query/", {"query": query})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.json()["detail"], "Unsupported query kind: SavedInsightNode", response.content)
+
+    def test_invalid_cohort_filter_in_actors_query_returns_400(self):
+        response = self.client.post(
+            f"/api/environments/{self.team.id}/query/",
+            {
+                "query": ActorsQuery(
+                    select=["actor"],
+                    properties=[CohortPropertyFilter(value=999999)],
+                ).model_dump(mode="json")
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json()["detail"], "Could not find cohort with ID 999999", response.content)
 
     @patch("posthog.hogql.constants.DEFAULT_RETURNED_ROWS", 10)
     @patch("posthog.hogql.constants.MAX_SELECT_RETURNED_ROWS", 15)

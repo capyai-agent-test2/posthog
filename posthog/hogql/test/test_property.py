@@ -3,6 +3,7 @@ from typing import Any, Literal, Optional, Union, cast
 
 from freezegun import freeze_time
 from posthog.test.base import APIBaseTest, BaseTest, _create_event, cleanup_materialized_columns
+from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
 from parameterized import parameterized
@@ -2034,3 +2035,13 @@ class TestBooleanPropertyComparisonWithData(APIBaseTest):
     )
     def test_resolve_boolean_value(self, _name, value, expected):
         assert _resolve_boolean_value(value) is expected
+
+
+class TestPropertyValidation(TestCase):
+    def test_invalid_cohort_filter_raises_validation_error(self):
+        team = MagicMock(spec=Team)
+        team.project_id = 1
+
+        with patch("posthog.hogql.property.Cohort.objects.get", side_effect=Cohort.DoesNotExist):
+            with self.assertRaisesRegex(Exception, "Could not find cohort with ID 999999"):
+                property_to_expr({"type": "cohort", "key": "id", "value": 999999}, team=team, scope="person")
