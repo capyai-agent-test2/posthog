@@ -1,6 +1,6 @@
 import time
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Any, Optional
 
 from django.conf import settings
 from django.db.models import Case, DurationField, ExpressionWrapper, F, Q, QuerySet, When
@@ -371,21 +371,24 @@ def increment_version_and_enqueue_calculate_cohort(cohort: Cohort, *, initiating
             return
 
         # Create a chain of tasks to ensure sequential execution.
-        # Non-first tasks get a 2s countdown to mitigate ClickHouse replica lag:
-        # the preceding cohort's new rows may not have replicated yet. See #47618.
+        # Dependents keep reading the last stable version of any cohort already recalculated
+        # in this chain, so they don't race ClickHouse replication.
         task_chain: list = []
+        dependency_version_overrides: dict[int, int] = {}
         for cohort_id in sorted_cohort_ids:
             current_cohort = seen_cohorts_cache.get(cohort_id)
             if current_cohort and not current_cohort.is_static:
+                current_version = current_cohort.version
                 _prepare_cohort_for_calculation(current_cohort)
                 task = calculate_cohort_ch.si(
                     current_cohort.id,
                     current_cohort.pending_version,
                     initiating_user.id if initiating_user else None,
+                    dependency_version_overrides.copy(),
                 )
-                if len(task_chain) > 0:
-                    task = task.set(countdown=2)
                 task_chain.append(task)
+                if current_version is not None:
+                    dependency_version_overrides[current_cohort.id] = current_version
 
         if task_chain:
             chain(*task_chain).apply_async()
@@ -436,7 +439,12 @@ def _enqueue_single_cohort_calculation(cohort: Cohort, initiating_user: Optional
     max_retries=6,
 )
 @skip_team_scope_audit
-def calculate_cohort_ch(cohort_id: int, pending_version: int, initiating_user_id: Optional[int] = None) -> None:
+def calculate_cohort_ch(
+    cohort_id: int,
+    pending_version: int,
+    initiating_user_id: Optional[int] = None,
+    cohort_version_overrides: Optional[dict[int, Any]] = None,
+) -> None:
     with posthoganalytics.new_context():
         posthoganalytics.tag("feature", Feature.COHORT.value)
         posthoganalytics.tag("cohort_id", cohort_id)
@@ -467,7 +475,16 @@ def calculate_cohort_ch(cohort_id: int, pending_version: int, initiating_user_id
             tags.celery_task_id = current_task.request.id
         update_tags(tags)
 
-        cohort.calculate_people_ch(pending_version, initiating_user_id=initiating_user_id)
+        normalized_cohort_version_overrides = (
+            {int(cohort_key): int(version) for cohort_key, version in cohort_version_overrides.items()}
+            if cohort_version_overrides
+            else None
+        )
+        cohort.calculate_people_ch(
+            pending_version,
+            initiating_user_id=initiating_user_id,
+            cohort_version_overrides=normalized_cohort_version_overrides,
+        )
 
 
 @shared_task(ignore_result=True, max_retries=1)

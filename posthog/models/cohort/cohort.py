@@ -348,7 +348,13 @@ class Cohort(FileSystemSyncMixin, RootTeamMixin, models.Model):
             is_calculating=False
         )
 
-    def calculate_people_ch(self, pending_version: int, *, initiating_user_id: Optional[int] = None):
+    def calculate_people_ch(
+        self,
+        pending_version: int,
+        *,
+        initiating_user_id: Optional[int] = None,
+        cohort_version_overrides: Optional[dict[int, int]] = None,
+    ):
         from posthog.models.cohort.util import recalculate_cohortpeople
 
         logger.info(
@@ -361,7 +367,12 @@ class Cohort(FileSystemSyncMixin, RootTeamMixin, models.Model):
 
         cohort_type_cleared = False
         try:
-            count = recalculate_cohortpeople(self, pending_version, initiating_user_id=initiating_user_id)
+            count = recalculate_cohortpeople(
+                self,
+                pending_version,
+                initiating_user_id=initiating_user_id,
+                cohort_version_overrides=cohort_version_overrides,
+            )
             self.count = count
 
             # Clear cohort_type if count exceeds the realtime threshold

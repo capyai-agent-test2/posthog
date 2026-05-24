@@ -652,7 +652,11 @@ def get_static_cohort_size(
 
 
 def recalculate_cohortpeople(
-    cohort: Cohort, pending_version: int, *, initiating_user_id: Optional[int]
+    cohort: Cohort,
+    pending_version: int,
+    *,
+    initiating_user_id: Optional[int],
+    cohort_version_overrides: Optional[dict[int, int]] = None,
 ) -> Optional[int]:
     """
     Recalculate cohort people for all environments of the project.
@@ -665,7 +669,12 @@ def recalculate_cohortpeople(
         tag_queries(user_id=initiating_user_id)
     for team in relevant_teams:
         tag_queries(team_id=team.id)
-        _recalculate_cohortpeople_for_team(cohort, pending_version, team)
+        _recalculate_cohortpeople_for_team(
+            cohort,
+            pending_version,
+            team,
+            cohort_version_overrides=cohort_version_overrides,
+        )
         count: Optional[int]
         if cohort.is_static:
             count = get_static_cohort_size(cohort_id=cohort.id, team_id=team.id)
@@ -676,7 +685,13 @@ def recalculate_cohortpeople(
     return count_by_team_id[cohort.team_id]
 
 
-def _recalculate_cohortpeople_for_team(cohort: Cohort, pending_version: int, team: Team) -> int:
+def _recalculate_cohortpeople_for_team(
+    cohort: Cohort,
+    pending_version: int,
+    team: Team,
+    *,
+    cohort_version_overrides: Optional[dict[int, int]] = None,
+) -> int:
     tag_queries(product=ProductKey.COHORTS, feature=Feature.COHORT, name="recalculate_cohortpeople_for_team_hogql")
 
     history = CohortCalculationHistory.objects.create(
@@ -684,7 +699,13 @@ def _recalculate_cohortpeople_for_team(cohort: Cohort, pending_version: int, tea
     )
 
     try:
-        result = _recalculate_cohortpeople_for_team_hogql(cohort, pending_version, team, history)
+        result = _recalculate_cohortpeople_for_team_hogql(
+            cohort,
+            pending_version,
+            team,
+            history,
+            cohort_version_overrides=cohort_version_overrides,
+        )
         return result
 
     except Exception as e:
@@ -696,7 +717,12 @@ def _recalculate_cohortpeople_for_team(cohort: Cohort, pending_version: int, tea
 
 
 def _recalculate_cohortpeople_for_team_hogql(
-    cohort: Cohort, pending_version: int, team: Team, history: CohortCalculationHistory
+    cohort: Cohort,
+    pending_version: int,
+    team: Team,
+    history: CohortCalculationHistory,
+    *,
+    cohort_version_overrides: Optional[dict[int, int]] = None,
 ) -> int:
     cohort_params: dict[str, Any]
     if cohort.is_static:
@@ -712,7 +738,13 @@ def _recalculate_cohortpeople_for_team_hogql(
         from posthog.hogql_queries.hogql_cohort_query import HogQLCohortQuery
 
         cohort_query, hogql_context = (
-            HogQLCohortQuery(cohort=cohort, team=team).get_query_executor().generate_clickhouse_sql()
+            HogQLCohortQuery(
+                cohort=cohort,
+                team=team,
+                cohort_version_overrides=cohort_version_overrides,
+            )
+            .get_query_executor()
+            .generate_clickhouse_sql()
         )
         cohort_params = hogql_context.values
 

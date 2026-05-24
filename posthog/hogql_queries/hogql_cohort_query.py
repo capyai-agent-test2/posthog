@@ -38,6 +38,7 @@ from posthog.hogql import ast
 from posthog.hogql.ast import SelectQuery, SelectSetNode, SelectSetQuery
 from posthog.hogql.constants import HogQLGlobalSettings, LimitContext
 from posthog.hogql.context import HogQLContext
+from posthog.hogql.database.schema.cohort_people import COHORT_VERSION_OVERRIDES_DATA_KEY
 from posthog.hogql.parser import parse_select
 from posthog.hogql.printer import prepare_and_print_ast
 from posthog.hogql.property import get_property_type
@@ -100,9 +101,14 @@ class HogQLCohortQuery:
         cohort_query: Optional[CohortQuery] = None,
         cohort: Optional[Cohort] = None,
         team: Optional[Team] = None,
+        cohort_version_overrides: Optional[dict[int, int]] = None,
     ):
         if cohort is not None:
-            self.hogql_context = HogQLContext(team_id=cohort.team.pk, enable_select_queries=True)
+            self.hogql_context = HogQLContext(
+                team_id=cohort.team.pk,
+                enable_select_queries=True,
+                data_to_ingest={COHORT_VERSION_OVERRIDES_DATA_KEY: cohort_version_overrides or {}},
+            )
             self.team = team or cohort.team
             filter = FOSSCohortQuery.unwrap_cohort(
                 Filter(
@@ -116,7 +122,11 @@ class HogQLCohortQuery:
             )
             self.property_groups = filter.property_groups
         elif cohort_query is not None:
-            self.hogql_context = HogQLContext(team_id=cohort_query._team_id, enable_select_queries=True)
+            self.hogql_context = HogQLContext(
+                team_id=cohort_query._team_id,
+                enable_select_queries=True,
+                data_to_ingest={COHORT_VERSION_OVERRIDES_DATA_KEY: cohort_version_overrides or {}},
+            )
             self.property_groups = cohort_query._filter.property_groups
             self.team = team or cohort_query._team
         else:
