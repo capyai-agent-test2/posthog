@@ -1,8 +1,95 @@
 from posthog.test.base import APIBaseTest
 from unittest.mock import MagicMock, patch
 
+from django.test import SimpleTestCase, override_settings
+
 from products.web_analytics.backend.models import HeatmapSnapshot, SavedHeatmap
-from products.web_analytics.backend.tasks.heatmap_screenshot import generate_heatmap_screenshot
+from products.web_analytics.backend.tasks.heatmap_screenshot import (
+    _block_internal_requests,
+    _validate_screenshot_url,
+    generate_heatmap_screenshot,
+)
+
+
+class TestHeatmapScreenshotSecurity(SimpleTestCase):
+    @override_settings(CLOUD_DEPLOYMENT=None)
+    @patch("products.web_analytics.backend.tasks.heatmap_screenshot.is_url_allowed")
+    def test_self_hosted_skips_ssrf_url_validation(self, mock_is_url_allowed: MagicMock) -> None:
+        assert _validate_screenshot_url("http://localhost:3000") == (True, None)
+        mock_is_url_allowed.assert_not_called()
+
+    @override_settings(CLOUD_DEPLOYMENT="US")
+    @patch("products.web_analytics.backend.tasks.heatmap_screenshot.is_url_allowed", return_value=(False, "blocked"))
+    def test_cloud_keeps_ssrf_url_validation(self, mock_is_url_allowed: MagicMock) -> None:
+        assert _validate_screenshot_url("http://localhost:3000") == (False, "blocked")
+        mock_is_url_allowed.assert_called_once_with("http://localhost:3000")
+
+    @override_settings(CLOUD_DEPLOYMENT=None)
+    def test_self_hosted_skips_runtime_request_blocking(self) -> None:
+        page = MagicMock()
+
+        _block_internal_requests(page)
+
+        page.route.assert_not_called()
+
+    @override_settings(CLOUD_DEPLOYMENT="US")
+    def test_cloud_keeps_runtime_request_blocking(self) -> None:
+        page = MagicMock()
+
+        _block_internal_requests(page)
+
+        page.route.assert_called_once()
+
+    @override_settings(CLOUD_DEPLOYMENT=None)
+    @patch("products.web_analytics.backend.tasks.heatmap_screenshot._generate_screenshots")
+    @patch("products.web_analytics.backend.tasks.heatmap_screenshot.is_url_allowed")
+    @patch("products.web_analytics.backend.tasks.heatmap_screenshot.SavedHeatmap")
+    def test_self_hosted_generates_internal_target_screenshots(
+        self,
+        mock_saved_heatmap: MagicMock,
+        mock_is_url_allowed: MagicMock,
+        mock_generate_screenshots: MagicMock,
+    ) -> None:
+        screenshot = MagicMock(
+            id="test-id",
+            team_id=1,
+            url="http://localhost:3000",
+            status=SavedHeatmap.Status.PROCESSING,
+        )
+        mock_saved_heatmap.objects.select_related.return_value.get.return_value = screenshot
+
+        generate_heatmap_screenshot("test-id")
+
+        mock_is_url_allowed.assert_not_called()
+        mock_generate_screenshots.assert_called_once_with(screenshot)
+        assert screenshot.status == mock_saved_heatmap.Status.COMPLETED
+        screenshot.save.assert_called()
+
+    @override_settings(CLOUD_DEPLOYMENT="US")
+    @patch("products.web_analytics.backend.tasks.heatmap_screenshot._generate_screenshots")
+    @patch("products.web_analytics.backend.tasks.heatmap_screenshot.is_url_allowed", return_value=(False, "blocked"))
+    @patch("products.web_analytics.backend.tasks.heatmap_screenshot.SavedHeatmap")
+    def test_cloud_still_blocks_internal_target_screenshots(
+        self,
+        mock_saved_heatmap: MagicMock,
+        mock_is_url_allowed: MagicMock,
+        mock_generate_screenshots: MagicMock,
+    ) -> None:
+        screenshot = MagicMock(
+            id="test-id",
+            team_id=1,
+            url="http://localhost:3000",
+            status=SavedHeatmap.Status.PROCESSING,
+        )
+        mock_saved_heatmap.objects.select_related.return_value.get.return_value = screenshot
+
+        generate_heatmap_screenshot("test-id")
+
+        mock_is_url_allowed.assert_called_once_with("http://localhost:3000")
+        mock_generate_screenshots.assert_not_called()
+        assert screenshot.status == mock_saved_heatmap.Status.FAILED
+        assert screenshot.exception == "SSRF blocked: blocked"
+        screenshot.save.assert_called_once()
 
 
 class TestHeatmapScreenshotTask(APIBaseTest):
@@ -73,3 +160,25 @@ class TestHeatmapScreenshotTask(APIBaseTest):
         heatmap.refresh_from_db()
         assert heatmap.status == SavedHeatmap.Status.FAILED
         assert "boom" in (heatmap.exception or "")
+
+    @override_settings(CLOUD_DEPLOYMENT="US")
+    @patch("products.web_analytics.backend.tasks.heatmap_screenshot.is_url_allowed", return_value=(False, "blocked"))
+    @patch("products.web_analytics.backend.tasks.heatmap_screenshot.sync_playwright")
+    def test_cloud_blocks_internal_targets(
+        self, mock_sync_playwright: MagicMock, mock_is_url_allowed: MagicMock
+    ) -> None:
+        heatmap = SavedHeatmap.objects.create(
+            team=self.team,
+            url="http://localhost:3000",
+            created_by=self.user,
+            target_widths=[1024],
+            status=SavedHeatmap.Status.PROCESSING,
+        )
+
+        generate_heatmap_screenshot(heatmap.id)
+
+        heatmap.refresh_from_db()
+        assert heatmap.status == SavedHeatmap.Status.FAILED
+        assert heatmap.exception == "SSRF blocked: blocked"
+        mock_is_url_allowed.assert_called_once_with("http://localhost:3000")
+        mock_sync_playwright.assert_not_called()
