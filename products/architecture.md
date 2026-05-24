@@ -315,10 +315,10 @@ async def emit_signal(team_id, source_product, source_type, source_id, descripti
 
 ```python
 # products/other_product/backend/logic.py
-from products.mcp_analytics.backend.facade.contracts import Artifact
+from products.mcp_analytics.backend.facade.contracts import Submission
 
-def process_artifact(artifact: Artifact) -> None:
-    # artifact is a frozen dataclass, not an ORM object
+def process_submission(submission: Submission) -> None:
+    # submission is a frozen dataclass, not an ORM object
     ...
 ```
 
@@ -403,7 +403,7 @@ mcp_analytics impl       (logic.py, models.py)
 pnpm turbo run backend:test
 
 # Run specific product tests
-pnpm turbo run backend:test --filter=@posthog/products-mcp_analytics
+pnpm turbo run backend:test --filter=@posthog/products-mcp-analytics
 
 # Run contract checks
 pnpm turbo run backend:contract-check
