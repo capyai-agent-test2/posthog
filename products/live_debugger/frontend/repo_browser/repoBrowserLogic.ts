@@ -3,7 +3,7 @@ import { actions, events, kea, path, reducers, selectors } from 'kea'
 import { loaders } from 'kea-loaders'
 
 import type { TreeDataItem } from 'lib/lemon-ui/LemonTree/LemonTree'
-import { createFuse } from 'lib/utils/fuseSearch'
+import { createFuseMemoizer } from 'lib/utils/fuseSearch'
 
 import {
     GitHubFileContent,
@@ -16,6 +16,11 @@ import type { repoBrowserLogicType } from './repoBrowserLogicType'
 
 // Hack so kea-typegen picks up the type
 export type Fuse<T> = _Fuse<T>
+
+const getFuzzyIndex = createFuseMemoizer((relevantFiles: GitHubTreeItem[]) => relevantFiles, {
+    keys: ['path', 'name'],
+    threshold: 0.3,
+})
 
 export const repoBrowserLogic = kea<repoBrowserLogicType>([
     path(['products', 'live_debugger', 'frontend', 'repo_browser', 'repoBrowserLogic']),
@@ -86,12 +91,7 @@ export const repoBrowserLogic = kea<repoBrowserLogicType>([
         ],
         fuzzyIndex: [
             (s) => [s.relevantFiles],
-            (relevantFiles: GitHubTreeItem[]): Fuse<GitHubTreeItem> => {
-                return createFuse(relevantFiles, {
-                    keys: ['path', 'name'],
-                    threshold: 0.3,
-                })
-            },
+            (relevantFiles: GitHubTreeItem[]): Fuse<GitHubTreeItem> => getFuzzyIndex(relevantFiles),
         ],
         visibleFilesAndFolders: [
             (s) => [s.fileSearchQuery, s.relevantFiles, s.fuzzyIndex],

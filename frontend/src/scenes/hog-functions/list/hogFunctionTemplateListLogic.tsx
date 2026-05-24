@@ -10,7 +10,7 @@ import api from 'lib/api'
 import { FEATURE_FLAGS, FeatureFlagKey } from 'lib/constants'
 import { featureFlagLogic } from 'lib/logic/featureFlagLogic'
 import { objectsEqual } from 'lib/utils'
-import { createFuse } from 'lib/utils/fuseSearch'
+import { createFuseMemoizer } from 'lib/utils/fuseSearch'
 import { urls } from 'scenes/urls'
 import { userLogic } from 'scenes/userLogic'
 
@@ -30,6 +30,10 @@ import type { hogFunctionTemplateListLogicType } from './hogFunctionTemplateList
 
 // Helping kea-typegen navigate the exported default class for Fuse
 export interface Fuse extends FuseClass<HogFunctionTemplateType> {}
+
+const getTemplatesFuse = createFuseMemoizer((templates: HogFunctionTemplateType[]) => templates || [], {
+    keys: ['name', 'description'],
+})
 
 export type HogFunctionTemplateListFilters = {
     search?: string
@@ -171,14 +175,7 @@ export const hogFunctionTemplateListLogic = kea<hogFunctionTemplateListLogicType
             },
         ],
 
-        templatesFuse: [
-            (s) => [s.templates],
-            (templates): Fuse => {
-                return createFuse(templates || [], {
-                    keys: ['name', 'description'],
-                })
-            },
-        ],
+        templatesFuse: [(s) => [s.templates], (templates): Fuse => getTemplatesFuse(templates)],
 
         filteredTemplates: [
             (s) => [

@@ -1,7 +1,7 @@
 import Fuse from 'fuse.js'
 import { actions, connect, kea, listeners, path, reducers, selectors } from 'kea'
 
-import { createFuse } from 'lib/utils/fuseSearch'
+import { createFuseMemoizer } from 'lib/utils/fuseSearch'
 import { membersLogic } from 'scenes/organization/membersLogic'
 import { rolesLogic } from 'scenes/settings/organization/Permissions/Roles/rolesLogic'
 
@@ -11,6 +11,11 @@ import type { assigneeSelectLogicType } from './assigneeSelectLogicType'
 import { Assignee, TicketAssignee } from './types'
 
 export interface RolesFuse extends Fuse<RoleType> {}
+
+const getRolesFuse = createFuseMemoizer((roles: RoleType[]) => roles, {
+    keys: ['name'],
+    threshold: 0.3,
+})
 
 export const assigneeSelectLogic = kea<assigneeSelectLogicType>([
     path(['products', 'conversations', 'frontend', 'components', 'Assignee', 'assigneeSelectLogic']),
@@ -44,10 +49,7 @@ export const assigneeSelectLogic = kea<assigneeSelectLogicType>([
             (membersLoading, rolesLoading): boolean => membersLoading || rolesLoading,
         ],
 
-        rolesFuse: [
-            (s) => [s.roles],
-            (roles): RolesFuse => createFuse<RoleType>(roles, { keys: ['name'], threshold: 0.3 }),
-        ],
+        rolesFuse: [(s) => [s.roles], (roles): RolesFuse => getRolesFuse(roles)],
 
         filteredRoles: [
             (s) => [s.roles, s.rolesFuse, s.search],

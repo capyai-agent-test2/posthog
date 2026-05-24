@@ -4,7 +4,7 @@ import { router } from 'kea-router'
 
 import { lemonToast } from 'lib/lemon-ui/LemonToast/LemonToast'
 import { eventUsageLogic } from 'lib/utils/eventUsageLogic'
-import { createFuse } from 'lib/utils/fuseSearch'
+import { createFuseMemoizer } from 'lib/utils/fuseSearch'
 import { newDashboardLogic } from 'scenes/dashboard/newDashboardLogic'
 import { insightLogic } from 'scenes/insights/insightLogic'
 import { keyForInsightLogicProps } from 'scenes/insights/sharedUtils'
@@ -18,6 +18,10 @@ import type { addToDashboardModalLogicType } from './addToDashboardModalLogicTyp
 
 // Helping kea-typegen navigate the exported default class for Fuse
 export interface Fuse extends FuseClass<any> {}
+
+const getDashboardsFuse = createFuseMemoizer((dashboards: DashboardBasicType[]) => dashboards ?? [], {
+    keys: ['name', 'description', 'tags'],
+})
 
 export const addToDashboardModalLogic = kea<addToDashboardModalLogicType>([
     props({} as InsightLogicProps),
@@ -64,11 +68,7 @@ export const addToDashboardModalLogic = kea<addToDashboardModalLogicType>([
     selectors({
         dashboardsFuse: [
             () => [dashboardsModel.selectors.nameSortedDashboards],
-            (nameSortedDashboards): Fuse => {
-                return createFuse(nameSortedDashboards || [], {
-                    keys: ['name', 'description', 'tags'],
-                })
-            },
+            (nameSortedDashboards): Fuse => getDashboardsFuse(nameSortedDashboards),
         ],
         filteredDashboards: [
             (s) => [s.searchQuery, s.dashboardsFuse, dashboardsModel.selectors.nameSortedDashboards],

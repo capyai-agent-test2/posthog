@@ -29,7 +29,7 @@ import {
     TaxonomicFilterGroupType,
 } from 'lib/components/TaxonomicFilter/types'
 import { promoteMatchingProperties } from 'lib/components/TaxonomicFilter/utils/promoteProperties'
-import { createFuse } from 'lib/utils/fuseSearch'
+import { createFuseMemoizer } from 'lib/utils/fuseSearch'
 import { mapGroupQueryResponse } from 'lib/utils/groups'
 
 import { getCoreFilterDefinition } from '~/taxonomy/helpers'
@@ -79,6 +79,38 @@ function recentItemMatchesSearch(
     }
     return false
 }
+
+const getListFuse = createFuseMemoizer(
+    (
+        rawLocalItems: TaxonomicDefinitionTypes[] | null,
+        taxonomicGroups: TaxonomicFilterGroup[],
+        group: TaxonomicFilterGroup | null
+    ) => {
+        // maps e.g. "selector" to its display value "CSS Selector"
+        // so a search of "css" matches something
+        function asPostHogName(g: TaxonomicFilterGroup, item: EventDefinition | CohortType): string | undefined {
+            return g ? getCoreFilterDefinition(g.getName?.(item), g.type)?.label : undefined
+        }
+
+        return (rawLocalItems || []).map((item) => {
+            const itemGroup = getItemGroup(item, taxonomicGroups, group)
+            const recentLabel =
+                hasRecentContext(item) && item._recentContext.propertyFilter
+                    ? formatPropertyLabel(item._recentContext.propertyFilter, {})
+                    : undefined
+            return {
+                name: itemGroup?.getName?.(item) || '',
+                posthogName: asPostHogName(itemGroup, item),
+                recentLabel,
+                item: item,
+            }
+        })
+    },
+    {
+        keys: ['name', 'posthogName', 'recentLabel'],
+        ignoreLocation: true,
+    }
+)
 
 export interface RowInfo {
     startIndex: number
@@ -661,35 +693,7 @@ export const infiniteListLogic = kea<infiniteListLogicType>([
         ],
         fuse: [
             (s) => [s.rawLocalItems, s.taxonomicGroups, s.group],
-            (rawLocalItems, taxonomicGroups, group): ListFuse => {
-                // maps e.g. "selector" to its display value "CSS Selector"
-                // so a search of "css" matches something
-                function asPostHogName(
-                    g: TaxonomicFilterGroup,
-                    item: EventDefinition | CohortType
-                ): string | undefined {
-                    return g ? getCoreFilterDefinition(g.getName?.(item), g.type)?.label : undefined
-                }
-
-                const haystack = (rawLocalItems || []).map((item) => {
-                    const itemGroup = getItemGroup(item, taxonomicGroups, group)
-                    const recentLabel =
-                        hasRecentContext(item) && item._recentContext.propertyFilter
-                            ? formatPropertyLabel(item._recentContext.propertyFilter, {})
-                            : undefined
-                    return {
-                        name: itemGroup?.getName?.(item) || '',
-                        posthogName: asPostHogName(itemGroup, item),
-                        recentLabel,
-                        item: item,
-                    }
-                })
-
-                return createFuse(haystack, {
-                    keys: ['name', 'posthogName', 'recentLabel'],
-                    ignoreLocation: true,
-                })
-            },
+            (rawLocalItems, taxonomicGroups, group): ListFuse => getListFuse(rawLocalItems, taxonomicGroups, group),
         ],
         localItems: [
             (s) => [s.rawLocalItems, s.searchQuery, s.fuse, s.group],

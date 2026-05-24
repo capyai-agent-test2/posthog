@@ -16,7 +16,7 @@ import { FEATURE_FLAGS } from 'lib/constants'
 import { Dayjs, dayjs } from 'lib/dayjs'
 import { featureFlagLogic } from 'lib/logic/featureFlagLogic'
 import { ceilMsToClosestSecond, eventToDescription, humanizeBytes, toParams } from 'lib/utils'
-import { createFuse } from 'lib/utils/fuseSearch'
+import { createFuseMemoizer } from 'lib/utils/fuseSearch'
 import { getText } from 'scenes/comments/Comment'
 import {
     InspectorListItemPerformance,
@@ -74,6 +74,14 @@ export const IMAGE_WEB_EXTENSIONS = [
 
 // Helping kea-typegen navigate the exported default class for Fuse
 export interface Fuse extends FuseClass<InspectorListItem> {}
+
+const getInspectorFuse = createFuseMemoizer((filteredItems: InspectorListItem[]) => filteredItems, {
+    keys: ['search'],
+    findAllMatches: true,
+    ignoreLocation: true,
+    shouldSort: false,
+    useExtendedSearch: true,
+})
 
 export type RecordingComment = {
     id: string
@@ -1385,17 +1393,7 @@ export const playerInspectorLogic = kea<playerInspectorLogicType>([
                 (displayGroups.length + playbackIndicatorIndex) % displayGroups.length,
         ],
 
-        fuse: [
-            (s) => [s.filteredItems],
-            (filteredItems): Fuse =>
-                createFuse<InspectorListItem>(filteredItems, {
-                    keys: ['search'],
-                    findAllMatches: true,
-                    ignoreLocation: true,
-                    shouldSort: false,
-                    useExtendedSearch: true,
-                }),
-        ],
+        fuse: [(s) => [s.filteredItems], (filteredItems): Fuse => getInspectorFuse(filteredItems)],
 
         items: [
             (s) => [s.filteredItems, s.fuse, s.searchQuery],

@@ -1,4 +1,4 @@
-import { createFuseSearch } from './fuseSearch'
+import { createFuseMemoizer, createFuseSearch } from './fuseSearch'
 
 describe('createFuseSearch', () => {
     interface Item {
@@ -22,5 +22,30 @@ describe('createFuseSearch', () => {
 
     it.each([[''], ['   ']])('returns all items for empty or pure-whitespace query "%s"', (term) => {
         expect(search(items, term)).toEqual(items)
+    })
+})
+
+describe('createFuseMemoizer', () => {
+    it('returns the same Fuse instance for the same argument references', () => {
+        const items = [{ name: 'alpha' }]
+        const getFuse = createFuseMemoizer((source: { name: string }[]) => source, { keys: ['name'] })
+
+        expect(getFuse(items)).toBe(getFuse(items))
+    })
+
+    it('returns a new Fuse instance when an argument reference changes', () => {
+        const getFuse = createFuseMemoizer((source: { name: string }[]) => source, { keys: ['name'] })
+
+        expect(getFuse([{ name: 'alpha' }])).not.toBe(getFuse([{ name: 'alpha' }]))
+    })
+
+    it('memoizes transformed Fuse collections against the original arguments', () => {
+        const items = [{ name: 'alpha' }]
+        const getFuse = createFuseMemoizer(
+            (source: { name: string }[]) => source.map((item) => ({ ...item, searchName: item.name })),
+            { keys: ['searchName'] }
+        )
+
+        expect(getFuse(items)).toBe(getFuse(items))
     })
 })

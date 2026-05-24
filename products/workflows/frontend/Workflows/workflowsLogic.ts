@@ -5,7 +5,7 @@ import { router } from 'kea-router'
 import { LemonDialog, lemonToast } from '@posthog/lemon-ui'
 
 import api from 'lib/api'
-import { createFuse, Fuse } from 'lib/utils/fuseSearch'
+import { createFuseMemoizer, Fuse } from 'lib/utils/fuseSearch'
 import { urls } from 'scenes/urls'
 
 import { deleteFromTree } from '~/layout/panel-layout/ProjectTree/projectTreeLogic'
@@ -20,6 +20,13 @@ export interface WorkflowsFilters {
     createdBy: string | null
     status: WorkflowStatusFilter
 }
+
+const getWorkflowsFuse = createFuseMemoizer((workflows: HogFlow[]) => workflows || [], {
+    keys: [{ name: 'name', weight: 2 }, 'description'],
+    threshold: 0.3,
+    ignoreLocation: true,
+    includeMatches: true,
+})
 
 export const workflowsLogic = kea<workflowsLogicType>([
     key(() => 'workflowsLogic'),
@@ -179,17 +186,7 @@ export const workflowsLogic = kea<workflowsLogicType>([
         ],
     })),
     selectors({
-        workflowsFuse: [
-            (s) => [s.workflows],
-            (workflows): Fuse<HogFlow> => {
-                return createFuse(workflows || [], {
-                    keys: [{ name: 'name', weight: 2 }, 'description'],
-                    threshold: 0.3,
-                    ignoreLocation: true,
-                    includeMatches: true,
-                })
-            },
-        ],
+        workflowsFuse: [(s) => [s.workflows], (workflows): Fuse<HogFlow> => getWorkflowsFuse(workflows)],
         filteredWorkflows: [
             (s) => [s.workflows, s.filters, s.workflowsFuse],
             (workflows, filters, workflowsFuse): HogFlow[] => {
