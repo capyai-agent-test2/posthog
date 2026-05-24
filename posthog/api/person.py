@@ -905,7 +905,7 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
             if key in non_writable:
                 raise ValidationError(f'You do not have write access to the property "{key}".')
 
-        event_name = "$delete_person_property"
+        event_name = "person property deleted"
         distinct_id = person.distinct_ids[0]
         timestamp = datetime.now(UTC)
         properties = {
