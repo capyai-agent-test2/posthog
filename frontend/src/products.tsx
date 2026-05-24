@@ -5,7 +5,7 @@ import { combineUrl } from 'kea-router'
 
 import { AlertType } from 'lib/components/Alerts/types'
 import { FEATURE_FLAGS, INSIGHT_VISUAL_ORDER } from 'lib/constants'
-import { toParams } from 'lib/utils'
+import { toParams, tryDecodeURIComponent } from 'lib/utils'
 import type { Params } from 'scenes/sceneTypes'
 import { SurveysTabs } from 'scenes/surveys/surveysLogic'
 import { urls } from 'scenes/urls'
@@ -343,7 +343,7 @@ export const productRedirects: Record<
     '/llm-analytics/traces': (_params, searchParams, hashParams) =>
         combineUrl(urls.llmAnalyticsTraces(), searchParams, hashParams).url,
     '/llm-analytics/traces/:id': (params, searchParams, hashParams) =>
-        combineUrl(urls.llmAnalyticsTrace(params.id), searchParams, hashParams).url,
+        combineUrl(urls.llmAnalyticsTrace(tryDecodeURIComponent(params.id)), searchParams, hashParams).url,
     '/llm-analytics/users': (_params, searchParams, hashParams) =>
         combineUrl(urls.llmAnalyticsUsers(), searchParams, hashParams).url,
     '/llm-analytics/errors': (_params, searchParams, hashParams) =>
@@ -403,7 +403,7 @@ export const productRedirects: Record<
     '/llm-observability/traces': (_params, searchParams, hashParams) =>
         combineUrl(urls.llmAnalyticsTraces(), searchParams, hashParams).url,
     '/llm-observability/traces/:id': (params, searchParams, hashParams) =>
-        combineUrl(urls.llmAnalyticsTrace(params.id), searchParams, hashParams).url,
+        combineUrl(urls.llmAnalyticsTrace(tryDecodeURIComponent(params.id)), searchParams, hashParams).url,
     '/llm-observability/users': (_params, searchParams, hashParams) =>
         combineUrl(urls.llmAnalyticsUsers(), searchParams, hashParams).url,
     '/llm-observability/playground': (_params, searchParams, hashParams) =>
@@ -964,11 +964,13 @@ export const productUrls = {
             search?: string
             tab?: string
             msg?: string
-        }
+        },
+        encode: boolean = true
     ): string => {
         const queryParams = new URLSearchParams(params)
         const stringifiedParams = queryParams.toString()
-        return `/ai-observability/traces/${id}${stringifiedParams ? `?${stringifiedParams}` : ''}`
+        const traceId = encode ? encodeURIComponent(id) : id
+        return `/ai-observability/traces/${traceId}${stringifiedParams ? `?${stringifiedParams}` : ''}`
     },
     llmAnalyticsUsers: (): string => '/ai-observability/users',
     llmAnalyticsErrors: (): string => '/ai-observability/errors',

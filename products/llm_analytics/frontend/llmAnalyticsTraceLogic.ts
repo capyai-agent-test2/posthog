@@ -10,6 +10,7 @@ import { dayjs } from 'lib/dayjs'
 import { featureFlagLogic } from 'lib/logic/featureFlagLogic'
 import { tabAwareActionToUrl } from 'lib/logic/scenes/tabAwareActionToUrl'
 import { tabAwareUrlToAction } from 'lib/logic/scenes/tabAwareUrlToAction'
+import { tryDecodeURIComponent } from 'lib/utils'
 import { copyToClipboard } from 'lib/utils/copyToClipboard'
 import { addProductIntent } from 'lib/utils/product-intents'
 import { urls } from 'scenes/urls'
@@ -474,8 +475,11 @@ export const llmAnalyticsTraceLogic = kea<llmAnalyticsTraceLogicType>([
     })),
 
     tabAwareUrlToAction(({ actions }) => ({
-        [urls.llmAnalyticsTrace(':id')]: ({ id }, { event, timestamp, exception_ts, search, line, tab, msg }) => {
-            actions.setTraceId(id ?? '')
+        [urls.llmAnalyticsTrace(':id', undefined, false)]: (
+            { id },
+            { event, timestamp, exception_ts, search, line, tab, msg }
+        ) => {
+            actions.setTraceId(tryDecodeURIComponent(id ?? ''))
             void addProductIntent({
                 product_type: ProductKey.LLM_ANALYTICS,
                 intent_context: ProductIntentContext.LLM_ANALYTICS_TRACE_VIEWED,
