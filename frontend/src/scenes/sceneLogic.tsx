@@ -44,7 +44,7 @@ import { AccessControlLevel } from '~/types'
 
 import { handleLoginRedirect } from './authentication/loginLogic'
 import { billingLogic } from './billing/billingLogic'
-import { parseCouponCampaign } from './coupons/utils'
+import { parseCouponCampaign } from './onboarding/coupon/utils'
 import { isOnboardingRedirectSuppressed } from './onboarding/onboardingDelegationState'
 import { organizationLogic } from './organizationLogic'
 import { preflightLogic } from './PreflightCheck/preflightLogic'
