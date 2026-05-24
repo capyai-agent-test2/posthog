@@ -30,24 +30,6 @@ interface TableProps {
 
 export const DEFAULT_PAGE_SIZE = 500
 
-function formatColumnTitle(title: string): React.ReactNode {
-    const parts = title.split(/([_-])/)
-    if (parts.length === 1) {
-        return title
-    }
-    // inserts <wbr> (word break opportunity tag) at dashes and unders for natural break points
-    return parts.map((part, i) =>
-        part === '_' || part === '-' ? (
-            <React.Fragment key={i}>
-                {part}
-                <wbr />
-            </React.Fragment>
-        ) : (
-            part
-        )
-    )
-}
-
 function getDisplayedColumnTitle(
     columnName: string,
     label: string | JSX.Element | undefined,
@@ -82,14 +64,13 @@ export const Table = (props: TableProps): JSX.Element => {
         ({ column, settings }, index) => {
             const { title, ...columnMeta } = renderColumnMeta(column.name, props.query, props.context)
             const columnTitle = settings?.display?.label || title || column.name
-            const formattedTitle = typeof columnTitle === 'string' ? formatColumnTitle(columnTitle) : columnTitle
 
             return {
                 ...columnMeta,
                 key: column.name,
                 title: (
                     <div className="flex items-center gap-1">
-                        <span>{formattedTitle}</span>
+                        <span>{columnTitle}</span>
                         {isPinningEnabled && (
                             <Tooltip title={isColumnPinned(column.name) ? 'Unpin column' : 'Pin column'}>
                                 <span
@@ -122,13 +103,11 @@ export const Table = (props: TableProps): JSX.Element => {
                               )
                             : cell.formattedValue
                         const renderedSourceColumnTitle =
-                            typeof sourceColumnTitle === 'string'
-                                ? formatColumnTitle(sourceColumnTitle)
-                                : React.isValidElement(sourceColumnTitle) ||
-                                    sourceColumnTitle == null ||
-                                    typeof sourceColumnTitle === 'number'
-                                  ? sourceColumnTitle
-                                  : String(sourceColumnTitle)
+                            React.isValidElement(sourceColumnTitle) ||
+                            sourceColumnTitle == null ||
+                            typeof sourceColumnTitle === 'number'
+                                ? sourceColumnTitle
+                                : String(sourceColumnTitle)
 
                         return <div className="truncate">{renderedSourceColumnTitle}</div>
                     }
@@ -227,7 +206,6 @@ export const Table = (props: TableProps): JSX.Element => {
             pinnedColumns={isPinningEnabled ? pinnedColumns : undefined}
             loading={responseLoading}
             pagination={{ pageSize: DEFAULT_PAGE_SIZE }}
-            maxHeaderWidth="15rem"
             emptyState={
                 responseError ? (
                     <InsightErrorState
