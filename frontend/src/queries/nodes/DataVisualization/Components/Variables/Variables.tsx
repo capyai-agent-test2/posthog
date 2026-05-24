@@ -331,6 +331,8 @@ export const VariableComponent = ({
     const [isPopoverOpen, setPopoverOpen] = useState(false)
 
     const variableAsHogQL = `{variables.${variable.code_name}}`
+    const fallbackListValue =
+        variable.value ?? variable.default_value ?? (variable.type === 'List' ? variable.values?.[0] : null)
 
     const tooltip =
         insightsUsingVariable && insightsUsingVariable.length > 0 ? (
@@ -356,7 +358,7 @@ export const VariableComponent = ({
                         size="xsmall"
                         label="Set to null"
                         checked={variable.isNull ?? false}
-                        onChange={(value) => onChange(variable.id, null, value)}
+                        onChange={(value) => onChange(variable.id, value ? null : fallbackListValue, value)}
                         disabledReason={variableOverridesAreSet && 'Discard dashboard variables to change'}
                         bordered
                     />
