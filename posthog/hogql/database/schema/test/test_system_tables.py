@@ -45,7 +45,7 @@ from products.llm_analytics.backend.models.score_definitions import ScoreDefinit
 from products.llm_analytics.backend.models.trace_reviews import TraceReview, TraceReviewScore
 from products.logs.backend.models import LogsAlertConfiguration, LogsView
 from products.notebooks.backend.models import Notebook
-from products.surveys.backend.models import Survey
+from products.surveys.backend.models import Survey, SurveyResponseArchive
 from products.warehouse_sources.backend.models.external_data_job import ExternalDataJob
 from products.warehouse_sources.backend.models.external_data_schema import ExternalDataSchema
 from products.warehouse_sources.backend.models.external_data_source import ExternalDataSource
@@ -515,6 +515,15 @@ def _create_usage_metric(team: Team, label: str) -> GroupUsageMetric:
     )
 
 
+def _create_survey_response_archive(team: Team, label: str) -> SurveyResponseArchive:
+    survey = Survey.objects.create(team=team, name=f"survey_for_archive_{label}", type="popover")
+    return SurveyResponseArchive.objects.create(
+        team=team,
+        survey=survey,
+        response_uuid=f"00000000-0000-0000-0000-0000000000{label[-1]}",
+    )
+
+
 SYSTEM_TABLE_FACTORIES = [
     ("accounts", _create_account),
     ("activity_logs", _create_activity_log),
@@ -563,6 +572,7 @@ SYSTEM_TABLE_FACTORIES = [
     ("session_recordings", _create_session_recording),
     ("source_schemas", _create_source_schema),
     ("support_tickets", _create_support_ticket),
+    ("survey_response_archives", _create_survey_response_archive),
     ("surveys", _create_survey),
     ("task_runs", _create_task_run),
     ("tasks", _create_task),

@@ -39,6 +39,7 @@ Table | Description
 `system.logs_alerts` | Log alert configurations and their states
 `system.logs_views` | Saved log filter views
 `system.notebooks` | Collaborative documents with embedded insights
+`system.survey_response_archives` | Archived survey responses for filtering SQL insights
 `system.surveys` | Questionnaires and feedback forms
 `system.teams` | Team/project settings
 
