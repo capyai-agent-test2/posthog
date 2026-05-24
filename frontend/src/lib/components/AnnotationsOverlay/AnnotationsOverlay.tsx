@@ -274,6 +274,16 @@ const AnnotationsBadge = React.memo(function AnnotationsBadgeRaw({
     const buttonRef = useRef<HTMLButtonElement>(null)
     const dateKey = date.toISOString()
 
+    const activateHover = (): void => {
+        if (!shouldActivateAnnotationHover(isDateLocked)) {
+            return
+        }
+        setHovered(true)
+        if (!isDateLocked) {
+            activateDate(date)
+        }
+    }
+
     useEffect(() => {
         const el = buttonRef.current
         if (el) {
@@ -299,13 +309,10 @@ const AnnotationsBadge = React.memo(function AnnotationsBadgeRaw({
                     '--annotations-badge-scale': shown ? 1 : 0,
                 } as AnnotationsBadgeCSSProperties
             }
-            onMouseEnter={() => {
-                if (!shouldActivateAnnotationHover(isDateLocked)) {
-                    return
-                }
-                setHovered(true)
-                if (!isDateLocked) {
-                    activateDate(date)
+            onMouseEnter={activateHover}
+            onMouseMove={() => {
+                if (!hovered) {
+                    activateHover()
                 }
             }}
             onMouseLeave={() => {

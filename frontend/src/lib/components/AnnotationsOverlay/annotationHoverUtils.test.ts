@@ -9,6 +9,10 @@ const { isInsightHoverTooltipVisible } = jest.requireMock('scenes/insights/useIn
 }
 
 describe('shouldActivateAnnotationHover', () => {
+    afterEach(() => {
+        isInsightHoverTooltipVisible.mockReset()
+    })
+
     it('keeps locked annotations interactive even while the chart tooltip is visible', () => {
         isInsightHoverTooltipVisible.mockReturnValue(true)
 
