@@ -121,7 +121,7 @@ See [common-anti-patterns.md](references/common-anti-patterns.md) for before/aft
 - **JSONField + @extend_schema_field:** `posthog/api/alert.py`
 - **@validated_request:** `products/tasks/backend/api.py`
 - **help_text + typed responses:** `products/llm_analytics/backend/api/evaluation_summary.py`
-- **Facade product:** `products/example_product/backend/presentation/views.py`
+- **Facade product:** `products/mcp_analytics/backend/presentation/views.py`
 
 ## Related
 

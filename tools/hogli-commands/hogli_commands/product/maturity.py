@@ -266,7 +266,7 @@ def score_facade(backend_dir: Path) -> DimensionScore:
             next_steps.append(
                 "backend/facade/contracts.py exists but defines no frozen dataclasses. Add "
                 "`@dataclass(frozen=True)` types describing every value the facade returns "
-                "(see products/example_product/backend/facade/contracts.py)."
+                "(see products/mcp_analytics/backend/facade/contracts.py)."
             )
     else:
         parts.append("no contracts")
@@ -317,7 +317,7 @@ def score_facade(backend_dir: Path) -> DimensionScore:
         parts.append("no facade")
         next_steps.append(
             "Create backend/facade/api.py with public functions wrapping logic. Use "
-            "products/example_product/backend/facade/api.py as the reference shape."
+            "products/mcp_analytics/backend/facade/api.py as the reference shape."
         )
 
     # Logic

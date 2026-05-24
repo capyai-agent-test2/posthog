@@ -315,7 +315,7 @@ async def emit_signal(team_id, source_product, source_type, source_id, descripti
 
 ```python
 # products/other_product/backend/logic.py
-from products.example_product.backend.facade.contracts import Artifact
+from products.mcp_analytics.backend.facade.contracts import Artifact
 
 def process_artifact(artifact: Artifact) -> None:
     # artifact is a frozen dataclass, not an ORM object
@@ -344,7 +344,7 @@ During migration, existing cross-product model imports are tracked in `tach.toml
 Django allows `ForeignKey` relationships across products. This is still allowed, but ForeignKey relations create **implicit reverse dependencies**, even if you never use them:
 
 ```python
-# example_product/backend/models.py
+# mcp_analytics/backend/models.py
 project = models.ForeignKey(Project, ...)
 ```
 
@@ -385,15 +385,15 @@ Other products depend on a product's **contract files only**. When contract file
 ```text
 other_product tests
        | depends on
-example_product contracts  (facade/contracts.py, facade/enums.py)
+mcp_analytics contracts  (facade/contracts.py, facade/enums.py)
        | does NOT depend on
-example_product impl       (logic.py, models.py)
+mcp_analytics impl       (logic.py, models.py)
 ```
 
-**Scenario: Change `example_product/logic.py`**
+**Scenario: Change `mcp_analytics/logic.py`**
 
-- `example_product backend:test` → reruns (impl files changed)
-- `example_product backend:contract-check` → cache hit (contract files unchanged)
+- `mcp_analytics backend:test` → reruns (impl files changed)
+- `mcp_analytics backend:contract-check` → cache hit (contract files unchanged)
 - `other_product backend:test` → skipped (depends only on contracts, which didn't change)
 
 ## CI commands
@@ -403,7 +403,7 @@ example_product impl       (logic.py, models.py)
 pnpm turbo run backend:test
 
 # Run specific product tests
-pnpm turbo run backend:test --filter=@posthog/products-example_product
+pnpm turbo run backend:test --filter=@posthog/products-mcp_analytics
 
 # Run contract checks
 pnpm turbo run backend:contract-check
