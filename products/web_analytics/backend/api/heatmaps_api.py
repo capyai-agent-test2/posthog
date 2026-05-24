@@ -25,6 +25,7 @@ from posthog.api.shared import UserBasicSerializer
 from posthog.api.utils import action
 from posthog.auth import ExportRendererAuthentication
 from posthog.clickhouse.query_tagging import Feature, tag_queries
+from posthog.cloud_utils import is_cloud
 from posthog.models import User
 from posthog.models.activity_logging.activity_log import Detail, log_activity
 from posthog.rate_limit import (
@@ -577,9 +578,10 @@ class SavedHeatmapRequestSerializer(serializers.ModelSerializer):
     def validate_url(self, value: str) -> str:
         if any(c in _URL_PATTERN_CHARS for c in value):
             raise serializers.ValidationError("Wildcards are not allowed in the page URL.")
-        ok, err = is_url_allowed(value)
-        if not ok:
-            raise serializers.ValidationError(err or "URL not allowed")
+        if is_cloud():
+            ok, err = is_url_allowed(value)
+            if not ok:
+                raise serializers.ValidationError(err or "URL not allowed")
         return value
 
     class Meta:
