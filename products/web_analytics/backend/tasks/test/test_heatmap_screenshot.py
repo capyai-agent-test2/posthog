@@ -100,7 +100,7 @@ class TestHeatmapScreenshotSecurity(SimpleTestCase):
 
         page.route.assert_called_once()
 
-    @override_settings(CLOUD_DEPLOYMENT="US")
+    @override_settings(CLOUD_DEPLOYMENT="US", DEBUG=False)
     def test_cloud_keeps_runtime_request_blocking(self) -> None:
         page = MagicMock()
 
