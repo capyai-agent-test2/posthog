@@ -1,3 +1,5 @@
+export type { CloudRegion } from '@/tools/types'
+
 export {
     USER_AGENT,
     type GetUserAgentOptions,
@@ -14,6 +16,8 @@ export {
     OAUTH_SCOPES_SUPPORTED,
 } from './oauth-constants'
 
+import type { CloudRegion } from '@/tools/types'
+
 import { resolveAuthorizationServerUrl } from './oauth-constants'
 
-export const getAuthorizationServerUrl = (): string => resolveAuthorizationServerUrl()
+export const getAuthorizationServerUrl = (region?: CloudRegion | null): string => resolveAuthorizationServerUrl(region)

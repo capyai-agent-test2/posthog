@@ -138,6 +138,15 @@ describe('Hono App Routes', () => {
             expect(body.authorization_servers[0]).toBe('https://oauth.posthog.com')
         })
 
+        it('should use eu.posthog.com as authorization server for EU hostnames', async () => {
+            const { app } = createApp(mockRedis)
+            const res = await app.request('/.well-known/oauth-protected-resource/mcp', {
+                headers: { 'X-Forwarded-Host': 'mcp-eu.posthog.com' },
+            })
+            const body = (await res.json()) as Record<string, any>
+            expect(body.authorization_servers[0]).toBe('https://eu.posthog.com')
+        })
+
         it('should set Cache-Control header', async () => {
             const { app } = createApp(mockRedis)
             const res = await app.request('/.well-known/oauth-protected-resource/mcp')
@@ -253,6 +262,18 @@ describe('Hono App Routes', () => {
             const res = await app.request('/.well-known/oauth-authorization-server', { redirect: 'manual' })
             expect([301, 302]).toContain(res.status)
             expect(res.headers.get('Location')).toContain('oauth.posthog.com')
+        })
+
+        it('should redirect EU OAuth discovery to eu.posthog.com', async () => {
+            const { app } = createApp(mockRedis)
+            const res = await app.request('/.well-known/oauth-authorization-server', {
+                redirect: 'manual',
+                headers: { 'X-Forwarded-Host': 'mcp-eu.posthog.com' },
+            })
+            expect(res.status).toBe(302)
+            expect(res.headers.get('Location')).toContain(
+                'https://eu.posthog.com/.well-known/oauth-authorization-server'
+            )
         })
 
         it('should redirect /.well-known/jwks.json with 301', async () => {
