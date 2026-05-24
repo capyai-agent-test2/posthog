@@ -6,7 +6,7 @@ Documentation: https://posthog.com/docs/model-context-protocol
 
 ### Quick install
 
-You can install the MCP server automatically into Cursor, Claude, Claude Code, VS Code and Zed by running the following command:
+You can install the MCP server automatically into Cursor, Claude, Claude Code, Codex, VS Code, and Zed by running the following command:
 
 ```bash
 npx @posthog/wizard@latest mcp add
@@ -36,6 +36,18 @@ npx @posthog/wizard@latest mcp add
     }
   }
 }
+```
+
+### Codex CLI
+
+Use the install wizard or a command-based MCP config with `mcp-remote`.
+Codex's direct URL mode can authenticate successfully while only surfacing the fallback tool set, so prefer the wrapper configuration for now.
+
+```toml
+[mcp_servers.posthog]
+command = "npx"
+args = ["-y", "mcp-remote@latest", "https://mcp.posthog.com/sse", "--header", "Authorization:${POSTHOG_AUTH_HEADER}"]
+env = { POSTHOG_AUTH_HEADER = "Bearer {INSERT_YOUR_PERSONAL_API_KEY_HERE}" }
 ```
 
 ### Minimal Node client (Streamable HTTP)
