@@ -53,6 +53,10 @@ export interface PersonsLogicProps {
 
 export const PERSON_EVENTS_CONTEXT_KEY = 'person-profile-events'
 
+function isPersonsTabType(tab: unknown): tab is PersonsTabType {
+    return typeof tab === 'string' && Object.values(PersonsTabType).includes(tab as PersonsTabType)
+}
+
 function createInitialEventsPayload(personId: string): DataTableNode {
     return {
         kind: NodeKind.DataTableNode,
@@ -514,11 +518,17 @@ export const personsLogic = kea<personsLogicType>([
     tabAwareUrlToAction(({ actions, values, props }) => ({
         '/person/*': ({ _: rawPersonDistinctId }, { sessionRecordingId }, { activeTab }) => {
             if (props.syncWithUrl) {
-                if (activeTab && values.activeTab !== activeTab) {
-                    actions.navigateToTab(activeTab as PersonsTabType)
-                } else if (!activeTab && sessionRecordingId && values.activeTab !== PersonsTabType.SESSION_RECORDINGS) {
+                const nextActiveTab = isPersonsTabType(activeTab) ? activeTab : null
+
+                if (nextActiveTab && values.activeTab !== nextActiveTab) {
+                    actions.navigateToTab(nextActiveTab)
+                } else if (
+                    !nextActiveTab &&
+                    sessionRecordingId &&
+                    values.activeTab !== PersonsTabType.SESSION_RECORDINGS
+                ) {
                     actions.navigateToTab(PersonsTabType.SESSION_RECORDINGS)
-                } else if (!activeTab && values.activeTab !== values.defaultTab) {
+                } else if (!nextActiveTab && values.activeTab !== values.defaultTab) {
                     actions.setActiveTab(values.defaultTab)
                 }
 
@@ -534,11 +544,17 @@ export const personsLogic = kea<personsLogicType>([
         },
         '/persons/*': ({ _: rawPersonUUID }, { sessionRecordingId }, { activeTab }) => {
             if (props.syncWithUrl) {
-                if (activeTab && values.activeTab !== activeTab) {
-                    actions.navigateToTab(activeTab as PersonsTabType)
-                } else if (!activeTab && sessionRecordingId && values.activeTab !== PersonsTabType.SESSION_RECORDINGS) {
+                const nextActiveTab = isPersonsTabType(activeTab) ? activeTab : null
+
+                if (nextActiveTab && values.activeTab !== nextActiveTab) {
+                    actions.navigateToTab(nextActiveTab)
+                } else if (
+                    !nextActiveTab &&
+                    sessionRecordingId &&
+                    values.activeTab !== PersonsTabType.SESSION_RECORDINGS
+                ) {
                     actions.navigateToTab(PersonsTabType.SESSION_RECORDINGS)
-                } else if (!activeTab) {
+                } else if (!nextActiveTab) {
                     actions.setActiveTab(values.defaultTab)
                 }
 

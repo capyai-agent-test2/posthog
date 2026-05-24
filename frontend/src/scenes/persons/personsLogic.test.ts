@@ -540,6 +540,20 @@ describe('personsLogic', () => {
                 })
         })
 
+        it('ignores invalid activeTab values and falls back to recordings when sessionRecordingId exists', async () => {
+            await expectLogic(logic, () => {
+                router.actions.push(
+                    '/person/test%40test.com',
+                    { sessionRecordingId: 'rec-123' },
+                    { activeTab: 'bogus' }
+                )
+            })
+                .toFinishAllListeners()
+                .toMatchValues({
+                    activeTab: PersonsTabType.SESSION_RECORDINGS,
+                })
+        })
+
         it('setActiveTab updates activeTab', async () => {
             await expectLogic(logic, () => {
                 logic.actions.setActiveTab(PersonsTabType.COHORTS)
