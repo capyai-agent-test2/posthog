@@ -78,10 +78,10 @@ export const ScrollableShadows = React.forwardRef<HTMLDivElement, ScrollableShad
                         ? { overflow: 'hidden' }
                         : direction
                           ? {
-                                overflowX: direction === 'horizontal' ? undefined : 'hidden',
-                                overflowY: direction === 'vertical' ? undefined : 'hidden',
+                                overflowX: direction === 'horizontal' ? 'auto' : 'hidden',
+                                overflowY: direction === 'vertical' ? 'auto' : 'hidden',
                             }
-                          : undefined
+                          : { overflowX: 'auto', overflowY: 'auto' }
                 }
             >
                 <ScrollArea.Content className={clsx('min-w-0', contentClassName)}>{children}</ScrollArea.Content>
