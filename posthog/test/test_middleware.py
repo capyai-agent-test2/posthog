@@ -1733,6 +1733,7 @@ class TestCSPMiddleware(APIBaseTest):
     def test_html_response_gets_report_only_csp(self):
         response = self.client.get("/")
         assert response.status_code == 200
+        assert response["Accept-CH"] == "Sec-CH-UA-Full-Version-List, Sec-CH-UA-Platform-Version"
         assert "Content-Security-Policy-Report-Only" in response
         assert "Content-Security-Policy" not in response
 
