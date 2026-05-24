@@ -24,7 +24,7 @@ export interface CouponFormValues {
 }
 
 export const couponLogic = kea<couponLogicType>([
-    path(['scenes', 'coupons', 'couponLogic']),
+    path(['scenes', 'billing', 'coupons', 'couponLogic']),
     props({} as CouponLogicProps),
     connect(() => ({
         values: [
