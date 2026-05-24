@@ -149,6 +149,8 @@ def validate_heatmap_screenshot_url(url: str) -> tuple[bool, str | None]:
 
     if not is_cloud():
         resolved_ips = resolve_host_ips(host)
+        if not resolved_ips:
+            return False, "Could not resolve host"
         if any(ip in METADATA_IPS for ip in resolved_ips):
             return False, "Local/metadata host"
         return True, None

@@ -81,6 +81,18 @@ class TestHeatmapScreenshotSecurity(SimpleTestCase):
         mock_is_url_allowed.assert_not_called()
 
     @override_settings(CLOUD_DEPLOYMENT=None)
+    @patch("products.web_analytics.backend.tasks.heatmap_screenshot.resolve_host_ips", return_value=set())
+    @patch("products.web_analytics.backend.tasks.heatmap_screenshot.is_url_allowed")
+    def test_self_hosted_blocks_unresolved_hosts(
+        self, mock_is_url_allowed: MagicMock, _mock_resolve_host_ips: MagicMock
+    ) -> None:
+        assert validate_heatmap_screenshot_url("http://metadata-alias.internal/latest/meta-data") == (
+            False,
+            "Could not resolve host",
+        )
+        mock_is_url_allowed.assert_not_called()
+
+    @override_settings(CLOUD_DEPLOYMENT=None)
     def test_self_hosted_skips_runtime_request_blocking(self) -> None:
         page = MagicMock()
 
@@ -95,6 +107,15 @@ class TestHeatmapScreenshotSecurity(SimpleTestCase):
         _block_internal_requests(page)
 
         page.route.assert_called_once()
+
+        route_handler = page.route.call_args.args[1]
+        blocked_route = MagicMock()
+        blocked_route.request.url = "http://169.254.169.254/latest/meta-data"
+
+        route_handler(blocked_route)
+
+        blocked_route.abort.assert_called_once()
+        blocked_route.continue_.assert_not_called()
 
     @override_settings(CLOUD_DEPLOYMENT=None)
     def test_self_hosted_runtime_request_blocking_blocks_metadata_hosts(self) -> None:
