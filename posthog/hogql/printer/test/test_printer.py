@@ -736,6 +736,18 @@ class TestPrinter(BaseTest):
         )
         self.assertEqual(context.values["hogql_val_0"], "foo")
 
+    def test_property_groups_person_property_null_checks_treat_null_literal_as_not_set(self):
+        self._test_property_group_comparison(
+            "person.properties.foo != null",
+            "and(has(events.person_properties_map_custom, %(hogql_val_0)s), notEquals(events.person_properties_map_custom[%(hogql_val_0)s], 'null'))",
+            {"hogql_val_0": "foo"},
+        )
+        self._test_property_group_comparison(
+            "person.properties.foo = null",
+            "or(not(has(events.person_properties_map_custom, %(hogql_val_0)s)), equals(events.person_properties_map_custom[%(hogql_val_0)s], 'null'))",
+            {"hogql_val_0": "foo"},
+        )
+
     def _test_property_group_comparison(
         self,
         input_expression: str,
