@@ -29,9 +29,10 @@ export function createFuseMemoizer<T, Args extends readonly unknown[]>(
             return previousFuse
         }
 
+        const nextFuse = createFuse(buildItems(...args), options)
         previousArgs = args
-        previousFuse = createFuse(buildItems(...args), options)
-        return previousFuse
+        previousFuse = nextFuse
+        return nextFuse
     }
 }
 
