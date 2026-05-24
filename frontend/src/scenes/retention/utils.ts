@@ -55,7 +55,7 @@ export function getRetentionCellPeriodState(
 
     return {
         cellDate,
-        isCurrentPeriod: !cellStartDate.isAfter(now) && cellDate.isAfter(now),
+        isCurrentPeriod: !cellStartDate.isAfter(now) && cellDate.add(1, periodUnit).isAfter(now),
         isFuture: cellStartDate.isAfter(now),
     }
 }

@@ -21,6 +21,36 @@ describe('retention utils', () => {
             })
         })
 
+        it('keeps a custom bracket in progress through its final interval', () => {
+            const now = dayjs('2026-05-24T00:00:00Z')
+
+            expect(
+                getRetentionCellPeriodState(cohortDate, now, 4, {
+                    period: 'Week',
+                    retentionCustomBrackets: [1, 3, 4, 8],
+                })
+            ).toMatchObject({
+                isCurrentPeriod: true,
+                isFuture: false,
+                cellDate: dayjs('2026-05-24T00:00:00Z'),
+            })
+        })
+
+        it('treats single-interval custom brackets as in progress during that interval', () => {
+            const now = dayjs('2026-02-08T00:00:00Z')
+
+            expect(
+                getRetentionCellPeriodState(cohortDate, now, 1, {
+                    period: 'Week',
+                    retentionCustomBrackets: [1],
+                })
+            ).toMatchObject({
+                isCurrentPeriod: true,
+                isFuture: false,
+                cellDate: dayjs('2026-02-08T00:00:00Z'),
+            })
+        })
+
         it('hides custom brackets that have not started yet', () => {
             const now = dayjs('2026-03-15T00:00:00Z')
 
