@@ -980,6 +980,8 @@ class ActivityLoggingMiddleware:
 
 
 class CSPMiddleware:
+    ACCEPT_CH_HINTS = "Sec-CH-UA-Full-Version-List, Sec-CH-UA-Platform-Version"
+
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -997,6 +999,7 @@ class CSPMiddleware:
             return response
 
         is_admin_view = request.path.startswith("/admin/")
+        response.headers["Accept-CH"] = self.ACCEPT_CH_HINTS
         if is_admin_view:
             django_loginas_inline_script_hash = "sha256-2bSkJXtgXFhxZUhgXzWsEsKImxJEQsqjns0vi3KiSrI="
             csp_parts = [
