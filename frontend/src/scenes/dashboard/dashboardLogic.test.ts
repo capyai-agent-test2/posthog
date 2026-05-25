@@ -485,6 +485,8 @@ describe('dashboardLogic', () => {
                 logic.actions.setDashboardMode(null, DashboardEventSource.DashboardHeaderDiscardChanges)
             }).toFinishAllListeners()
 
+            expect(logic.values.dashboard).not.toBe(initialDashboard)
+
             const restoredTileLayouts = logic.values.dashboard?.tiles.find((t) => t.id === firstTile.id)?.layouts
             expect(restoredTileLayouts).toEqual(originalLayouts)
         })
