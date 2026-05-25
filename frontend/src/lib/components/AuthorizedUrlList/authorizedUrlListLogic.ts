@@ -108,6 +108,7 @@ interface BuildToolbarParamsOptions {
     productTourId?: string | null
     userIntent?: ToolbarUserIntent
     toolbarFlagsKey?: string
+    projectId?: number
 }
 
 const _buildToolbarUserIntent = (options?: BuildToolbarParamsOptions): ToolbarUserIntent => {
@@ -134,6 +135,7 @@ function buildToolbarParams(options?: BuildToolbarParamsOptions): ToolbarParams 
     return {
         userIntent: _buildToolbarUserIntent(options),
         uiHost: window.location.origin,
+        ...(options?.projectId ? { projectId: options.projectId } : {}),
         ...(options?.actionId ? { actionId: options.actionId } : {}),
         ...(options?.experimentId ? { experimentId: options.experimentId } : {}),
         ...(options?.productTourId && options.productTourId !== 'new' ? { productTourId: options.productTourId } : {}),
@@ -151,6 +153,7 @@ export function appEditorUrl(
         userIntent?: ToolbarUserIntent
         generateOnly?: boolean
         toolbarFlagsKey?: string
+        projectId?: number
     }
 ): string {
     const params = buildToolbarParams(options) as Record<string, unknown>
@@ -534,6 +537,7 @@ export const authorizedUrlListLogic = kea<authorizedUrlListLogicType>([
             (currentTeam, user, actionId, experimentId, productTourId, userIntent) => (url: string) => {
                 const commonOptions = {
                     token: currentTeam?.api_token,
+                    projectId: currentTeam?.id,
                     dataAttributes: currentTeam?.data_attributes,
                     userEmail: user?.email,
                     distinctId: user?.distinct_id,

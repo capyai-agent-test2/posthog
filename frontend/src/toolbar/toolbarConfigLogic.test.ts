@@ -898,6 +898,32 @@ describe('toolbar toolbarConfigLogic', () => {
             expect((global.fetch as jest.Mock).mock.calls).toHaveLength(1)
             expect(logic.values.accessToken).toBe('access-token')
         })
+
+        it('pins @current project requests to the toolbar projectId', async () => {
+            const logic = toolbarConfigLogic.build({
+                apiURL: 'http://localhost',
+                accessToken: 'access-token',
+                refreshToken: 'refresh-token',
+                clientId: 'client-id',
+                projectId: 123,
+            })
+            logic.mount()
+            ;(global.fetch as jest.Mock).mockClear()
+            ;(global.fetch as jest.Mock).mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: () => Promise.resolve({ results: [] }),
+            })
+
+            await toolbarFetch('/api/projects/@current/feature_flags/my_flags/')
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                'http://localhost/api/projects/123/feature_flags/my_flags/',
+                expect.objectContaining({
+                    headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+                })
+            )
+        })
     })
 
     describe('authorization code extraction and hash cleanup', () => {

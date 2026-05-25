@@ -1644,6 +1644,7 @@ class TestUserAPI(APIBaseTest):
         # Verify the full params structure
         decoded_location = unquote(location_header)
         self.assertIn('"toolbarFlagsKey": "test-key-789"', decoded_location)
+        self.assertIn(f'"projectId": {self.team.id}', decoded_location)
 
     def test_user_cannot_update_protected_fields(self):
         self.user.is_staff = False

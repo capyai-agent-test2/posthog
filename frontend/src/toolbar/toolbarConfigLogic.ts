@@ -835,7 +835,12 @@ export async function toolbarFetch(
         fullUrl = url
     } else {
         const { pathname, searchParams } = combineUrl(url)
-        fullUrl = `${host}${pathname}${encodeParams(searchParams, '?')}`
+        const projectId = logic?.values.props.projectId
+        const scopedPathname =
+            projectId && pathname.startsWith('/api/projects/@current')
+                ? pathname.replace('/api/projects/@current', `/api/projects/${projectId}`)
+                : pathname
+        fullUrl = `${host}${scopedPathname}${encodeParams(searchParams, '?')}`
     }
 
     const isFormData = typeof FormData !== 'undefined' && payload instanceof FormData

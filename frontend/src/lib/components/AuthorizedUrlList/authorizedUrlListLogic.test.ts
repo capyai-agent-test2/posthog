@@ -323,6 +323,11 @@ describe('the authorized urls list logic', () => {
             const params = parseHash(directToolbarUrl('https://example.com', { toolbarFlagsKey: 'flags_key_xyz' }))
             expect(params.toolbarFlagsKey).toBe('flags_key_xyz')
         })
+
+        it('includes projectId when provided', () => {
+            const params = parseHash(directToolbarUrl('https://example.com', { projectId: 123 }))
+            expect(params.projectId).toBe(123)
+        })
     })
 
     describe('filterNotAuthorizedUrls', () => {
