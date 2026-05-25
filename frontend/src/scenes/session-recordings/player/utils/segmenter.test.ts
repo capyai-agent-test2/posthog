@@ -97,4 +97,33 @@ describe('segmenter', () => {
 
         expect(segments).toMatchSnapshot()
     })
+
+    it('treats keyboard custom events as activity', () => {
+        const start = dayjs('2023-01-01T00:00:00.000Z')
+        const end = dayjs('2023-01-01T00:00:10.000Z')
+
+        const snapshots: RecordingSnapshot[] = [
+            { windowId: 1, timestamp: start.valueOf(), type: 4, data: { href: 'https://example.com' } } as any,
+            {
+                windowId: 1,
+                timestamp: start.valueOf() + 1000,
+                type: 5,
+                data: { tag: 'user-interaction', payload: { type: 'keydown' } },
+            } as any,
+            { windowId: 1, timestamp: end.valueOf(), type: 3, data: {} } as any,
+        ]
+
+        const snapshotsByWindowId = mapSnapshotsToWindowId(snapshots)
+        const segments = createSegments(snapshots, start, end, null, snapshotsByWindowId)
+
+        expect(segments[0]).toEqual({
+            durationMs: 1000,
+            endTimestamp: start.valueOf() + 1000,
+            isActive: true,
+            kind: 'window',
+            startTimestamp: start.valueOf(),
+            windowId: 1,
+        })
+        expect(segments.some((segment) => segment.isActive === false)).toBe(true)
+    })
 })
