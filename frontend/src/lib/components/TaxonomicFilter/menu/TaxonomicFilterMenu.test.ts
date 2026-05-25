@@ -1,3 +1,5 @@
+import { CLICK_OUTSIDE_BLOCK_CLASS } from 'lib/hooks/useOutsideClickHandler'
+
 jest.mock(
     '@posthog/quill',
     () => ({
@@ -33,19 +35,25 @@ describe('TaxonomicFilterMenu outside click detection', () => {
         const quillChild = document.createElement('button')
         quillPortal.appendChild(quillChild)
 
-        const lemonPopover = document.createElement('div')
-        lemonPopover.className = 'Popover'
-        const lemonPopoverChild = document.createElement('button')
-        lemonPopover.appendChild(lemonPopoverChild)
+        const nestedOverlay = document.createElement('div')
+        nestedOverlay.className = CLICK_OUTSIDE_BLOCK_CLASS
+        const nestedOverlayChild = document.createElement('button')
+        nestedOverlay.appendChild(nestedOverlayChild)
+
+        const unrelatedPopover = document.createElement('div')
+        unrelatedPopover.className = 'Popover'
+        const unrelatedPopoverChild = document.createElement('button')
+        unrelatedPopover.appendChild(unrelatedPopoverChild)
 
         const outside = document.createElement('button')
 
-        document.body.append(triggerWrap, popoverContent, quillPortal, lemonPopover, outside)
+        document.body.append(triggerWrap, popoverContent, quillPortal, nestedOverlay, unrelatedPopover, outside)
 
         expect(isInsideTaxonomicFilterOverlay(triggerChild, triggerWrap)).toBe(true)
         expect(isInsideTaxonomicFilterOverlay(popoverChild, triggerWrap)).toBe(true)
         expect(isInsideTaxonomicFilterOverlay(quillChild, triggerWrap)).toBe(true)
-        expect(isInsideTaxonomicFilterOverlay(lemonPopoverChild, triggerWrap)).toBe(true)
+        expect(isInsideTaxonomicFilterOverlay(nestedOverlayChild, triggerWrap)).toBe(true)
+        expect(isInsideTaxonomicFilterOverlay(unrelatedPopoverChild, triggerWrap)).toBe(false)
         expect(isInsideTaxonomicFilterOverlay(outside, triggerWrap)).toBe(false)
     })
 })

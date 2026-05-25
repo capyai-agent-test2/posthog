@@ -39,6 +39,8 @@ import {
     PopoverTrigger,
 } from '@posthog/quill'
 
+import { CLICK_OUTSIDE_BLOCK_CLASS } from 'lib/hooks/useOutsideClickHandler'
+
 import { getCoreFilterDefinition } from '~/taxonomy/helpers'
 
 import { useTaxonomicFilterContext } from '../headless/context'
@@ -108,7 +110,7 @@ export function isInsideTaxonomicFilterOverlay(target: Element, triggerWrap: HTM
     if (target.closest?.('[data-quill-portal]')) {
         return true
     }
-    if (target.closest?.('.Popover')) {
+    if (target.closest?.(`.${CLICK_OUTSIDE_BLOCK_CLASS}`)) {
         return true
     }
     if (triggerWrap?.contains(target)) {
