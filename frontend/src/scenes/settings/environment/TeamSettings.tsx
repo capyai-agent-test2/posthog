@@ -14,12 +14,9 @@ import { TeamMembershipLevel } from 'lib/constants'
 import { LemonField } from 'lib/lemon-ui/LemonField'
 import { Link } from 'lib/lemon-ui/Link'
 import { debounce, inStorybook, inStorybookTestRunner } from 'lib/utils'
-import { userHasAccess } from 'lib/utils/accessControlUtils'
 import { organizationLogic } from 'scenes/organizationLogic'
 import { preflightLogic } from 'scenes/PreflightCheck/preflightLogic'
 import { teamLogic } from 'scenes/teamLogic'
-
-import { AccessControlLevel, AccessControlResourceType } from '~/types'
 
 import { BusinessModelConfig } from './BusinessModelConfig'
 import { TimezoneConfig } from './TimezoneConfig'
@@ -231,11 +228,12 @@ export function TeamBusinessModel(): JSX.Element {
 }
 
 export function TeamAuthorizedURLs(): JSX.Element {
+    const restrictedReason = useRestrictedArea({
+        scope: RestrictionScope.Project,
+        minimumAccessLevel: TeamMembershipLevel.Admin,
+    })
     // In Storybook, allow editing by default since we don't have full app context
-    const canEdit =
-        inStorybook() || inStorybookTestRunner()
-            ? true
-            : userHasAccess(AccessControlResourceType.WebAnalytics, AccessControlLevel.Manager)
+    const canEdit = inStorybook() || inStorybookTestRunner() ? true : !restrictedReason
 
     return (
         <AuthorizedUrlList
