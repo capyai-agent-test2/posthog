@@ -340,8 +340,10 @@ class DataWarehouseSavedQuery(CreatedMetaFields, UUIDTModel, UpdatedMetaFields, 
             else:
                 raise Exception(f"Unknown column type: {type}")  # Never reached
 
+            is_nullable = False
             if clickhouse_type.startswith("Nullable("):
                 clickhouse_type = clickhouse_type.replace("Nullable(", "")[:-1]
+                is_nullable = True
 
             # TODO: remove when addressed https://github.com/ClickHouse/ClickHouse/issues/37594
             if clickhouse_type.startswith("Array("):
@@ -350,9 +352,9 @@ class DataWarehouseSavedQuery(CreatedMetaFields, UUIDTModel, UpdatedMetaFields, 
             # Support for 'old' style columns
             if isinstance(type, str):
                 hogql_type_str = clickhouse_type.partition("(")[0]
-                fields[column] = CLICKHOUSE_HOGQL_MAPPING[hogql_type_str](name=column)
+                fields[column] = CLICKHOUSE_HOGQL_MAPPING[hogql_type_str](name=column, nullable=is_nullable)
             elif isinstance(type, dict):
-                fields[column] = STR_TO_HOGQL_MAPPING[type["hogql"]](name=column)
+                fields[column] = STR_TO_HOGQL_MAPPING[type["hogql"]](name=column, nullable=is_nullable)
             else:
                 raise Exception(f"Unknown column type: {type}")  # Never reached
 
