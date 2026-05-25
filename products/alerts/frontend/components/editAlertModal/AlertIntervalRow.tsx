@@ -7,7 +7,10 @@ import { TZLabel } from 'lib/components/TZLabel'
 import type { GuardAvailableFeatureFn } from 'lib/components/UpgradeModal/upgradeModalLogic'
 import { LemonField } from 'lib/lemon-ui/LemonField'
 
-import { selectAlertCalculationInterval } from 'products/alerts/frontend/logic/alertIntervalHelpers'
+import {
+    getAlertTimingGuidance,
+    selectAlertCalculationInterval,
+} from 'products/alerts/frontend/logic/alertIntervalHelpers'
 
 import { getAlertIntervalOptions } from './editAlertModalUtils'
 
@@ -32,6 +35,12 @@ export function AlertIntervalRow({
     guardAvailableFeature,
     nextPlannedEvaluationStale,
 }: AlertIntervalRowProps): JSX.Element {
+    const timingGuidance = getAlertTimingGuidance(
+        alertForm.calculation_interval,
+        alertForm.config.check_ongoing_interval,
+        alertForm.skip_weekend
+    )
+
     return (
         <>
             <div className="flex flex-wrap gap-x-3 gap-y-2 items-center">
@@ -77,6 +86,7 @@ export function AlertIntervalRow({
                     ]}
                 />
             </div>
+            {timingGuidance ? <div className="text-sm text-muted">{timingGuidance}</div> : null}
             {!creatingNewAlert && alert ? (
                 <div className="text-sm text-muted flex flex-wrap items-center gap-x-2 gap-y-0">
                     <IconClock
