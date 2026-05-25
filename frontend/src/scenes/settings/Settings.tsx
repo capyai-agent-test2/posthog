@@ -370,12 +370,7 @@ export function Settings({
                 </div>
             )}
 
-            <div
-                className={clsx(
-                    'flex-1 w-full min-w-0 self-start pb-32',
-                    isFullScene && !hideSections && !isCompact && 'pl-[calc(var(--settings-nav-width)+2rem)]'
-                )}
-            >
+            <div className={clsx('flex-1 w-full min-w-0 self-start pb-32')}>
                 <AuthenticationAreaComponent>
                     <div className="space-y-2">
                         {headerSlot}
