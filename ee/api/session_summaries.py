@@ -15,7 +15,7 @@ import structlog
 from asgiref.sync import async_to_sync
 from drf_spectacular.utils import extend_schema
 from loginas.utils import is_impersonated_session
-from rest_framework import exceptions, serializers, status, viewsets
+from rest_framework import exceptions, mixins, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -678,7 +678,13 @@ def log_session_summary_group_activity(
 @extend_schema(
     description="API for retrieving and managing stored group session summaries.",
 )
-class SessionGroupSummaryViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
+class SessionGroupSummaryViewSet(
+    TeamAndOrgViewSetMixin,
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
     scope_object = "session_recording"
     queryset = SessionGroupSummary.objects.all()
     lookup_field = "id"

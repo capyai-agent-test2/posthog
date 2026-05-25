@@ -8,13 +8,15 @@ from posthog.test.base import APIBaseTest
 from unittest.mock import Mock, patch
 
 from django.http import HttpResponse
+from django.test import SimpleTestCase
 
 from parameterized import parameterized
 from rest_framework import exceptions
 
+from posthog.api.routing import DefaultRouterPlusPlus
 from posthog.temporal.session_replay.session_summary_group.types import FailedSessionInfo, SessionSummaryStreamUpdate
 
-from ee.api.session_summaries import _NO_READY_SUMMARY_ERROR_SUBSTRING
+from ee.api.session_summaries import SessionGroupSummaryViewSet, _NO_READY_SUMMARY_ERROR_SUBSTRING
 from ee.hogai.session_summaries.session_group.patterns import (
     EnrichedSessionGroupSummaryPattern,
     EnrichedSessionGroupSummaryPatternsList,
@@ -459,6 +461,22 @@ class TestSessionSummariesAPI(APIBaseTest):
         # And we should not have invoked the workflow for the missing session
         called_session_ids = {call.kwargs.get("session_id") for call in mock_execute.call_args_list}
         self.assertEqual(called_session_ids, {"session_1"})
+
+
+class TestSessionGroupSummariesAPI(SimpleTestCase):
+    def test_create_is_not_allowed_with_personal_api_key(self) -> None:
+        router = DefaultRouterPlusPlus()
+        projects_router = router.register(r"projects", SessionGroupSummaryViewSet, "projects")
+        projects_router.register(
+            r"session_group_summaries",
+            SessionGroupSummaryViewSet,
+            "project_session_group_summaries",
+            ["project_id"],
+        )
+
+        list_route = next(url for url in router.urls if url.name == "project_session_group_summaries-list")
+
+        self.assertEqual(list_route.callback.actions, {"get": "list"})
 
 
 MOCK_SUMMARY_DATA: dict[str, Any] = {
