@@ -238,6 +238,7 @@ const SURVEY_QUERY_TAGS = {
         ...SURVEY_QUERY_TAG_BASE,
         name: 'survey_dismissed_sent_overlap' as const,
     },
+    historicalQuestions: { ...SURVEY_QUERY_TAG_BASE, name: 'survey_historical_questions' as const },
     aggregateResults: { ...SURVEY_QUERY_TAG_BASE, name: 'survey_results_aggregate' as const },
     openEndedResults: { ...SURVEY_QUERY_TAG_BASE, name: 'survey_results_open_ended' as const },
 }
@@ -351,6 +352,63 @@ export interface SurveyDateRange {
 
 type AggregateRow = [string, string, number]
 type AggregateEntries = [string, number][]
+type HistoricalSurveyQuestionRow = [string, string, number]
+
+function parseHistoricalSurveyQuestions(rows: HistoricalSurveyQuestionRow[] | null): SurveyQuestion[] {
+    if (!rows) {
+        return []
+    }
+
+    const parsedQuestions: Array<{ question: SurveyQuestion; firstQuestionIndex: number }> = []
+
+    for (const [questionId, questionRaw, firstQuestionIndex] of rows) {
+        if (!questionRaw) {
+            continue
+        }
+
+        try {
+            const parsed = JSON.parse(questionRaw) as unknown
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                continue
+            }
+
+            const parsedQuestion = parsed as Record<string, unknown>
+            const type = typeof parsedQuestion.type === 'string' ? parsedQuestion.type : null
+            const questionText = typeof parsedQuestion.question === 'string' ? parsedQuestion.question : ''
+            if (!type) {
+                continue
+            }
+
+            parsedQuestions.push({
+                question: {
+                    ...parsedQuestion,
+                    id: questionId,
+                    type,
+                    question: questionText,
+                } as SurveyQuestion,
+                firstQuestionIndex,
+            })
+        } catch {
+            continue
+        }
+    }
+
+    return parsedQuestions.sort((a, b) => a.firstQuestionIndex - b.firstQuestionIndex).map(({ question }) => question)
+}
+
+export function mergeSurveyQuestionsForResults(
+    surveyQuestions: SurveyQuestion[],
+    historicalSurveyQuestions: SurveyQuestion[]
+): SurveyQuestion[] {
+    const questionsById = new Set(
+        surveyQuestions.map((question) => question.id).filter((questionId): questionId is string => Boolean(questionId))
+    )
+
+    return [
+        ...surveyQuestions,
+        ...historicalSurveyQuestions.filter((question) => question.id && !questionsById.has(question.id)),
+    ]
+}
 
 function processChoiceQuestion(
     question: MultipleSurveyQuestion,
@@ -982,6 +1040,7 @@ export const surveyLogic = kea<surveyLogicType>([
                 }
 
                 const survey = values.survey as Survey
+                const surveyQuestions = values.surveyQuestionsForResults
                 const queryFilters: SurveyQueryFilters = {
                     timestampFilter: values.timestampFilter,
                     answerFilterHogQLExpression: values.answerFilterHogQLExpression,
@@ -990,8 +1049,9 @@ export const surveyLogic = kea<surveyLogicType>([
                 const queryParams = {
                     queryParams: { filters: { properties: values.propertyFilters } },
                 }
-                const aggregateQuery = buildAggregateQuery(survey, queryFilters, values.dateRange)
-                const openEndedResult = buildOpenEndedQuery(survey, queryFilters, values.dateRange)
+                const surveyForResults = { ...survey, questions: surveyQuestions }
+                const aggregateQuery = buildAggregateQuery(surveyForResults, queryFilters, values.dateRange)
+                const openEndedResult = buildOpenEndedQuery(surveyForResults, queryFilters, values.dateRange)
 
                 const startMs = performance.now()
                 let aggregateDuration = 0
@@ -1031,9 +1091,9 @@ export const surveyLogic = kea<surveyLogicType>([
                     openEnded: openEndedDuration,
                 })
 
-                const aggregate = processResultsForSurveyQuestions(survey.questions, aggregateResponse.results)
+                const aggregate = processResultsForSurveyQuestions(surveyQuestions, aggregateResponse.results)
                 const openEnded = openEndedResult
-                    ? processOpenEndedResults(survey.questions, openEndedResult.columnMap, openEndedResponse.results)
+                    ? processOpenEndedResults(surveyQuestions, openEndedResult.columnMap, openEndedResponse.results)
                     : {}
 
                 return { responsesByQuestion: mergeResponsesByQuestion(aggregate, openEnded) }
@@ -1048,6 +1108,36 @@ export const surveyLogic = kea<surveyLogicType>([
                     }
                     const uuids = await api.surveys.getArchivedResponseUuids(props.id)
                     return new Set(uuids)
+                },
+            },
+        ],
+        historicalSurveyQuestions: [
+            [] as SurveyQuestion[],
+            {
+                loadHistoricalSurveyQuestions: async (): Promise<SurveyQuestion[]> => {
+                    if (props.id === NEW_SURVEY.id || !values.survey?.start_date) {
+                        return []
+                    }
+
+                    const query = `
+                        SELECT
+                            JSONExtractString(question_raw, 'id') AS question_id,
+                            argMax(question_raw, timestamp) AS question_raw,
+                            min(question_position) - 1 AS first_question_index
+                        FROM events
+                        ARRAY JOIN
+                            arrayEnumerate(JSONExtractArrayRaw(properties, '$survey_questions')) AS question_position,
+                            JSONExtractArrayRaw(properties, '$survey_questions') AS question_raw
+                        WHERE event = '${SurveyEventName.SENT}'
+                            AND properties.\`${SurveyEventProperties.SURVEY_ID}\` = '${props.id}'
+                            AND JSONExtractString(question_raw, 'id') != ''
+                        GROUP BY question_id
+                        ORDER BY first_question_index ASC` as HogQLQueryString
+
+                    const response = await api.queryHogQL(query, SURVEY_QUERY_TAGS.historicalQuestions)
+                    return parseHistoricalSurveyQuestions(
+                        (response.results as HistoricalSurveyQuestionRow[] | undefined) ?? null
+                    )
                 },
             },
         ],
@@ -1190,9 +1280,15 @@ export const surveyLogic = kea<surveyLogicType>([
                 actions.setDataCollectionType(values.derivedDataCollectionType)
 
                 if (values.survey.id !== NEW_SURVEY.id && values.survey.start_date) {
+                    actions.loadHistoricalSurveyQuestions()
                     // Load archived UUIDs first — stats are triggered by loadArchivedResponseUuidsSuccess
                     // so that the archivedResponsesFilter is populated before stats queries run
                     actions.loadArchivedResponseUuids()
+                }
+            },
+            loadHistoricalSurveyQuestionsSuccess: () => {
+                if (values.survey.id !== NEW_SURVEY.id && values.survey.start_date) {
+                    actions.loadConsolidatedSurveyResults()
                 }
             },
             loadArchivedResponseUuidsSuccess: () => {
@@ -1963,6 +2059,12 @@ export const surveyLogic = kea<surveyLogicType>([
                 return buildSurveyTimestampFilter(survey, dateRange)
             },
         ],
+        surveyQuestionsForResults: [
+            (s) => [s.survey, s.historicalSurveyQuestions],
+            (survey: Survey | NewSurvey, historicalSurveyQuestions: SurveyQuestion[]): SurveyQuestion[] => {
+                return mergeSurveyQuestionsForResults(survey.questions, historicalSurveyQuestions)
+            },
+        ],
         partialResponsesFilter: [
             (s) => [s.survey, s.dateRange],
             (survey: Survey, dateRange: SurveyDateRange): string => {
@@ -2205,6 +2307,7 @@ export const surveyLogic = kea<surveyLogicType>([
         dataTableQuery: [
             (s) => [
                 s.survey,
+                s.surveyQuestionsForResults,
                 s.propertyFilters,
                 s.answerFilterHogQLExpression,
                 s.partialResponsesFilter,
@@ -2215,6 +2318,7 @@ export const surveyLogic = kea<surveyLogicType>([
             ],
             (
                 survey: Survey,
+                surveyQuestionsForResults: SurveyQuestion[],
                 propertyFilters: AnyPropertyFilter[],
                 answerFilterHogQLExpression: string,
                 partialResponsesFilter: string,
@@ -2241,7 +2345,7 @@ export const surveyLogic = kea<surveyLogicType>([
 
                 const defaultColumns = [
                     '*',
-                    ...survey.questions.map((q, i) => {
+                    ...surveyQuestionsForResults.map((q, i) => {
                         if (q.type === SurveyQuestionType.MultipleChoice) {
                             return `arrayStringConcat(${getSurveyResponse(q, i)}, ', ') -- ${getExpressionCommentForQuestion(q, i)}`
                         }
@@ -2919,12 +3023,12 @@ export const surveyLogic = kea<surveyLogicType>([
             },
         ],
         formattedOpenEndedResponses: [
-            (s) => [s.enrichedConsolidatedSurveyResults, s.survey],
+            (s) => [s.enrichedConsolidatedSurveyResults, s.surveyQuestionsForResults],
             (
                 consolidatedResults: ConsolidatedSurveyResults,
-                survey: Survey | NewSurvey
+                surveyQuestionsForResults: SurveyQuestion[]
             ): SurveyAnalysisQuestionGroup[] => {
-                if (!consolidatedResults?.responsesByQuestion || !survey.questions) {
+                if (!consolidatedResults?.responsesByQuestion || surveyQuestionsForResults.length === 0) {
                     return []
                 }
 
@@ -2938,7 +3042,7 @@ export const surveyLogic = kea<surveyLogicType>([
                 const responsesByQuestion: SurveyAnalysisQuestionGroup[] = []
 
                 Object.entries(consolidatedResults.responsesByQuestion).forEach(([questionId, processedData]) => {
-                    const question = survey.questions.find((q) => q.id === questionId)
+                    const question = surveyQuestionsForResults.find((q) => q.id === questionId)
                     if (!question) {
                         return
                     }

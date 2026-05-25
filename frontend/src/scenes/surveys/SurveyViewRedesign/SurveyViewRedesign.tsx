@@ -571,6 +571,7 @@ function SurveyStatusAction(): JSX.Element | null {
 function SurveySummaryContent({ onViewResponses }: { onViewResponses: () => void }): JSX.Element {
     const {
         survey,
+        surveyQuestionsForResults,
         isAnyResultsLoading,
         resultsRequeryInProgress,
         processedSurveyStats,
@@ -625,7 +626,7 @@ function SurveySummaryContent({ onViewResponses }: { onViewResponses: () => void
                     {isSurveyHeadlineEnabled && <SurveyHeadline />}
 
                     <div className="flex flex-col gap-2">
-                        {survey.questions.map((question, i) => {
+                        {surveyQuestionsForResults.map((question, i) => {
                             if (!question.id || question.type === SurveyQuestionType.Link) {
                                 return null
                             }

@@ -36,12 +36,12 @@ export const getThumbIcon = (value: unknown): JSX.Element | null => {
  * - On thumb questions, render the icon + "Thumbs up/down" instead of the raw `1`/`2` value.
  */
 export function useSurveyResponseColumns(): Record<string, QueryContextColumn> {
-    const { survey } = useValues(surveyLogic)
+    const { surveyQuestionsForResults } = useValues(surveyLogic)
 
     return useMemo(() => {
         const columns: Record<string, QueryContextColumn> = {}
 
-        survey.questions.forEach((question, index) => {
+        surveyQuestionsForResults.forEach((question, index) => {
             const isThumb = isScaleTwoRating(question)
             const isFirstQuestion = index === 0
             const baseExpression = getSurveyResponse(question, index)
@@ -92,5 +92,5 @@ export function useSurveyResponseColumns(): Record<string, QueryContextColumn> {
         })
 
         return columns
-    }, [survey.questions])
+    }, [surveyQuestionsForResults])
 }

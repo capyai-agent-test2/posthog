@@ -339,11 +339,11 @@ function SurveyViewLegacy({ id }: { id: string }): JSX.Element {
 }
 
 function SurveyResponsesByQuestionV2(): JSX.Element {
-    const { survey } = useValues(surveyLogic)
+    const { surveyQuestionsForResults } = useValues(surveyLogic)
 
     return (
         <div className="flex flex-col gap-2">
-            {survey.questions.map((question, i) => {
+            {surveyQuestionsForResults.map((question, i) => {
                 if (!question.id || question.type === SurveyQuestionType.Link) {
                     return null
                 }
