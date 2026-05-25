@@ -1552,6 +1552,7 @@ def redirect_to_site(request):
     params = {
         "action": "ph_authorize",
         "token": team.api_token,
+        "projectId": team.id,
         "actionId": request.GET.get("actionId"),
         "experimentId": request.GET.get("experimentId"),
         "productTourId": request.GET.get("productTourId"),

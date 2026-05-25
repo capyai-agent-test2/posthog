@@ -895,6 +895,7 @@ export interface ToolbarParams {
     /** @deprecated, not needed if `posthog` is passed as prop instead */
     apiURL?: string
     token?: string /** public posthog-js token */
+    projectId?: number
     /** @deprecated Replaced by OAuth flow. Remove after September 2026. */
     temporaryToken?: string
     accessToken?: string /** OAuth access token (Bearer) */
