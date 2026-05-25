@@ -12,7 +12,7 @@ from posthog.api.routing import TeamAndOrgViewSetMixin
 from posthog.auth import SharingAccessTokenAuthentication, SharingPasswordProtectedAuthentication
 from posthog.models.insight_variable import InsightVariable
 
-VARIABLE_PLACEHOLDER_REGEX = re.compile(r"\{variables\.([a-z0-9_]+)\}")
+VARIABLE_PLACEHOLDER_REGEX = re.compile(r"\{variables\.([A-Za-z0-9_]+)\}")
 
 
 class InsightVariableSerializer(serializers.ModelSerializer):
