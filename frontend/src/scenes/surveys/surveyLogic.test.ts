@@ -4,6 +4,7 @@ import { expectLogic, partial } from 'kea-test-utils'
 import api from 'lib/api'
 import { dayjs } from 'lib/dayjs'
 import {
+    mergeSurveyQuestionsForResults,
     mergeResponsesByQuestion,
     processOpenEndedResults,
     processResultsForSurveyQuestions,
@@ -118,6 +119,53 @@ const createSurveyWithLinkQuestion = (questionOverrides: Partial<LinkSurveyQuest
             ...questionOverrides,
         },
     ],
+})
+
+describe('mergeSurveyQuestionsForResults', () => {
+    it('appends deleted historical questions after active survey questions', () => {
+        const currentQuestions = [
+            {
+                id: 'current-question',
+                type: SurveyQuestionType.Open,
+                question: 'Current question',
+                description: '',
+            },
+        ]
+        const historicalQuestions = [
+            {
+                id: 'deleted-question',
+                type: SurveyQuestionType.Open,
+                question: 'Deleted question',
+                description: '',
+            },
+        ]
+
+        expect(mergeSurveyQuestionsForResults(currentQuestions, historicalQuestions)).toEqual([
+            currentQuestions[0],
+            historicalQuestions[0],
+        ])
+    })
+
+    it('prefers the active survey question when historical snapshots overlap by id', () => {
+        const currentQuestions = [
+            {
+                id: 'shared-question',
+                type: SurveyQuestionType.Open,
+                question: 'Current label',
+                description: '',
+            },
+        ]
+        const historicalQuestions = [
+            {
+                id: 'shared-question',
+                type: SurveyQuestionType.Open,
+                question: 'Old label',
+                description: '',
+            },
+        ]
+
+        expect(mergeSurveyQuestionsForResults(currentQuestions, historicalQuestions)).toEqual(currentQuestions)
+    })
 })
 
 describe('editor sync', () => {
@@ -1576,6 +1624,60 @@ describe('survey filters', () => {
                     }),
                 }),
             })
+    })
+
+    it('includes deleted historical questions in result queries', async () => {
+        const surveyWithIds: Survey = {
+            ...MULTIPLE_CHOICE_SURVEY,
+            questions: [
+                {
+                    id: 'current-question',
+                    type: SurveyQuestionType.Open,
+                    question: 'Current question',
+                    description: '',
+                },
+            ],
+        }
+        const deletedHistoricalQuestion = {
+            id: 'deleted-question',
+            type: SurveyQuestionType.Open,
+            question: 'Deleted question',
+            description: '',
+        }
+
+        await expectLogic(logic, () => {
+            logic.actions.loadSurveySuccess(surveyWithIds)
+            logic.actions.loadHistoricalSurveyQuestionsSuccess([deletedHistoricalQuestion])
+        })
+            .toDispatchActions(['loadSurveySuccess', 'loadHistoricalSurveyQuestionsSuccess'])
+            .toMatchValues({
+                surveyQuestionsForResults: [surveyWithIds.questions[0], deletedHistoricalQuestion],
+                dataTableQuery: partial({
+                    defaultColumns: expect.arrayContaining([
+                        "getSurveyResponse(0, 'current-question') -- Current question",
+                        "getSurveyResponse(1, 'deleted-question') -- Deleted question",
+                    ]),
+                }),
+            })
+    })
+
+    it('waits for archived response uuids before reloading historical question results', async () => {
+        const surveyWithIds: Survey = {
+            ...MULTIPLE_CHOICE_SURVEY,
+            questions: [
+                {
+                    id: 'current-question',
+                    type: SurveyQuestionType.Open,
+                    question: 'Current question',
+                    description: '',
+                },
+            ],
+        }
+
+        await expectLogic(logic, () => {
+            logic.actions.loadSurveySuccess(surveyWithIds)
+            logic.actions.loadHistoricalSurveyQuestionsSuccess([])
+        }).toDispatchActions(['loadSurveySuccess', 'loadHistoricalSurveyQuestionsSuccess'])
     })
 })
 
