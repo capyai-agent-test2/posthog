@@ -4,6 +4,7 @@ from typing import Optional
 import pytest
 from posthog.test.base import APIBaseTest
 from unittest import TestCase
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from parameterized import parameterized
@@ -14,7 +15,12 @@ from posthog.errors import CHQueryErrorTooManySimultaneousQueries
 from posthog.models.exported_asset import ExportedAsset
 from posthog.tasks import exporter
 from posthog.tasks.exports.failure_handler import FAILURE_TYPE_SYSTEM, FAILURE_TYPE_USER, is_user_query_error_type
-from posthog.tasks.exports.image_exporter import MEASURE_CONTENT_HEIGHT_JS, _screenshot_asset, get_driver
+from posthog.tasks.exports.image_exporter import (
+    MEASURE_CONTENT_HEIGHT_JS,
+    _screenshot_asset,
+    _should_resize_to_content_width,
+    get_driver,
+)
 
 from products.dashboards.backend.models.dashboard import Dashboard
 
@@ -210,3 +216,20 @@ class TestScreenshotAssetWidth(TestCase):
         assert any("const heatmapElement" in call.args[0] for call in driver.execute_script.call_args_list)
         assert driver.set_window_size.call_args_list[1].args[0] == 500
         assert driver.set_window_size.call_args_list[2].args[0] == 500
+
+
+class TestShouldResizeToContentWidth(TestCase):
+    @parameterized.expand(
+        [
+            ("dashboard_only", None, object(), False),
+            ("insight_only", object(), None, True),
+            ("insight_on_dashboard", object(), object(), True),
+            ("other_export", None, None, True),
+        ]
+    )
+    def test_should_resize_based_on_export_mode(
+        self, _: str, insight: object | None, dashboard: object | None, expected: bool
+    ) -> None:
+        exported_asset = SimpleNamespace(insight=insight, dashboard=dashboard)
+
+        assert _should_resize_to_content_width(exported_asset) is expected

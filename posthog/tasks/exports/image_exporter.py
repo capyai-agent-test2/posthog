@@ -46,6 +46,10 @@ def _build_cache_keys_param(insight_cache_keys: Optional[dict[int, str]]) -> str
     return f"&cache_keys={quote(json.dumps(insight_cache_keys))}"
 
 
+def _should_resize_to_content_width(exported_asset: ExportedAsset) -> bool:
+    return exported_asset.insight is not None or exported_asset.dashboard is None
+
+
 TMP_DIR = "/tmp"  # NOTE: Externalise this to ENV var
 
 # Newer versions of selenium seem to include the search bar in the height calculation.
@@ -242,7 +246,7 @@ def _export_to_png(
             screenshot_height,
             max_height_pixels,
             page_load_timeout,
-            resize_to_content_width=exported_asset.dashboard is None,
+            resize_to_content_width=_should_resize_to_content_width(exported_asset),
         )
 
         with open(image_path, "rb") as image_file:
