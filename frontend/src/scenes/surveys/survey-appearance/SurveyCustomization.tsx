@@ -51,6 +51,8 @@ export function Customization({
 }: CustomizationProps): JSX.Element {
     const { surveysStylingAvailable } = useValues(surveysLogic)
     const { guardAvailableFeature } = useValues(upgradeModalLogic)
+    const isApiSurvey = survey.type === SurveyType.API
+    const supportsInAppLayout = survey.type !== SurveyType.API && survey.type !== SurveyType.ExternalSurvey
 
     const surveyAppearance = { ...defaultSurveyAppearance, ...survey.appearance }
     const selectedThemeId = getMatchingSurveyThemeId(survey.appearance)
@@ -63,30 +65,34 @@ export function Customization({
                 </PayGateMini>
             )}
 
-            <CustomizationSection
-                title="Theme"
-                description="Start with a preset, then fine-tune individual colors below."
-            >
-                <SurveyThemeSelector
-                    selectedThemeId={selectedThemeId}
-                    onSelectTheme={(theme) => onAppearanceChange(theme.appearance)}
-                    disabled={!surveysStylingAvailable || !!disabledReason}
-                    showHeader={false}
-                />
-            </CustomizationSection>
+            {!isApiSurvey && (
+                <>
+                    <CustomizationSection
+                        title="Theme"
+                        description="Start with a preset, then fine-tune individual colors below."
+                    >
+                        <SurveyThemeSelector
+                            selectedThemeId={selectedThemeId}
+                            onSelectTheme={(theme) => onAppearanceChange(theme.appearance)}
+                            disabled={!surveysStylingAvailable || !!disabledReason}
+                            showHeader={false}
+                        />
+                    </CustomizationSection>
 
-            <CustomizationSection title="Colors">
-                <SurveyColorsAppearance
-                    appearance={surveyAppearance}
-                    onAppearanceChange={onAppearanceChange}
-                    validationErrors={validationErrors}
-                    customizeRatingButtons={hasRatingButtons}
-                    customizePlaceholderText={hasPlaceholderText}
-                    disabledReason={disabledReason}
-                />
-            </CustomizationSection>
+                    <CustomizationSection title="Colors">
+                        <SurveyColorsAppearance
+                            appearance={surveyAppearance}
+                            onAppearanceChange={onAppearanceChange}
+                            validationErrors={validationErrors}
+                            customizeRatingButtons={hasRatingButtons}
+                            customizePlaceholderText={hasPlaceholderText}
+                            disabledReason={disabledReason}
+                        />
+                    </CustomizationSection>
+                </>
+            )}
 
-            {survey.type !== SurveyType.ExternalSurvey && (
+            {supportsInAppLayout && (
                 <CustomizationSection
                     title="Layout"
                     description="Container, placement, and typography. Only applied in web surveys, not native mobile apps."
@@ -125,44 +131,48 @@ export function Customization({
                         checked={survey.appearance?.whiteLabel}
                         disabledReason={disabledReason}
                     />
-                    <LemonDivider className="my-0" />
-                    <LemonCheckbox
-                        disabledReason={disabledReason}
-                        label="Shuffle questions"
-                        onChange={(checked) => {
-                            if (checked && hasBranchingLogic) {
-                                onAppearanceChange({ shuffleQuestions: false })
+                    {!isApiSurvey && (
+                        <>
+                            <LemonDivider className="my-0" />
+                            <LemonCheckbox
+                                disabledReason={disabledReason}
+                                label="Shuffle questions"
+                                onChange={(checked) => {
+                                    if (checked && hasBranchingLogic) {
+                                        onAppearanceChange({ shuffleQuestions: false })
 
-                                LemonDialog.open({
-                                    title: 'Your survey has active branching logic',
-                                    description: (
-                                        <p className="py-2">
-                                            Enabling this option will remove your branching logic. Are you sure you want
-                                            to continue?
-                                        </p>
-                                    ),
-                                    primaryButton: {
-                                        children: 'Continue',
-                                        status: 'danger',
-                                        onClick: () => {
-                                            if (deleteBranchingLogic) {
-                                                deleteBranchingLogic()
-                                            }
-                                            onAppearanceChange({ shuffleQuestions: true })
-                                        },
-                                    },
-                                    secondaryButton: {
-                                        children: 'Cancel',
-                                    },
-                                })
-                            } else {
-                                onAppearanceChange({ shuffleQuestions: checked })
-                            }
-                        }}
-                        checked={survey.appearance?.shuffleQuestions}
-                    />
+                                        LemonDialog.open({
+                                            title: 'Your survey has active branching logic',
+                                            description: (
+                                                <p className="py-2">
+                                                    Enabling this option will remove your branching logic. Are you sure
+                                                    you want to continue?
+                                                </p>
+                                            ),
+                                            primaryButton: {
+                                                children: 'Continue',
+                                                status: 'danger',
+                                                onClick: () => {
+                                                    if (deleteBranchingLogic) {
+                                                        deleteBranchingLogic()
+                                                    }
+                                                    onAppearanceChange({ shuffleQuestions: true })
+                                                },
+                                            },
+                                            secondaryButton: {
+                                                children: 'Cancel',
+                                            },
+                                        })
+                                    } else {
+                                        onAppearanceChange({ shuffleQuestions: checked })
+                                    }
+                                }}
+                                checked={survey.appearance?.shuffleQuestions}
+                            />
+                        </>
+                    )}
                 </div>
-                {survey.type !== SurveyType.ExternalSurvey && (
+                {supportsInAppLayout && (
                     <>
                         <LemonDivider className="my-3" />
                         <LemonField.Pure>
