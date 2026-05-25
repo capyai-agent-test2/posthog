@@ -6,7 +6,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from posthog.hogql.context import HogQLContext
 from posthog.hogql.database.database import Database
 from posthog.hogql.errors import ExposedHogQLError, ResolutionError
-from posthog.hogql.functions.mapping import HOGQL_AGGREGATIONS, HOGQL_CLICKHOUSE_FUNCTIONS, HOGQL_POSTHOG_FUNCTIONS
+from posthog.hogql.functions.mapping import HOGQL_AGGREGATIONS, HOGQL_POSTHOG_FUNCTIONS
 from posthog.hogql.metadata import get_table_names
 from posthog.hogql.parser import parse_select
 from posthog.hogql.printer import prepare_and_print_ast
@@ -16,6 +16,7 @@ from ee.hogai.chat_agent.schema_generator.utils import SchemaGeneratorOutput
 from ee.hogai.chat_agent.sql.toolkit import SQL_SCHEMA
 from ee.hogai.llm import MaxChatOpenAI
 from ee.hogai.tool import MaxTool
+from products.posthog_ai.scripts.hogql_functions import hogql_functions
 
 _hogql_functions: str | None = None
 
@@ -26,7 +27,7 @@ def get_hogql_functions() -> str:
     if _hogql_functions is not None:
         return _hogql_functions
 
-    ch_functions = list(HOGQL_CLICKHOUSE_FUNCTIONS.keys())
+    ch_functions = hogql_functions()
     ch_aggregations = list(HOGQL_AGGREGATIONS.keys())
     ph_functions = list(HOGQL_POSTHOG_FUNCTIONS.keys())
 
