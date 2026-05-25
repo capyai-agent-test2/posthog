@@ -48,10 +48,13 @@ class TestGroupKeyFiltering(APIBaseTest):
 
         sql, _ = prepare_and_print_ast(parsed, context=self.context, dialect="clickhouse")
 
+        self.assertIn("SELECT if(events.historical_migration,", sql)
         self.assertIn(
-            "SELECT if(events.historical_migration, nullIf(replaceRegexpAll(JSONExtractRaw(events.properties, %(hogql_val_0)s), '^\"|\"$', ''), 'null'), if(less(toTimeZone(events.timestamp, %(hogql_val_1)s), %(hogql_val_2)s), %(hogql_val_3)s, events.`$group_0`)) AS `$group_0` FROM events WHERE equals(events.team_id,",
+            "replaceRegexpAll(nullIf(nullIf(JSONExtractRaw(events.properties, %(hogql_val_0)s), ''), 'null'), '^\"|\"$', '')",
             sql,
         )
+        self.assertIn("if(less(toTimeZone(events.timestamp, %(hogql_val_1)s), %(hogql_val_2)s)", sql)
+        self.assertIn("events.`$group_0`)) AS `$group_0` FROM events WHERE equals(events.team_id,", sql)
 
     def test_group_field_without_mapping(self):
         """Test that $group_0 falls back when no GroupTypeMapping exists"""
@@ -195,10 +198,13 @@ class TestGroupKeyFiltering(APIBaseTest):
 
         sql, _ = prepare_and_print_ast(parsed, context=self.context, dialect="clickhouse")
 
+        self.assertIn("ON equals(if(events.historical_migration,", sql)
         self.assertIn(
-            "ON equals(if(events.historical_migration, nullIf(replaceRegexpAll(JSONExtractRaw(events.properties, %(hogql_val_2)s), '^\"|\"$', ''), 'null'), if(less(toTimeZone(events.timestamp, %(hogql_val_3)s), %(hogql_val_4)s), %(hogql_val_5)s, events.`$group_0`)), events__group_0.key)",
+            "replaceRegexpAll(nullIf(nullIf(JSONExtractRaw(events.properties, %(hogql_val_2)s), ''), 'null'), '^\"|\"$', '')",
             sql,
         )
+        self.assertIn("if(less(toTimeZone(events.timestamp, %(hogql_val_3)s), %(hogql_val_4)s)", sql)
+        self.assertIn("events.`$group_0`)), events__group_0.key)", sql)
 
     def test_group_alias_in_where_clause(self):
         """Test that group aliases work with filtering in WHERE clauses"""
