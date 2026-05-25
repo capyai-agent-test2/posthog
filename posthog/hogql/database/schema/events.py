@@ -1,4 +1,5 @@
 from posthog.hogql.database.models import (
+    BooleanDatabaseField,
     DatabaseField,
     DateTimeDatabaseField,
     FieldOrTable,
@@ -72,6 +73,7 @@ class EventsTable(Table):
         "distinct_id": StringDatabaseField(name="distinct_id", nullable=False),
         "elements_chain": StringDatabaseField(name="elements_chain", nullable=False),
         "created_at": DateTimeDatabaseField(name="created_at", nullable=False),
+        "historical_migration": BooleanDatabaseField(name="historical_migration", nullable=False),
         "$session_id": StringDatabaseField(name="$session_id", nullable=False),
         "$session_id_uuid": DatabaseField(name="$session_id_uuid", nullable=False),
         "$window_id": StringDatabaseField(name="$window_id", nullable=False),

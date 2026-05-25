@@ -48,10 +48,13 @@ class TestGroupKeyFiltering(APIBaseTest):
 
         sql, _ = prepare_and_print_ast(parsed, context=self.context, dialect="clickhouse")
 
+        self.assertIn("SELECT if(events.historical_migration,", sql)
         self.assertIn(
-            "SELECT if(less(toTimeZone(events.timestamp, %(hogql_val_0)s), %(hogql_val_1)s), %(hogql_val_2)s, events.`$group_0`) AS `$group_0` FROM events WHERE equals(events.team_id,",
+            "replaceRegexpAll(nullIf(nullIf(JSONExtractRaw(events.properties, %(hogql_val_0)s), ''), 'null'), '^\"|\"$', '')",
             sql,
         )
+        self.assertIn("if(less(toTimeZone(events.timestamp, %(hogql_val_1)s), %(hogql_val_2)s)", sql)
+        self.assertIn("events.`$group_0`)) AS `$group_0` FROM events WHERE equals(events.team_id,", sql)
 
     def test_group_field_without_mapping(self):
         """Test that $group_0 falls back when no GroupTypeMapping exists"""
@@ -113,8 +116,10 @@ class TestGroupKeyFiltering(APIBaseTest):
         sql, _ = prepare_and_print_ast(parsed, context=self.context, dialect="clickhouse")
 
         # Should use the conditional logic in WHERE clause
-        self.assertIn("equals(if(less(toTimeZone(events.timestamp,", sql)
-        self.assertIn("events.`$group_0`), %(hogql_val_", sql)
+        self.assertIn("equals(if(events.historical_migration,", sql)
+        self.assertIn("JSONExtractRaw(events.properties,", sql)
+        self.assertIn("if(less(toTimeZone(events.timestamp,", sql)
+        self.assertIn("events.`$group_0`)), %(hogql_val_", sql)
 
     def test_group_join_with_filtering(self):
         """Test that group_1.properties access includes filtering for $group_1"""
@@ -132,8 +137,9 @@ class TestGroupKeyFiltering(APIBaseTest):
 
         sql, _ = prepare_and_print_ast(parsed, context=self.context, dialect="clickhouse")
 
-        self.assertIn("ON equals(if(less(toTimeZone(events.timestamp,", sql)
-        self.assertIn("events.`$group_1`), events__group_1.key)", sql)
+        self.assertIn("ON equals(if(events.historical_migration,", sql)
+        self.assertIn("JSONExtractRaw(events.properties,", sql)
+        self.assertIn("events.`$group_1`)), events__group_1.key)", sql)
 
     def test_multiple_group_joins_with_mixed_mappings(self):
         """Test joins to multiple groups with some having filtering and others not"""
@@ -153,8 +159,9 @@ class TestGroupKeyFiltering(APIBaseTest):
 
         sql, _ = prepare_and_print_ast(parsed, context=self.context, dialect="clickhouse")
 
-        self.assertIn("ON equals(if(less(toTimeZone(events.timestamp,", sql)
-        self.assertIn("events.`$group_0`), events__group_0.key)", sql)
+        self.assertIn("ON equals(if(events.historical_migration,", sql)
+        self.assertIn("JSONExtractRaw(events.properties,", sql)
+        self.assertIn("events.`$group_0`)), events__group_0.key)", sql)
         self.assertIn("ON equals(events.`$group_1`, events__group_1.key)", sql)
 
     def test_non_clickhouse_dialect_no_filtering(self):
@@ -191,10 +198,13 @@ class TestGroupKeyFiltering(APIBaseTest):
 
         sql, _ = prepare_and_print_ast(parsed, context=self.context, dialect="clickhouse")
 
+        self.assertIn("ON equals(if(events.historical_migration,", sql)
         self.assertIn(
-            "ON equals(if(less(toTimeZone(events.timestamp, %(hogql_val_2)s), %(hogql_val_3)s), %(hogql_val_4)s, events.`$group_0`), events__group_0.key)",
+            "replaceRegexpAll(nullIf(nullIf(JSONExtractRaw(events.properties, %(hogql_val_2)s), ''), 'null'), '^\"|\"$', '')",
             sql,
         )
+        self.assertIn("if(less(toTimeZone(events.timestamp, %(hogql_val_3)s), %(hogql_val_4)s)", sql)
+        self.assertIn("events.`$group_0`)), events__group_0.key)", sql)
 
     def test_group_alias_in_where_clause(self):
         """Test that group aliases work with filtering in WHERE clauses"""
@@ -212,5 +222,6 @@ class TestGroupKeyFiltering(APIBaseTest):
 
         sql, _ = prepare_and_print_ast(parsed, context=self.context, dialect="clickhouse")
 
-        self.assertIn("ON equals(if(less(toTimeZone(events.timestamp,", sql)
-        self.assertIn("), %(hogql_val_3)s), %(hogql_val_4)s, events.`$group_0`), events__group_0.key)", sql)
+        self.assertIn("ON equals(if(events.historical_migration,", sql)
+        self.assertIn("JSONExtractRaw(events.properties,", sql)
+        self.assertIn("events.`$group_0`)), events__group_0.key)", sql)
