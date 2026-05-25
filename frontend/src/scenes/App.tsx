@@ -152,7 +152,7 @@ function AppScene(): JSX.Element | null {
             <Suspense
                 fallback={
                     // SpinnerOverlay is already imported here — no new lazy deps vs skeleton.
-                    <div className="relative h-screen">
+                    <div className="relative h-screen h-dvh">
                         <SpinnerOverlay sceneLevel />
                     </div>
                 }
