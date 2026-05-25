@@ -129,11 +129,14 @@ def sync_hogql_query_variables(query: dict, latest_variables: Iterable[InsightVa
         return query
 
     query_code_names = get_hogql_variable_code_names(source.get("query"))
-    existing_variables = source.get("variables") or {}
+    raw_existing_variables = source.get("variables")
+    existing_variables = raw_existing_variables if isinstance(raw_existing_variables, dict) else {}
 
     latest_variables_by_code_name = {variable.code_name: variable for variable in latest_variables}
     existing_variables_by_code_name = {
-        variable.get("code_name"): variable for variable in existing_variables.values() if variable.get("code_name")
+        variable.get("code_name"): variable
+        for variable in existing_variables.values()
+        if isinstance(variable, dict) and variable.get("code_name")
     }
 
     synced_variables: dict[str, dict] = {}

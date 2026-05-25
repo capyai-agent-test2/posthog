@@ -4296,6 +4296,41 @@ class TestInsight(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
         dashboard.refresh_from_db()
         assert dashboard.variables == {"legacy": "value"}
 
+    def test_update_insight_ignores_invalid_hogql_variables_payload_shape(self) -> None:
+        insight = Insight.objects.create(
+            filters={},
+            query={
+                "kind": "DataVisualizationNode",
+                "source": {
+                    "kind": "HogQLQuery",
+                    "query": "select 1",
+                },
+                "chartSettings": {},
+                "tableSettings": {},
+            },
+            team=self.team,
+        )
+
+        _, response = self.dashboard_api.update_insight(
+            insight.id,
+            {
+                "query": {
+                    "kind": "DataVisualizationNode",
+                    "source": {
+                        "kind": "HogQLQuery",
+                        "query": "select 1",
+                        "variables": ["not", "a", "dict"],
+                    },
+                    "chartSettings": {},
+                    "tableSettings": {},
+                }
+            },
+        )
+
+        assert isinstance(response["query"], dict)
+        assert isinstance(response["query"]["source"], dict)
+        assert "variables" not in response["query"]["source"]
+
     @parameterized.expand(
         [
             ("standalone", False),
