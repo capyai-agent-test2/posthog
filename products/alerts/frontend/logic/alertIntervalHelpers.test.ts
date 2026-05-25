@@ -8,6 +8,7 @@ import { AvailableFeature } from '~/types'
 
 import {
     getDefaultSimulationRange,
+    getAlertTimingGuidance,
     isHighFrequencyAlertInterval,
     selectAlertCalculationInterval,
 } from './alertIntervalHelpers'
@@ -93,6 +94,35 @@ describe('alertIntervalHelpers', () => {
             [AlertCalculationInterval.MONTHLY, false],
         ])('%s → %s', (interval, expected) => {
             expect(isHighFrequencyAlertInterval(interval)).toBe(expected)
+        })
+    })
+
+    describe('getAlertTimingGuidance', () => {
+        it('explains completed-period behavior for hourly alerts until ongoing checks are enabled', () => {
+            expect(getAlertTimingGuidance(AlertCalculationInterval.HOURLY, false, false)).toBe(
+                'This runs on the hourly cadence it was created on and, by default, checks the last completed hour. Enable “Check ongoing period” if you want it to evaluate the current hour instead.'
+            )
+            expect(getAlertTimingGuidance(AlertCalculationInterval.HOURLY, true, false)).toBeNull()
+        })
+
+        it('explains completed-period behavior for 15-minute alerts until ongoing checks are enabled', () => {
+            expect(getAlertTimingGuidance(AlertCalculationInterval.EVERY_15_MINUTES, false, false)).toBe(
+                'This runs on the 15-minute cadence it was created on and, by default, checks the last completed 15 minutes. Enable “Check ongoing period” if you want it to evaluate the current 15 minutes instead.'
+            )
+        })
+
+        it('explains daily timing, including weekend skip behavior', () => {
+            expect(getAlertTimingGuidance(AlertCalculationInterval.DAILY, false, false)).toBe(
+                'Daily alerts run around 1 AM in the project timezone and evaluate the previous day by default.'
+            )
+            expect(getAlertTimingGuidance(AlertCalculationInterval.DAILY, false, true)).toBe(
+                'Daily alerts run around 1 AM in the project timezone. With weekend checks off, Saturday and Sunday are skipped, so Monday will still evaluate Sunday.'
+            )
+        })
+
+        it('returns null for weekly and monthly alerts', () => {
+            expect(getAlertTimingGuidance(AlertCalculationInterval.WEEKLY, false, false)).toBeNull()
+            expect(getAlertTimingGuidance(AlertCalculationInterval.MONTHLY, false, false)).toBeNull()
         })
     })
 })
