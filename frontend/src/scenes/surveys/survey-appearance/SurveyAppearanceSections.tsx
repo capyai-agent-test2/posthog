@@ -48,6 +48,20 @@ const positionDisplayNames: Record<SurveyPosition, string> = {
     [SurveyPosition.NextToTrigger]: 'Next to feedback button',
 }
 
+function supportsTriggerAnchoredPosition(
+    surveyType: SurveyType | undefined,
+    widgetType: SurveyWidgetType | undefined
+): boolean {
+    return (
+        surveyType === SurveyType.Widget &&
+        (widgetType === SurveyWidgetType.Selector || widgetType === SurveyWidgetType.Tab)
+    )
+}
+
+function getTriggerAnchoredPositionLabel(widgetType: SurveyWidgetType | undefined): string {
+    return widgetType === SurveyWidgetType.Tab ? 'Next to feedback tab' : 'Next to feedback button'
+}
+
 const IGNORE_ERROR_BORDER_CLASS = 'ignore-error-border'
 
 interface SurveyAppearanceInputProps {
@@ -173,8 +187,8 @@ export function SurveyContainerAppearance({
             <LemonField.Pure
                 label="Position"
                 info={
-                    surveyType === SurveyType.Widget && appearance.widgetType === SurveyWidgetType.Selector
-                        ? 'The "next to feedback button" option requires posthog.js version 1.235.2 or higher.'
+                    supportsTriggerAnchoredPosition(surveyType, appearance.widgetType)
+                        ? `The "${getTriggerAnchoredPositionLabel(appearance.widgetType).toLowerCase()}" option requires posthog.js version 1.294.0 or higher.`
                         : undefined
                 }
                 className="gap-1"
@@ -196,7 +210,7 @@ export function SurveyContainerAppearance({
                         disabledReason={disabledReason || undefined}
                     />
                 </div>
-                {surveyType === SurveyType.Widget && appearance.widgetType === SurveyWidgetType.Selector && (
+                {supportsTriggerAnchoredPosition(surveyType, appearance.widgetType) && (
                     <div className="flex flex-col gap-1 items-start w-60">
                         <LemonButton
                             key={SurveyPosition.NextToTrigger}
@@ -210,7 +224,7 @@ export function SurveyContainerAppearance({
                             disabled={disabled}
                             disabledReason={disabledReason || undefined}
                         >
-                            {positionDisplayNames[SurveyPosition.NextToTrigger]}
+                            {getTriggerAnchoredPositionLabel(appearance.widgetType)}
                             {appearance.position === SurveyPosition.NextToTrigger && (
                                 <IconCheck className="ml-2 size-4" />
                             )}
