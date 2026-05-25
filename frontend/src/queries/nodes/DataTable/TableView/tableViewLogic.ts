@@ -90,7 +90,7 @@ function isInitialPersonEventsQuery(query: TableViewSupportedQueryType): boolean
     return equal(query.select, defaultColumns) && !query.properties?.length && !query.event && !query.events?.length
 }
 
-function getQueryFromView(
+export function getQueryFromView(
     query: TableViewSupportedQueryType,
     view: ColumnConfigurationApi
 ): TableViewSupportedQueryType {
@@ -107,12 +107,12 @@ function getQueryFromView(
 
     const rawFilters = (view.filters || []) as TableViewSavedFilter[]
     const isEventMarker = (f: TableViewSavedFilter): f is EventSyntheticMarker =>
-        f.key === 'event' && f.type === undefined
+        f.key === 'event' && f.type === undefined && f.operator === PropertyOperator.Exact
     const isEventsMarker = (f: TableViewSavedFilter): f is EventsSyntheticMarker =>
-        f.key === 'events' && f.type === undefined
+        f.key === 'events' && f.type === undefined && f.operator === PropertyOperator.In
     const properties = rawFilters.filter((f): f is AnyPropertyFilter => !isEventMarker(f) && !isEventsMarker(f))
-    const event = rawFilters.find(isEventMarker)?.value
-    const events = rawFilters.find(isEventsMarker)?.value
+    const event = rawFilters.findLast(isEventMarker)?.value
+    const events = rawFilters.findLast(isEventsMarker)?.value
     return {
         ...query,
         select: view.columns || [],
