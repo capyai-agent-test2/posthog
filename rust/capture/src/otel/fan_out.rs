@@ -105,6 +105,24 @@ fn apply_geoip_default(properties: &mut serde_json::Map<String, Value>) {
     );
 }
 
+fn promote_vercel_ai_telemetry_properties(properties: &mut serde_json::Map<String, Value>) {
+    if let Some(function_id) = properties.get("ai.telemetry.functionId").cloned() {
+        properties.entry("functionId".to_string()).or_insert(function_id);
+    }
+
+    let promoted_metadata: Vec<(String, Value)> = properties
+        .iter()
+        .filter_map(|(key, value)| {
+            key.strip_prefix("ai.telemetry.metadata.")
+                .map(|metadata_key| (metadata_key.to_string(), value.clone()))
+        })
+        .collect();
+
+    for (key, value) in promoted_metadata {
+        properties.entry(key).or_insert(value);
+    }
+}
+
 fn nanos_to_datetime(nanos: u64) -> Option<DateTime<Utc>> {
     if nanos == 0 {
         return None;
@@ -153,6 +171,7 @@ pub fn expand_into_events(
 
                 let mut properties = resource_attrs.clone();
                 properties.extend(span_attrs);
+                promote_vercel_ai_telemetry_properties(&mut properties);
 
                 apply_geoip_default(&mut properties);
 
@@ -488,6 +507,65 @@ mod tests {
         let events = expand_into_events(&request, "user");
         let props = events[0].properties.as_object().unwrap();
         assert!(!props.contains_key("$ai_parent_id"));
+    }
+
+    #[test]
+    fn test_vercel_ai_telemetry_metadata_is_promoted_to_top_level_properties() {
+        let request = ExportTraceServiceRequest {
+            resource_spans: vec![ResourceSpans {
+                resource: None,
+                scope_spans: vec![ScopeSpans {
+                    scope: None,
+                    spans: vec![make_span(
+                        vec![0; 16],
+                        vec![0; 8],
+                        vec![],
+                        0,
+                        0,
+                        "",
+                        vec![
+                            make_kv(
+                                "ai.operationId",
+                                any_value::Value::StringValue(
+                                    "ai.generateText.doGenerate".to_string(),
+                                ),
+                            ),
+                            make_kv(
+                                "ai.telemetry.functionId",
+                                any_value::Value::StringValue("my-ai-function".to_string()),
+                            ),
+                            make_kv(
+                                "ai.telemetry.metadata.posthog_distinct_id",
+                                any_value::Value::StringValue("user-123".to_string()),
+                            ),
+                            make_kv(
+                                "ai.telemetry.metadata.org_id",
+                                any_value::Value::StringValue("org-456".to_string()),
+                            ),
+                            make_kv(
+                                "ai.telemetry.metadata.$session_id",
+                                any_value::Value::StringValue("session-789".to_string()),
+                            ),
+                        ],
+                    )],
+                    schema_url: String::new(),
+                }],
+                schema_url: String::new(),
+            }],
+        };
+
+        let events = expand_into_events(&request, "fallback");
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].event_name, "$ai_generation");
+        assert_eq!(events[0].distinct_id, "user-123");
+
+        let props = events[0].properties.as_object().unwrap();
+        assert_eq!(props["functionId"], "my-ai-function");
+        assert_eq!(props["posthog_distinct_id"], "user-123");
+        assert_eq!(props["org_id"], "org-456");
+        assert_eq!(props["$session_id"], "session-789");
+        assert_eq!(props["ai.telemetry.functionId"], "my-ai-function");
+        assert_eq!(props["ai.telemetry.metadata.org_id"], "org-456");
     }
 
     #[test]
