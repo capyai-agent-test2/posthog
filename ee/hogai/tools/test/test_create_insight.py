@@ -215,6 +215,10 @@ class TestCreateInsightTool(ClickhouseTestMixin, NonAtomicBaseTest):
         self.assertIn("Invalid query structure", result_text)
         self.assertIn("Missing required field: series", result_text)
         self.assertIn(INSIGHT_TOOL_FAILURE_SYSTEM_REMINDER_PROMPT, result_text)
+        self.assertIn("NO INSIGHT WAS CREATED", result_text)
+        self.assertIn("does NOT exist", result_text)
+        self.assertIn("Do NOT provide any insight names, IDs, short_ids, or URLs.", result_text)
+        self.assertIn("NEVER fabricate, hallucinate, or make up insight names, IDs, short_ids, or URLs.", result_text)
 
     async def test_invalid_tool_call_message_type_returns_error(self):
         """Test when the last message is not AssistantToolCallMessage, returns error."""
@@ -256,8 +260,10 @@ class TestCreateInsightTool(ClickhouseTestMixin, NonAtomicBaseTest):
             )
 
         self.assertIsNone(artifact)
-        self.assertIn("unknown error", result_text)
+        self.assertIn("unexpected error", result_text)
         self.assertIn(INSIGHT_TOOL_FAILURE_SYSTEM_REMINDER_PROMPT, result_text)
+        self.assertIn("NO INSIGHT WAS CREATED", result_text)
+        self.assertIn("does NOT exist", result_text)
 
     async def test_human_feedback_requested_returns_only_tool_call_message(self):
         """Test when visualization message is not present, returns only tool call message."""
