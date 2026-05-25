@@ -1010,6 +1010,64 @@ class TestInsight(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
 
         self.assertEqual(len(response.json()["results"]), 2)
 
+    def test_listing_insights_by_type_includes_raw_and_wrapped_queries(self) -> None:
+        Insight.objects.create(
+            team=self.team,
+            name="legacy trends insight",
+            filters={"insight": "TRENDS", "events": [{"id": "$pageview"}]},
+        )
+        Insight.objects.create(
+            team=self.team,
+            name="raw trends insight",
+            query={"kind": "TrendsQuery", "series": [{"kind": "EventsNode", "event": "$pageview"}]},
+        )
+        Insight.objects.create(
+            team=self.team,
+            name="wrapped trends insight",
+            query={
+                "kind": "InsightVizNode",
+                "source": {"kind": "TrendsQuery", "series": [{"kind": "EventsNode", "event": "$pageview"}]},
+            },
+        )
+        Insight.objects.create(
+            team=self.team,
+            name="raw sql insight",
+            query={"kind": "HogQLQuery", "query": "select event from events limit 1"},
+        )
+        Insight.objects.create(
+            team=self.team,
+            name="wrapped sql insight",
+            query={
+                "kind": "DataVisualizationNode",
+                "source": {"kind": "HogQLQuery", "query": "select event from events limit 1"},
+            },
+        )
+        Insight.objects.create(
+            team=self.team,
+            name="custom data table insight",
+            query={
+                "kind": "DataTableNode",
+                "source": {"kind": "EventsQuery", "select": ["event"]},
+            },
+        )
+
+        trends_response = self.client.get(f"/api/environments/{self.team.pk}/insights/?insight=TRENDS")
+        sql_response = self.client.get(f"/api/environments/{self.team.pk}/insights/?insight=SQL")
+        json_response = self.client.get(f"/api/environments/{self.team.pk}/insights/?insight=JSON")
+
+        self.assertEqual(
+            {insight["name"] for insight in trends_response.json()["results"]},
+            {"legacy trends insight", "raw trends insight", "wrapped trends insight"},
+        )
+        self.assertEqual(
+            {insight["name"] for insight in sql_response.json()["results"]},
+            {"raw sql insight", "wrapped sql insight"},
+        )
+        self.assertEqual(
+            {insight["name"] for insight in json_response.json()["results"]},
+            {"custom data table insight"},
+        )
+
     def test_can_list_insights_by_which_dashboards_they_are_in(self) -> None:
         insight_one_id, _ = self.dashboard_api.create_insight(
             {"name": "insight 1", "filters": {"events": [{"id": "$pageview"}]}}
