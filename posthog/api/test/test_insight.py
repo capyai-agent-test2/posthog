@@ -4612,6 +4612,44 @@ class TestInsight(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
         self.assertIsNotNone(updated_metadata)
         self.assertNotEqual(initial_metadata, updated_metadata)
 
+    def test_mcp_partial_update_preserves_data_visualization_settings(self) -> None:
+        insight = Insight.objects.create(
+            query={
+                "kind": "DataVisualizationNode",
+                "source": {
+                    "kind": "HogQLQuery",
+                    "query": "select count() as value from events",
+                },
+                "display": "BoldNumber",
+                "chartSettings": {"goalLines": [{"value": 100, "label": "Target"}]},
+                "tableSettings": {"columns": [{"column": "value"}]},
+            },
+            team=self.team,
+            created_by=self.user,
+        )
+
+        response = self.client.patch(
+            f"/api/projects/{self.team.id}/insights/{insight.id}/",
+            {
+                "query": {
+                    "kind": "DataVisualizationNode",
+                    "source": {
+                        "kind": "HogQLQuery",
+                        "query": "select count() as value from events where event = '$pageview'",
+                    },
+                }
+            },
+            content_type="application/json",
+            headers={"x-posthog-client": "mcp"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        query = response.json()["query"]
+        self.assertEqual(query["display"], "BoldNumber")
+        self.assertEqual(query["chartSettings"], {"goalLines": [{"value": 100, "label": "Target"}]})
+        self.assertEqual(query["tableSettings"], {"columns": [{"column": "value"}]})
+        self.assertEqual(query["source"]["query"], "select count() as value from events where event = '$pageview'")
+
     def test_updating_insight_with_no_query_changes_does_not_update_query_metadata(self):
         """
         Test that updating an insight without changing the query does not update the query metadata.

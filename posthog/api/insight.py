@@ -1,6 +1,7 @@
 import json
 import logging
 from collections.abc import Sequence
+from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from typing import Any, Union, cast
@@ -1159,27 +1160,50 @@ class MCPInsightSerializer(InsightSerializer):
     def validate_query(self, value: dict[str, Any]) -> dict[str, Any]:
         # Raw HogQL → DataVisualizationNode
         try:
-            return schema.DataVisualizationNode(source=schema.HogQLQuery.model_validate(value)).model_dump(
+            normalized_value = schema.DataVisualizationNode(source=schema.HogQLQuery.model_validate(value)).model_dump(
                 exclude_none=True, mode="json"
             )
+            return self._preserve_existing_data_visualization_settings(value, normalized_value)
         except PydanticValidationError:
             pass
 
         # Already-wrapped node → use as-is
         for wrapped_cls in (schema.DataVisualizationNode, schema.InsightVizNode):
             try:
-                return wrapped_cls.model_validate(value).model_dump(exclude_none=True, mode="json")
+                normalized_value = wrapped_cls.model_validate(value).model_dump(exclude_none=True, mode="json")
+                return self._preserve_existing_data_visualization_settings(value, normalized_value)
             except PydanticValidationError:
                 pass
 
         # Raw product analytics query → InsightVizNode
         try:
-            return schema.InsightVizNode.model_validate({"kind": "InsightVizNode", "source": value}).model_dump(
+            normalized_value = schema.InsightVizNode.model_validate({"kind": "InsightVizNode", "source": value}).model_dump(
                 exclude_none=True, mode="json"
             )
+            return self._preserve_existing_data_visualization_settings(value, normalized_value)
         except PydanticValidationError as exc:
             details = "; ".join(f"{'.'.join(str(part) for part in e['loc'])}: {e['msg']}" for e in exc.errors())
             raise serializers.ValidationError(f"This query can't be saved: {details}")
+
+    def _preserve_existing_data_visualization_settings(
+        self, raw_value: dict[str, Any], normalized_value: dict[str, Any]
+    ) -> dict[str, Any]:
+        if self.context["view"].action != "partial_update" or self.instance is None:
+            return normalized_value
+
+        existing_query = self.instance.query
+        if not isinstance(existing_query, dict):
+            return normalized_value
+
+        if existing_query.get("kind") != "DataVisualizationNode" or normalized_value.get("kind") != "DataVisualizationNode":
+            return normalized_value
+
+        preserved_value = normalized_value.copy()
+        for field in ("display", "chartSettings", "tableSettings"):
+            if field not in raw_value and field in existing_query:
+                preserved_value[field] = deepcopy(existing_query[field])
+
+        return preserved_value
 
 
 # Insights can be looked up by either the numeric primary key or the 8-character `short_id`
