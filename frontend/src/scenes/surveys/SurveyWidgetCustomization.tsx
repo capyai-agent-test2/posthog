@@ -31,6 +31,8 @@ const tabPositionDisplayNames: Record<SurveyTabPosition, string> = {
     [SurveyTabPosition.Bottom]: 'Bottom',
 }
 
+const widgetTypesSupportingTriggerPosition = [SurveyWidgetType.Selector, SurveyWidgetType.Tab] as const
+
 export function SurveyWidgetCustomization(): JSX.Element {
     const { survey, surveyErrors } = useValues(surveyLogic)
     const { setSurveyValue } = useActions(surveyLogic)
@@ -53,9 +55,10 @@ export function SurveyWidgetCustomization(): JSX.Element {
                             <LemonSelect
                                 value={appearance.widgetType}
                                 onChange={(widgetType) => {
-                                    // NextToTrigger is only available for Selector widget type
+                                    const supportsTriggerPosition =
+                                        widgetTypesSupportingTriggerPosition.includes(widgetType)
                                     const newPosition =
-                                        widgetType !== SurveyWidgetType.Selector &&
+                                        !supportsTriggerPosition &&
                                         appearance?.position === SurveyPosition.NextToTrigger
                                             ? SurveyPosition.Right
                                             : appearance?.position
