@@ -38,7 +38,7 @@ export function InsightScene({ tabId }: InsightSceneProps = {}): JSX.Element {
         insightId?.startsWith('new-') ||
         (insightId &&
             insight?.id &&
-            insight?.short_id &&
+            insight?.short_id === insightId &&
             (insight?.query?.kind !== NodeKind.DataVisualizationNode || insightMode !== ItemMode.Edit))
     ) {
         return <InsightAsScene insightId={insightId} tabId={tabId} attachTo={insightSceneLogic({ tabId })} />
