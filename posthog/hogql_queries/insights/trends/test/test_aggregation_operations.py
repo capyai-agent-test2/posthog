@@ -132,13 +132,18 @@ def test_math_multiplier_with_sum():
 
     sum_call = result.args[0]
     assert isinstance(sum_call, ast.Call)
-    assert sum_call.name == "sum"
-    assert len(sum_call.args) == 1
+    assert sum_call.name == "sumIf"
+    assert len(sum_call.args) == 2
 
     mult_call = sum_call.args[0]
     assert isinstance(mult_call, ast.Call)
     assert mult_call.name == "toFloat"
     assert len(mult_call.args) == 1
+
+    is_not_null_call = sum_call.args[1]
+    assert isinstance(is_not_null_call, ast.Call)
+    assert is_not_null_call.name == "isNotNull"
+    assert is_not_null_call.args == [mult_call]
 
     actual_mult = mult_call.args[0]
     assert isinstance(actual_mult, ast.ArithmeticOperation)
@@ -178,15 +183,25 @@ def test_math_multiplier_with_datawarehouse_node():
 
     sum_call = result.args[0]
     assert isinstance(sum_call, ast.Call)
-    assert sum_call.name == "sum"
-    assert len(sum_call.args) == 1
+    assert sum_call.name == "sumIf"
+    assert len(sum_call.args) == 2
 
     convert_call = sum_call.args[0]
     assert isinstance(convert_call, ast.Call)
-    assert convert_call.name == "convertCurrency"
-    assert len(convert_call.args) == 4
+    assert convert_call.name == "toFloat"
+    assert len(convert_call.args) == 1
 
-    mult_expr = convert_call.args[2]
+    is_not_null_call = sum_call.args[1]
+    assert isinstance(is_not_null_call, ast.Call)
+    assert is_not_null_call.name == "isNotNull"
+    assert is_not_null_call.args == [convert_call]
+
+    currency_call = convert_call.args[0]
+    assert isinstance(currency_call, ast.Call)
+    assert currency_call.name == "convertCurrency"
+    assert len(currency_call.args) == 4
+
+    mult_expr = currency_call.args[2]
     assert isinstance(mult_expr, ast.ArithmeticOperation)
     assert mult_expr.op == ast.ArithmeticOperationOp.Mult
 
@@ -304,6 +319,51 @@ def test_get_outer_aggregation(
     assert isinstance(result, ast.Call)
     assert result.name == expected_agg_name
     assert result.args == [field]
+
+
+@pytest.mark.parametrize(
+    "math,expected_agg_name,expected_percentile",
+    [
+        (PropertyMathType.SUM, "sumIf", None),
+        (PropertyMathType.AVG, "avgIf", None),
+        (PropertyMathType.MIN, "minIf", None),
+        (PropertyMathType.MAX, "maxIf", None),
+        (PropertyMathType.MEDIAN, "quantileIf", 0.5),
+        (PropertyMathType.P75, "quantileIf", 0.75),
+        (PropertyMathType.P90, "quantileIf", 0.9),
+        (PropertyMathType.P95, "quantileIf", 0.95),
+        (PropertyMathType.P99, "quantileIf", 0.99),
+    ],
+)
+def test_property_math_aggregations_filter_out_missing_values(
+    math: PropertyMathType, expected_agg_name: str, expected_percentile: float | None
+):
+    team = Team()
+    series = EventsNode(event="$pageview", math=math, math_property="some_number")
+    query_date_range = QueryDateRange(date_range=None, interval=None, now=datetime.now(), team=team)
+
+    agg_ops = AggregationOperations(team, series, ChartDisplayType.ACTIONS_LINE_GRAPH, query_date_range, False)
+    result = agg_ops.select_aggregation()
+
+    assert isinstance(result, ast.Call)
+    assert result.name == "ifNull"
+    aggregate_call = result.args[0]
+    assert isinstance(aggregate_call, ast.Call)
+    assert aggregate_call.name == expected_agg_name
+
+    if expected_percentile is None:
+        assert aggregate_call.params is None
+    else:
+        assert aggregate_call.params == [ast.Constant(value=expected_percentile)]
+
+    value_expr = aggregate_call.args[0]
+    filter_expr = aggregate_call.args[1]
+
+    assert isinstance(value_expr, ast.Call)
+    assert value_expr.name == "toFloat"
+    assert isinstance(filter_expr, ast.Call)
+    assert filter_expr.name == "isNotNull"
+    assert filter_expr.args == [value_expr]
 
 
 @pytest.mark.parametrize(

@@ -275,16 +275,43 @@ class AggregationOperations(DataWarehouseInsightQueryMixin):
 
     def _math_func(self, method: str, override_chain: Optional[list[str | int]] = None) -> ast.Call:
         if override_chain is not None:
-            return ast.Call(name=method, args=[ast.Field(chain=override_chain)])
+            field_expr = ast.Field(chain=override_chain)
+            numeric_field_expr = ast.Call(name="toFloat", args=[field_expr])
+            return ast.Call(
+                name="ifNull",
+                args=[
+                    ast.Call(
+                        name=f"{method}If",
+                        args=[
+                            numeric_field_expr,
+                            ast.Call(name="isNotNull", args=[numeric_field_expr]),
+                        ],
+                    ),
+                    ast.Constant(value=0),
+                ],
+            )
 
         if self.series.math_property == "$time":
-            return ast.Call(
-                name=method,
+            numeric_field_expr = ast.Call(
+                name="toFloat",
                 args=[
                     ast.Call(
                         name="toUnixTimestamp",
                         args=[ast.Field(chain=["properties", "$time"])],
                     )
+                ],
+            )
+            return ast.Call(
+                name="ifNull",
+                args=[
+                    ast.Call(
+                        name=f"{method}If",
+                        args=[
+                            numeric_field_expr,
+                            ast.Call(name="isNotNull", args=[numeric_field_expr]),
+                        ],
+                    ),
+                    ast.Constant(value=0),
                 ],
             )
 
@@ -346,11 +373,19 @@ class AggregationOperations(DataWarehouseInsightQueryMixin):
                 ast.Call(name="_toDate", args=[timestamp_expr]),
             )
 
+            numeric_field_expr = ast.Call(name="toFloat", args=[currency_field_expr])
+
             # Wrap in ifNull to handle empty result sets - formulas can't handle NULL values
             return ast.Call(
                 name="ifNull",
                 args=[
-                    ast.Call(name=method, args=[currency_field_expr]),
+                    ast.Call(
+                        name=f"{method}If",
+                        args=[
+                            numeric_field_expr,
+                            ast.Call(name="isNotNull", args=[numeric_field_expr]),
+                        ],
+                    ),
                     ast.Constant(value=0),
                 ],
             )
@@ -364,6 +399,8 @@ class AggregationOperations(DataWarehouseInsightQueryMixin):
                 op=ast.ArithmeticOperationOp.Mult,
             )
 
+        numeric_field_expr = ast.Call(name="toFloat", args=[field_expr])
+
         return ast.Call(
             # Two caveats here - similar to the math_quantile, but not quite:
             # 1. We always parse/convert the value to a Float64, to make sure it's a number. This truncates precision
@@ -372,7 +409,13 @@ class AggregationOperations(DataWarehouseInsightQueryMixin):
             # (null would actually be more meaningful for e.g. min or max), but formulas aren't equipped to handle nulls
             name="ifNull",
             args=[
-                ast.Call(name=method, args=[ast.Call(name="toFloat", args=[field_expr])]),
+                ast.Call(
+                    name=f"{method}If",
+                    args=[
+                        numeric_field_expr,
+                        ast.Call(name="isNotNull", args=[numeric_field_expr]),
+                    ],
+                ),
                 ast.Constant(value=0),
             ],
         )
@@ -389,6 +432,8 @@ class AggregationOperations(DataWarehouseInsightQueryMixin):
                 op=ast.ArithmeticOperationOp.Mult,
             )
 
+        numeric_field_expr = ast.Call(name="toFloat", args=[field_expr])
+
         return ast.Call(
             # Two caveats here - similar to the math_func, but not quite:
             # 1. We always parse/convert the value to a Float64, to make sure it's a number. This truncates precision
@@ -398,9 +443,12 @@ class AggregationOperations(DataWarehouseInsightQueryMixin):
             name="ifNull",
             args=[
                 ast.Call(
-                    name="quantile",
+                    name="quantileIf",
                     params=[ast.Constant(value=percentile)],
-                    args=[ast.Call(name="toFloat", args=[field_expr])],
+                    args=[
+                        numeric_field_expr,
+                        ast.Call(name="isNotNull", args=[numeric_field_expr]),
+                    ],
                 ),
                 ast.Constant(value=0),
             ],
