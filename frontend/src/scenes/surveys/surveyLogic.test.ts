@@ -1660,6 +1660,25 @@ describe('survey filters', () => {
                 }),
             })
     })
+
+    it('waits for archived response uuids before reloading historical question results', async () => {
+        const surveyWithIds: Survey = {
+            ...MULTIPLE_CHOICE_SURVEY,
+            questions: [
+                {
+                    id: 'current-question',
+                    type: SurveyQuestionType.Open,
+                    question: 'Current question',
+                    description: '',
+                },
+            ],
+        }
+
+        await expectLogic(logic, () => {
+            logic.actions.loadSurveySuccess(surveyWithIds)
+            logic.actions.loadHistoricalSurveyQuestionsSuccess([])
+        }).toDispatchActions(['loadSurveySuccess', 'loadHistoricalSurveyQuestionsSuccess'])
+    })
 })
 
 describe('URL parameter synchronization', () => {

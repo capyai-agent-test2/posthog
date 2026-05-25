@@ -1287,7 +1287,11 @@ export const surveyLogic = kea<surveyLogicType>([
                 }
             },
             loadHistoricalSurveyQuestionsSuccess: () => {
-                if (values.survey.id !== NEW_SURVEY.id && values.survey.start_date) {
+                if (
+                    values.survey.id !== NEW_SURVEY.id &&
+                    values.survey.start_date &&
+                    !values.archivedResponseUuidsLoading
+                ) {
                     actions.loadConsolidatedSurveyResults()
                 }
             },
