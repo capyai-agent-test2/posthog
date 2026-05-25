@@ -139,6 +139,7 @@ from posthog.hogql.errors import QueryError, ResolutionError
 from posthog.hogql.parser import parse_expr
 from posthog.hogql.timings import HogQLTimings
 
+from posthog.clickhouse.kafka_engine import json_extract_trim_quotes
 from posthog.exceptions_capture import capture_exception
 from posthog.models.group_type_mapping import get_group_types_for_project
 from posthog.models.team.team import WeekStartDay
@@ -1526,8 +1527,9 @@ def _setup_group_key_fields(database: Database, group_types: list[dict[str, Any]
     """
     Set up group key fields as ExpressionFields that handle filtering based on GroupTypeMapping.created_at.
     For $group_N fields, this returns:
-    - Empty string if no GroupTypeMapping exists for that index
-    - if(timestamp < mapping.created_at, '', $group_N) if GroupTypeMapping exists
+    - The raw column for normal events after the group type exists
+    - The JSON property value for historical migration events where the materialized column was never populated
+    - Empty string for pre-group events that were not imported through historical migration
     """
     group_mappings = {mapping["group_type_index"]: mapping for mapping in group_types}
     table = database.get_table("events")
@@ -1544,19 +1546,33 @@ def _setup_group_key_fields(database: Database, group_types: list[dict[str, Any]
             table.fields[raw_field_name] = original_field.model_copy(update={"hidden": True})
 
             created_at_str = group_mapping["created_at"].strftime("%Y-%m-%d %H:%M:%S")
+            historical_field_name = f"_{field_name}_historical"
+            table.fields[historical_field_name] = ExpressionField(
+                name=historical_field_name,
+                expr=parse_expr(json_extract_trim_quotes("properties", f"'{field_name}'"), start=None),
+                hidden=True,
+                isolate_scope=True,
+            )
 
             table.fields[field_name] = ExpressionField(
                 name=field_name,
                 expr=ast.Call(
                     name="if",
                     args=[
-                        ast.CompareOperation(
-                            left=ast.Field(chain=["timestamp"]),
-                            op=ast.CompareOperationOp.Lt,
-                            right=ast.Constant(value=created_at_str),
+                        ast.Field(chain=["historical_migration"]),
+                        ast.Field(chain=[historical_field_name]),
+                        ast.Call(
+                            name="if",
+                            args=[
+                                ast.CompareOperation(
+                                    left=ast.Field(chain=["timestamp"]),
+                                    op=ast.CompareOperationOp.Lt,
+                                    right=ast.Constant(value=created_at_str),
+                                ),
+                                ast.Constant(value=""),
+                                ast.Field(chain=[raw_field_name]),
+                            ],
                         ),
-                        ast.Constant(value=""),
-                        ast.Field(chain=[raw_field_name]),
                     ],
                 ),
                 isolate_scope=True,
