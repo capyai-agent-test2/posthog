@@ -24,7 +24,7 @@ describe('settingsLogic', () => {
         },
         {
             description: 'resets the scroll position when no matching hash target exists',
-            hashParams: {},
+            hashParams: { 'personal-api-keys': true },
             anchorExists: false,
             expectedCalls: 1,
         },
