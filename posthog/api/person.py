@@ -63,7 +63,13 @@ from posthog.models.person.bulk_delete import (
 from posthog.models.person.deletion import reset_deleted_person_distinct_ids
 from posthog.models.person.missing_person import MissingPerson
 from posthog.models.person.person import PersonDistinctId
-from posthog.models.person.util import get_person_by_pk_or_uuid, get_persons_by_distinct_ids, get_persons_by_uuids
+from posthog.models.person.util import (
+    count_persons_for_list_search,
+    get_person_by_pk_or_uuid,
+    get_persons_by_distinct_ids,
+    get_persons_by_uuids,
+    search_person_uuids_for_list,
+)
 from posthog.queries.actor_base_query import ActorBaseQuery, get_serialized_people
 from posthog.queries.funnels import ClickhouseFunnelActors, ClickhouseFunnelTrendsActors
 from posthog.queries.funnels.funnel_strict_persons import ClickhouseFunnelStrictActors
@@ -475,6 +481,15 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
 
         return get_person_by_pk_or_uuid(self.team_id, str(person_id))
 
+    def _should_use_postgres_search_fallback(self, filter: Filter) -> bool:
+        return bool(
+            filter.search
+            and not filter.email
+            and not filter.distinct_id
+            and not filter.updated_after
+            and "properties" not in self.request.GET
+        )
+
     @extend_schema(
         parameters=[
             OpenApiParameter(
@@ -509,19 +524,29 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
         elif not filter.limit:
             filter = filter.shallow_clone({LIMIT: DEFAULT_PAGE_LIMIT})
 
-        person_query = PersonQuery(filter, team.pk)
-        paginated_query, paginated_params = person_query.get_query(paginate=True, filter_future_persons=True)
+        total_count: Optional[int] = None
+        if self._should_use_postgres_search_fallback(filter):
+            actor_ids, has_more = search_person_uuids_for_list(team.pk, filter.search, filter.limit, filter.offset)
+            serialized_actors = get_serialized_people(team, actor_ids)
+            _should_paginate = has_more
+            total_count = (
+                count_persons_for_list_search(team.pk, filter.search) if "include_total" in request.GET else None
+            )
+        else:
+            person_query = PersonQuery(filter, team.pk)
+            paginated_query, paginated_params = person_query.get_query(paginate=True, filter_future_persons=True)
 
-        raw_paginated_result = insight_sync_execute(
-            paginated_query,
-            {**paginated_params, **filter.hogql_context.values},
-            filter=filter,
-            query_type="person_list",
-            team_id=team.pk,
-            # workload=Workload.OFFLINE,  # this endpoint is only used by external API requests
-        )
-        actor_ids = [row[0] for row in raw_paginated_result]
-        serialized_actors = get_serialized_people(team, actor_ids)
+            raw_paginated_result = insight_sync_execute(
+                paginated_query,
+                {**paginated_params, **filter.hogql_context.values},
+                filter=filter,
+                query_type="person_list",
+                team_id=team.pk,
+                # workload=Workload.OFFLINE,  # this endpoint is only used by external API requests
+            )
+            actor_ids = [row[0] for row in raw_paginated_result]
+            serialized_actors = get_serialized_people(team, actor_ids)
+            _should_paginate = len(actor_ids) >= filter.limit
 
         restricted_person_properties = self.get_serializer_context().get("restricted_person_properties")
         if restricted_person_properties:
@@ -532,13 +557,10 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
                         k: v for k, v in properties.items() if k not in restricted_person_properties
                     }
 
-        _should_paginate = len(actor_ids) >= filter.limit
-
         # If the undocumented include_total param is set to true, we'll return the total count of people
         # This is extra time and DB load, so we only do this when necessary, which is in PostHog 3000 navigation
         # TODO: Use a more scalable solution before PostHog 3000 navigation is released, and remove this param
-        total_count: Optional[int] = None
-        if "include_total" in request.GET:
+        if "include_total" in request.GET and not self._should_use_postgres_search_fallback(filter):
             total_query, total_params = person_query.get_query(paginate=False, filter_future_persons=True)
             total_query_aggregated = f"SELECT count() FROM ({total_query})"
             raw_paginated_result = insight_sync_execute(
