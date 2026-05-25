@@ -115,63 +115,6 @@ class TestPerson(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
         self.assertEqual(len(response.json()["results"]), 1)
         self.assertEqual(response.json()["results"][0]["id"], str(person.uuid))
 
-
-class TestPersonSearchFallback(SimpleTestCase):
-    def test_list_uses_postgres_fallback_when_clickhouse_search_misses(self) -> None:
-        request = RequestFactory().get("/api/person/?search=someone@gm")
-        cast(Any, request).user = SimpleNamespace(is_authenticated=True)
-
-        view = PersonViewSet()
-        cast(Any, view).team = SimpleNamespace(pk=1)
-        cast(Any, view).team_id = 1
-        cast(Any, view).kwargs = {}
-        cast(Any, view).request = SimpleNamespace(
-            accepted_renderer=SimpleNamespace(format="json"),
-            GET=request.GET,
-        )
-
-        filter_stub = SimpleNamespace(
-            search="someone@gm",
-            email=None,
-            distinct_id=None,
-            limit=100,
-            offset=0,
-            hogql_context=SimpleNamespace(values={}),
-        )
-        fallback_person = {
-            "id": "00000000-0000-0000-0000-000000000001",
-            "uuid": "00000000-0000-0000-0000-000000000001",
-            "created_at": timezone.now(),
-            "last_seen_at": timezone.now(),
-            "properties": {"email": "someone@gmail.com"},
-            "is_identified": False,
-            "name": "someone@gmail.com",
-            "distinct_ids": ["distinct_id"],
-            "matched_recordings": [],
-            "type": "person",
-            "value_at_data_point": None,
-        }
-
-        with (
-            mock.patch("posthog.api.person.Filter", return_value=filter_stub),
-            mock.patch("posthog.api.person.PersonQuery") as person_query_mock,
-            mock.patch("posthog.api.person.insight_sync_execute", return_value=[]),
-            mock.patch("posthog.api.person.get_serialized_people", side_effect=[[], [fallback_person]]),
-            mock.patch.object(PersonViewSet, "get_serializer_context", return_value={}),
-            mock.patch.object(
-                PersonViewSet,
-                "_get_postgres_search_fallback_person_ids",
-                return_value=["00000000-0000-0000-0000-000000000001"],
-            ) as fallback_mock,
-        ):
-            person_query_mock.return_value.get_query.return_value = ("SELECT 1", {})
-
-            response = view.list(request)
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["results"], [fallback_person])
-        fallback_mock.assert_called_once_with("someone@gm", [], 100)
-
     @also_test_with_materialized_columns(event_properties=["email"], person_properties=["email"])
     @snapshot_clickhouse_queries
     def test_properties(self) -> None:
@@ -2100,3 +2043,55 @@ class TestPersonFromClickhouse(TestPerson):
 
         response_include_total = self.client.get("/api/person/?limit=10&include_total").json()
         self.assertEqual(response_include_total["count"], 19)  #  With `include_total`, the total count is returned too
+
+
+class TestPersonSearchFallback(SimpleTestCase):
+    def test_list_uses_postgres_search_when_clickhouse_search_misses(self) -> None:
+        request = RequestFactory().get("/api/person/?search=someone@gm")
+        cast(Any, request).user = SimpleNamespace(is_authenticated=True)
+
+        view = PersonViewSet()
+        cast(Any, view).team = SimpleNamespace(pk=1)
+        cast(Any, view).team_id = 1
+        cast(Any, view).kwargs = {}
+        cast(Any, view).request = SimpleNamespace(
+            accepted_renderer=SimpleNamespace(format="json"),
+            GET=request.GET,
+        )
+
+        filter_stub = SimpleNamespace(
+            search="someone@gm",
+            email=None,
+            distinct_id=None,
+            limit=100,
+            offset=0,
+            hogql_context=SimpleNamespace(values={}),
+        )
+        fallback_person = {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "uuid": "00000000-0000-0000-0000-000000000001",
+            "created_at": timezone.now(),
+            "last_seen_at": timezone.now(),
+            "properties": {"email": "someone@gmail.com"},
+            "is_identified": False,
+            "name": "someone@gmail.com",
+            "distinct_ids": ["distinct_id"],
+            "matched_recordings": [],
+            "type": "person",
+            "value_at_data_point": None,
+        }
+
+        with (
+            mock.patch("posthog.api.person.Filter", return_value=filter_stub),
+            mock.patch(
+                "posthog.api.person.search_person_uuids_for_list",
+                return_value=(["00000000-0000-0000-0000-000000000001"], False),
+            ) as search_mock,
+            mock.patch("posthog.api.person.get_serialized_people", return_value=[fallback_person]),
+            mock.patch.object(PersonViewSet, "get_serializer_context", return_value={}),
+        ):
+            response = view.list(request)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["results"], [fallback_person])
+        search_mock.assert_called_once_with(1, "someone@gm", 100, 0)

@@ -6,6 +6,7 @@ from typing import Optional, TypeVar, Union, cast
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
+from django.db.models import Q
 from django.db.models.query import Prefetch, QuerySet
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
@@ -567,6 +568,43 @@ def get_person_by_pk_or_uuid(team_id: int, key: str) -> Optional[Person]:
             return get_person_by_id(team_id, int(key))
         except ValueError:
             return None
+
+
+def _get_person_list_search_queryset(team_id: int, search: str) -> QuerySet[Person]:
+    search_conditions = (
+        Q(properties__email__icontains=search)
+        | Q(properties__name__icontains=search)
+        | Q(persondistinctid__distinct_id=search)
+    )
+
+    try:
+        parsed_uuid = UUID(search)
+    except ValueError:
+        pass
+    else:
+        search_conditions |= Q(uuid=parsed_uuid)
+
+    return (
+        Person.objects.db_manager(READ_DB_FOR_PERSONS)
+        .filter(team_id=team_id)
+        .filter(search_conditions)
+        .order_by("-created_at", "uuid")
+        .distinct()
+    )
+
+
+def search_person_uuids_for_list(team_id: int, search: str, limit: int, offset: int) -> tuple[list[str], bool]:
+    uuids = [
+        str(person_uuid)
+        for person_uuid in _get_person_list_search_queryset(team_id, search).values_list("uuid", flat=True)[
+            offset : offset + limit + 1
+        ]
+    ]
+    return uuids[:limit], len(uuids) > limit
+
+
+def count_persons_for_list_search(team_id: int, search: str) -> int:
+    return _get_person_list_search_queryset(team_id, search).count()
 
 
 def _validate_uuids_via_personhog(team_id: int, uuids: list[str]) -> list[str]:
