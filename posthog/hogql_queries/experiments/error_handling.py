@@ -31,8 +31,6 @@ F = TypeVar("F", bound=Callable[..., Any])
 # Note: ValueError and generic Exception are intentionally excluded - they pass through unaltered
 # so the original error message is visible for debugging
 ERROR_TYPE_MESSAGES: dict[type, str] = {
-    # Statistical calculation errors
-    StatisticError: "Unable to calculate experiment statistics. Please ensure your experiment has sufficient data and try again.",
     # HogQL/Query errors
     InternalHogQLError: "Unable to process your experiment query. Please check your metric configuration and try again.",
     ExposedCHQueryError: "Unable to retrieve experiment data. Please try refreshing the page.",
@@ -67,6 +65,9 @@ def get_user_friendly_message(error: Exception) -> str | None:
                 return str(detail_value)
         else:
             return str(validation_error.detail)
+
+    if isinstance(error, StatisticError):
+        return str(error)
 
     # Look for exact type match first
     if error_type in ERROR_TYPE_MESSAGES:

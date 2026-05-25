@@ -2,8 +2,9 @@
 
 from typing import cast
 
-from posthog.test.base import BaseTest
 from unittest.mock import Mock, patch
+
+from django.test import SimpleTestCase
 
 from rest_framework.exceptions import ErrorDetail, ValidationError
 
@@ -14,8 +15,10 @@ from posthog.hogql_queries.experiments.error_handling import (
     get_user_friendly_message,
 )
 
+from products.experiments.stats.shared.statistics import StatisticError
 
-class TestExperimentErrorHandling(BaseTest):
+
+class TestExperimentErrorHandling(SimpleTestCase):
     def test_get_user_friendly_message_for_memory_limit_exceeded(self):
         """Test that ClickHouseQueryMemoryLimitExceeded gets a user-friendly message."""
         error = ClickHouseQueryMemoryLimitExceeded()
@@ -33,6 +36,18 @@ class TestExperimentErrorHandling(BaseTest):
         message = get_user_friendly_message(error)
 
         self.assertIsNone(message)
+
+    def test_get_user_friendly_message_for_statistic_error(self):
+        """Test that StatisticError keeps its specific guidance."""
+        error = StatisticError(
+            "Normal approximation invalid: control has only 0 failures (need ≥5). Consider using exact binomial methods."
+        )
+        message = get_user_friendly_message(error)
+
+        self.assertEqual(
+            message,
+            "Normal approximation invalid: control has only 0 failures (need ≥5). Consider using exact binomial methods.",
+        )
 
     @patch("posthog.hogql_queries.experiments.error_handling.capture_exception")
     def test_decorator_converts_memory_limit_exception(self, mock_capture):
@@ -123,3 +138,30 @@ class TestExperimentErrorHandling(BaseTest):
         """Test that ClickHouseQueryMemoryLimitExceeded has a code mapping."""
         self.assertIn(ClickHouseQueryMemoryLimitExceeded, ERROR_TYPE_TO_CODE)
         self.assertEqual(ERROR_TYPE_TO_CODE[ClickHouseQueryMemoryLimitExceeded], "memory_limit_exceeded")
+
+    @patch("posthog.hogql_queries.experiments.error_handling.capture_exception")
+    def test_decorator_converts_statistic_error_with_original_message(self, mock_capture):
+        """Test that the decorator preserves StatisticError details for users."""
+
+        @experiment_error_handler
+        def failing_method(self):
+            raise StatisticError(
+                "Normal approximation invalid: control has only 0 failures (need ≥5). Consider using exact binomial methods."
+            )
+
+        mock_self = Mock()
+        mock_self.experiment = Mock(id=123)
+        mock_self.metric = None
+        mock_self.user_facing = True
+
+        with self.assertRaises(ValidationError) as context:
+            failing_method(mock_self)
+
+        self.assertIsInstance(context.exception.detail, list)
+        detail_list = cast(list[ErrorDetail], context.exception.detail)
+        self.assertEqual(
+            str(detail_list[0]),
+            "Normal approximation invalid: control has only 0 failures (need ≥5). Consider using exact binomial methods.",
+        )
+
+        mock_capture.assert_called_once()
