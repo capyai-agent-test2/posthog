@@ -17,6 +17,6 @@ operations = [
         ADD_HISTORICAL_MIGRATION_COLUMN_EVENTS_RECENT.format(table="events_recent"),
         node_roles=[NodeRole.DATA],
         sharded=False,
-        is_alter_on_replicated_table=True,
+        is_alter_on_replicated_table=False,
     ),
 ]
