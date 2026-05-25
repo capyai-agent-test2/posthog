@@ -32,8 +32,9 @@ export const GroupProfileCanvas = ({ group, tabId, attachTo }: GroupProfileCanva
         () => ({
             groupKey,
             groupTypeIndex,
+            tabId,
         }),
-        [groupKey, groupTypeIndex]
+        [groupKey, groupTypeIndex, tabId]
     )
     const customerProfileLogicProps = {
         attrs,

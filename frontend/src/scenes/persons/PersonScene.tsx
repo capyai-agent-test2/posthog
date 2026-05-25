@@ -281,7 +281,13 @@ export function PersonScene({ tabId }: { tabId?: string }): JSX.Element | null {
                         ? {
                               key: PersonsTabType.PROFILE,
                               label: <span data-attr="persons-profile-tab">Profile</span>,
-                              content: <PersonProfileCanvas person={person} attachTo={mountedPersonsLogic} />,
+                              content: (
+                                  <PersonProfileCanvas
+                                      person={person}
+                                      tabId={tabId ?? mountedPersonsLogic.key}
+                                      attachTo={mountedPersonsLogic}
+                                  />
+                              ),
                           }
                         : false,
                     {
