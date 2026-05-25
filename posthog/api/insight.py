@@ -1710,23 +1710,21 @@ class InsightViewSet(
                     "STICKINESS": schema.NodeKind.STICKINESS_QUERY,
                     "LIFECYCLE": schema.NodeKind.LIFECYCLE_QUERY,
                 }
-                saved_query_filter = Q(query__kind__in=WRAPPER_NODE_KINDS, query__source__kind="HogQLQuery") | Q(
-                    query__kind="HogQLQuery"
-                )
-                saved_insight_filter = Q(
-                    query__kind__in=WRAPPER_NODE_KINDS,
-                    query__source__kind__in=legacy_to_hogql_mapping.values(),
-                ) | Q(query__kind__in=legacy_to_hogql_mapping.values())
                 if insight == "JSON":
                     queryset = queryset.filter(query__isnull=False)
-                    queryset = queryset.exclude(saved_query_filter | saved_insight_filter)
+                    queryset = queryset.exclude(query__kind__in=WRAPPER_NODE_KINDS, query__source__kind="HogQLQuery")
+                    queryset = queryset.exclude(
+                        query__kind__in=WRAPPER_NODE_KINDS, query__source__kind__in=legacy_to_hogql_mapping.values()
+                    )
                 elif insight == "SQL":
-                    queryset = queryset.filter(query__isnull=False).filter(saved_query_filter)
+                    queryset = queryset.filter(query__isnull=False)
+                    queryset = queryset.filter(query__kind__in=WRAPPER_NODE_KINDS, query__source__kind="HogQLQuery")
                 elif insight in legacy_to_hogql_mapping:
                     queryset = queryset.filter(
                         legacy_filter
-                        | Q(query__kind__in=WRAPPER_NODE_KINDS, query__source__kind=legacy_to_hogql_mapping[insight])
-                        | Q(query__kind=legacy_to_hogql_mapping[insight])
+                        | Q(query__isnull=False)
+                        & Q(query__kind=schema.NodeKind.INSIGHT_VIZ_NODE)
+                        & Q(query__source__kind=legacy_to_hogql_mapping[insight])
                     )
                 else:
                     queryset = queryset.filter(legacy_filter)
