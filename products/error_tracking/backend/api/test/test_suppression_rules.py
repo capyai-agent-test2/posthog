@@ -392,6 +392,35 @@ class TestSuppressionRuleAPI(APIBaseTest):
         assert rule.bytecode is not None
         assert len(rule.bytecode) > 0
 
+    def test_create_with_semver_filter(self) -> None:
+        response = self.client.post(
+            self._url(),
+            data={
+                "filters": {
+                    "type": "AND",
+                    "values": [
+                        {
+                            "type": "AND",
+                            "values": [
+                                {
+                                    "key": "$lib_version",
+                                    "type": "event",
+                                    "value": "1.2.3",
+                                    "operator": "semver_gte",
+                                }
+                            ],
+                        }
+                    ],
+                }
+            },
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        rule = ErrorTrackingSuppressionRule.objects.get(id=response.json()["id"])
+        assert rule.bytecode is not None
+        assert len(rule.bytecode) > 0
+
     def test_create_without_filters_creates_match_all_rule(self) -> None:
         response = self.client.post(
             self._url(),
