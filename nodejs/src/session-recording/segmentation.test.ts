@@ -132,5 +132,19 @@ describe('segmentation', () => {
                 isActive: false,
             })
         })
+
+        it('should convert keyboard custom events to active segmentation events', () => {
+            const event: RRWebEvent = {
+                type: RRWebEventType.Custom,
+                timestamp: 1000,
+                data: { tag: 'user-interaction', payload: { type: 'keydown' } },
+            }
+
+            const segmentationEvent = toSegmentationEvent(event)
+            expect(segmentationEvent).toEqual({
+                timestamp: 1000,
+                isActive: true,
+            })
+        })
     })
 })

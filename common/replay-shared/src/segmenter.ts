@@ -19,11 +19,23 @@ const activeSources = [
 
 const ACTIVITY_THRESHOLD_MS = 5000
 
+const isKeyboardCustomEvent = (event: eventWithTime): boolean => {
+    if (event.type !== EventType.Custom) {
+        return false
+    }
+
+    const tag = typeof event.data?.tag === 'string' ? event.data.tag : undefined
+    const interactionType = typeof event.data?.payload?.type === 'string' ? event.data.payload.type : undefined
+
+    return tag === 'keyboard' || (tag === 'user-interaction' && interactionType?.startsWith('key'))
+}
+
 const isActiveEvent = (event: eventWithTime): boolean => {
     return (
         event.type === EventType.FullSnapshot ||
         event.type === EventType.Meta ||
-        (event.type === EventType.IncrementalSnapshot && activeSources.includes(event.data?.source))
+        (event.type === EventType.IncrementalSnapshot && activeSources.includes(event.data?.source)) ||
+        isKeyboardCustomEvent(event)
     )
 }
 

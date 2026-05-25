@@ -47,12 +47,37 @@ interface RecordingSegment {
 /**
  * Checks if an event is an active event (indicates user activity)
  */
+const isKeyboardCustomEvent = (event: SnapshotEvent): boolean => {
+    const eventData = event as
+        | {
+              type?: number
+              data?: {
+                  tag?: string
+                  payload?: {
+                      type?: string
+                  }
+              }
+          }
+        | undefined
+    const tag = eventData?.data?.tag
+    const interactionType = eventData?.data?.payload?.type
+
+    return (
+        eventData?.type === RRWebEventType.Custom &&
+        (tag === 'keyboard' ||
+            (tag === 'user-interaction' && typeof interactionType === 'string' && interactionType.startsWith('key')))
+    )
+}
+
 const isActiveEvent = (event: SnapshotEvent): boolean => {
     const eventData = event as { type?: number; data?: { source?: number } } | undefined
     const type = eventData?.type
     const source = eventData?.data?.source
 
-    return type === RRWebEventType.IncrementalSnapshot && activeSources.includes(source ?? -1)
+    return (
+        (type === RRWebEventType.IncrementalSnapshot && activeSources.includes(source ?? -1)) ||
+        isKeyboardCustomEvent(event)
+    )
 }
 
 /**
