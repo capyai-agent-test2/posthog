@@ -25,6 +25,18 @@ function toastApiError(e: unknown): void {
     lemonToast.error(detail || 'Something went wrong. Please try again.')
 }
 
+function formatOauthCallbackError(kind: IntegrationKind, error: string, errorDescription?: string | null): string {
+    if (kind === 'bing-ads' && errorDescription?.includes('AADSTS650052')) {
+        return 'Microsoft rejected the Bing Ads authorization because your organization has not enabled the Microsoft Advertising API. Ask a Microsoft Entra admin to grant consent for Microsoft Advertising, then try again.'
+    }
+
+    if (errorDescription) {
+        return errorDescription
+    }
+
+    return `Failed due to "${error}"`
+}
+
 export const integrationsLogic = kea<integrationsLogicType>([
     path(['lib', 'integrations', 'integrationsLogic']),
     connect(() => ({
@@ -281,7 +293,7 @@ export const integrationsLogic = kea<integrationsLogicType>([
             }
         },
         handleOauthCallback: async ({ kind, searchParams }) => {
-            const { state, code, error, stripe_user_id, account_id, user_id } = searchParams
+            const { state, code, error, error_description, stripe_user_id, account_id, user_id } = searchParams
             const { next, token, source, server_id, kind: stateKind } = fromParamsGivenUrl(state)
             // slack-posthog-code reuses /integrations/slack/callback as its approved redirect URI,
             // so the real kind is carried in OAuth state and takes precedence over the URL path.
@@ -289,7 +301,7 @@ export const integrationsLogic = kea<integrationsLogicType>([
             let replaceUrl: string = next || urls.settings('project-integrations')
 
             if (error) {
-                lemonToast.error(`Failed due to "${error}"`)
+                lemonToast.error(formatOauthCallbackError(resolvedKind, error, error_description))
                 router.actions.replace(replaceUrl)
                 return
             }
