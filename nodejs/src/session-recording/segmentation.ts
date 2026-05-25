@@ -64,7 +64,8 @@ const isKeyboardCustomEvent = (event: SnapshotEvent): boolean => {
 
     return (
         eventData?.type === RRWebEventType.Custom &&
-        (tag === 'keyboard' || (tag === 'user-interaction' && interactionType?.startsWith('key')))
+        (tag === 'keyboard' ||
+            (tag === 'user-interaction' && typeof interactionType === 'string' && interactionType.startsWith('key')))
     )
 }
 
