@@ -46,6 +46,10 @@ def _build_cache_keys_param(insight_cache_keys: Optional[dict[int, str]]) -> str
     return f"&cache_keys={quote(json.dumps(insight_cache_keys))}"
 
 
+def _should_resize_to_content_width(exported_asset: ExportedAsset) -> bool:
+    return exported_asset.insight is not None or exported_asset.dashboard is None
+
+
 TMP_DIR = "/tmp"  # NOTE: Externalise this to ENV var
 
 # Newer versions of selenium seem to include the search bar in the height calculation.
@@ -242,6 +246,7 @@ def _export_to_png(
             screenshot_height,
             max_height_pixels,
             page_load_timeout,
+            resize_to_content_width=_should_resize_to_content_width(exported_asset),
         )
 
         with open(image_path, "rb") as image_file:
@@ -269,6 +274,7 @@ def _screenshot_asset(
     screenshot_height: int = 600,
     max_height_pixels: Optional[int] = None,
     page_load_timeout: int = 40,
+    resize_to_content_width: bool = True,
 ) -> None:
     driver: Optional[webdriver.Chrome] = None
     try:
@@ -318,64 +324,64 @@ def _screenshot_asset(
             )
             height = effective_max
 
-        # Calculate width for replay players and non-funnel tables
-        # Funnels are handled separately with fit-content measurement below
-        width = driver.execute_script(
-            f"""
-            // Check for heatmap exporter first — its width is set explicitly
-            const heatmapElement = document.querySelector('.heatmap-exporter');
-            if (heatmapElement) {{
-                return heatmapElement.offsetWidth;
-            }}
-
-            // Check for replay player
-            const replayElement = document.querySelector('.replayer-wrapper');
-            if (replayElement) {{
-                return replayElement.offsetWidth;
-            }}
-
-            // Check for left-to-right funnel (FunnelBarVertical)
-            // Top-to-bottom funnels use FunnelBarHorizontal and don't need width expansion
-            const funnelElement = document.querySelector('.FunnelBarVertical');
-            if (funnelElement) {{
-                // Force funnel to shrink to content size
-                funnelElement.style.width = 'fit-content';
-                funnelElement.style.maxWidth = 'fit-content';
-
-                const table = funnelElement.querySelector('table');
-                if (table) {{
-                    table.style.width = 'fit-content';
-                    table.style.maxWidth = 'fit-content';
+        width = screenshot_width
+        if resize_to_content_width:
+            # Calculate width for replay players and non-funnel tables.
+            # Funnels are handled separately with fit-content measurement below.
+            measured_width = driver.execute_script(
+                f"""
+                // Check for heatmap exporter first — its width is set explicitly
+                const heatmapElement = document.querySelector('.heatmap-exporter');
+                if (heatmapElement) {{
+                    return heatmapElement.offsetWidth;
                 }}
 
-                // Force a reflow
-                void funnelElement.offsetWidth;
+                // Check for replay player
+                const replayElement = document.querySelector('.replayer-wrapper');
+                if (replayElement) {{
+                    return replayElement.offsetWidth;
+                }}
 
-                // Now measure the actual content width
-                return funnelElement.offsetWidth + {CONTENT_PADDING};
-            }}
+                // Check for left-to-right funnel (FunnelBarVertical)
+                // Top-to-bottom funnels use FunnelBarHorizontal and don't need width expansion
+                const funnelElement = document.querySelector('.FunnelBarVertical');
+                if (funnelElement) {{
+                    // Force funnel to shrink to content size
+                    funnelElement.style.width = 'fit-content';
+                    funnelElement.style.maxWidth = 'fit-content';
 
-            // Fall back to table width for insights
-            const tableElement = document.querySelector('table');
-            if (tableElement) {{
-                return tableElement.offsetWidth * 1.5;
-            }}
+                    const table = funnelElement.querySelector('table');
+                    if (table) {{
+                        table.style.width = 'fit-content';
+                        table.style.maxWidth = 'fit-content';
+                    }}
 
-            return null;
-        """
-        )
-        if isinstance(width, (int, float)):
-            calculated_width = width or screenshot_width
-            if calculated_width > MAX_WIDTH_PIXELS:
-                logger.warning(
-                    "screenshot_width_capped",
-                    original_width=calculated_width,
-                    capped_width=MAX_WIDTH_PIXELS,
-                    url=url_to_render,
-                )
-            width = min(MAX_WIDTH_PIXELS, int(calculated_width))
-        else:
-            width = screenshot_width
+                    // Force a reflow
+                    void funnelElement.offsetWidth;
+
+                    // Now measure the actual content width
+                    return funnelElement.offsetWidth + {CONTENT_PADDING};
+                }}
+
+                // Fall back to table width for insights
+                const tableElement = document.querySelector('table');
+                if (tableElement) {{
+                    return tableElement.offsetWidth * 1.5;
+                }}
+
+                return null;
+            """
+            )
+            if isinstance(measured_width, (int, float)):
+                calculated_width = measured_width or screenshot_width
+                if calculated_width > MAX_WIDTH_PIXELS:
+                    logger.warning(
+                        "screenshot_width_capped",
+                        original_width=calculated_width,
+                        capped_width=MAX_WIDTH_PIXELS,
+                        url=url_to_render,
+                    )
+                width = min(MAX_WIDTH_PIXELS, int(calculated_width))
 
         # Set window size with the calculated dimensions
         driver.set_window_size(width, height + HEIGHT_OFFSET)
