@@ -2865,6 +2865,8 @@ Common operators:
 - "regex" for regex patterns
 - "gt", "lt", "gte", "lte" for numeric comparisons
 
+Do not add or modify UI metadata fields such as "label" or "description". Only return actual filter values.
+
 Return ONLY the JSON object inside <filters> tags. Do not add any other text or explanation."""
 
 HOG_FUNCTION_INPUTS_SYSTEM_PROMPT = """You are an expert at creating input variable schemas for PostHog hog functions.

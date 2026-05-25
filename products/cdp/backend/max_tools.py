@@ -52,6 +52,9 @@ class HogFunctionFiltersOutput(BaseModel):
     filters: dict
 
 
+FILTER_UI_METADATA_KEYS = {"label", "description"}
+
+
 class CreateHogTransformationFunctionTool(MaxTool):
     name: str = "create_hog_transformation_function"  # Must match a value in AssistantTool enum
     description: str = "Write or edit the hog code to create your desired function and apply it to the current editor"
@@ -237,7 +240,32 @@ class CreateHogFunctionFiltersTool(MaxTool):
                 llm_output=json_str, validation_message=f"The filters JSON failed to parse: {str(e)}"
             )
 
+        if not isinstance(filters, dict):
+            raise PydanticOutputParserException(
+                llm_output=json_str, validation_message="The filters response must be a JSON object."
+            )
+
+        self._raise_if_ui_metadata_is_modified(filters)
         return HogFunctionFiltersOutput(filters=filters)
+
+    def _raise_if_ui_metadata_is_modified(self, value: object, path: str = "filters") -> None:
+        if isinstance(value, dict):
+            invalid_keys = FILTER_UI_METADATA_KEYS.intersection(value.keys())
+            if invalid_keys:
+                invalid_key = sorted(invalid_keys)[0]
+                raise PydanticOutputParserException(
+                    llm_output=json.dumps(value),
+                    validation_message=(
+                        f"Do not write UI metadata like `{invalid_key}` at {path}. "
+                        "Update actual filter values instead."
+                    ),
+                )
+
+            for key, nested_value in value.items():
+                self._raise_if_ui_metadata_is_modified(nested_value, f"{path}.{key}")
+        elif isinstance(value, list):
+            for index, nested_value in enumerate(value):
+                self._raise_if_ui_metadata_is_modified(nested_value, f"{path}[{index}]")
 
 
 class CreateHogFunctionInputsArgs(BaseModel):
