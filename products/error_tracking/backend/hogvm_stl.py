@@ -21,4 +21,5 @@ RUST_HOGVM_STL = [
     "arrayFilter",
     "arrayExists",
     "arrayMap",
+    "sortableSemver",
 ]
