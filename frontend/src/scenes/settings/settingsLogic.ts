@@ -258,6 +258,10 @@ export const settingsLogic = kea<settingsLogicType>([
                 actions.expandGroup(`${level}-${sectionObj.group}`)
             }
             setTimeout(() => {
+                const anchorId = router.values.location.hash.slice(1)
+                if (anchorId && document.getElementById(anchorId)) {
+                    return
+                }
                 const mainElement = document.querySelector('main')
                 if (mainElement) {
                     mainElement.scrollTo({ top: 0, behavior: 'smooth' })

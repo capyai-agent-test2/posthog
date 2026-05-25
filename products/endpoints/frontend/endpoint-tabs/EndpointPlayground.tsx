@@ -391,7 +391,7 @@ export function EndpointPlayground({ tabId }: EndpointPlaygroundProps): JSX.Elem
                         value={activeCodeExampleTab}
                     />
                     <LemonButton
-                        to={urls.settings('user', 'personal-api-keys')}
+                        to={urls.settings('user-api-keys', 'personal-api-keys')}
                         type="secondary"
                         size="small"
                         icon={<IconExternal />}
