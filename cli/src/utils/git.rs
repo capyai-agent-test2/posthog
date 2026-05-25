@@ -145,12 +145,15 @@ fn get_common_git_dir(git_dir: &Path) -> PathBuf {
 
     let common_dir = common_dir.trim();
     let common_dir_path = Path::new(common_dir);
-
-    if common_dir_path.is_absolute() {
+    let resolved_common_dir = if common_dir_path.is_absolute() {
         common_dir_path.to_path_buf()
     } else {
         git_dir.join(common_dir_path)
-    }
+    };
+
+    resolved_common_dir
+        .canonicalize()
+        .unwrap_or(resolved_common_dir)
 }
 
 pub fn get_remote_url(git_dir: &Path) -> Option<String> {
