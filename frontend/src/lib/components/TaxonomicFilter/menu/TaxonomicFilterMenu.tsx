@@ -101,6 +101,22 @@ export interface TriggerState {
     open: boolean
 }
 
+export function isInsideTaxonomicFilterOverlay(target: Element, triggerWrap: HTMLSpanElement | null): boolean {
+    if (target.closest?.('[data-slot="popover-content"]')) {
+        return true
+    }
+    if (target.closest?.('[data-quill-portal]')) {
+        return true
+    }
+    if (target.closest?.('.Popover')) {
+        return true
+    }
+    if (triggerWrap?.contains(target)) {
+        return true
+    }
+    return false
+}
+
 export function TaxonomicFilterMenu({
     triggerLabel,
     selected,
@@ -347,20 +363,11 @@ export function TaxonomicFilterMenu({
             if (!target) {
                 return
             }
-            // Treat clicks inside our own popover content as inside…
-            if (target.closest?.('[data-slot="popover-content"]')) {
-                return
-            }
-            // …and clicks inside ANY quill portal (Select dropdown, nested
-            // DropdownMenu, ContextMenu, Combobox suggestions) as inside
-            // too — those mount in their own portals at body level so a
-            // raw `target.closest(popover-content)` misses them. Without
-            // this, choosing a column from the field Select inside the
-            // DWH config form was closing the whole popover.
-            if (target.closest?.('[data-quill-portal]')) {
-                return
-            }
-            if (triggerWrapRef.current?.contains(target)) {
+            // Treat clicks inside our own popover content, Quill portals,
+            // and nested Lemon UI popovers as inside. The nested controls
+            // all portal to body, so plain ancestry from the taxonomic
+            // panel doesn't exist on mobile or desktop.
+            if (isInsideTaxonomicFilterOverlay(target, triggerWrapRef.current)) {
                 return
             }
             closeAll()
