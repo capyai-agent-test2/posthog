@@ -12,8 +12,8 @@ from django.test import SimpleTestCase
 
 from parameterized import parameterized
 from rest_framework import exceptions
-from rest_framework.test import APIRequestFactory
 
+from posthog.api.routing import DefaultRouterPlusPlus
 from posthog.temporal.session_replay.session_summary_group.types import FailedSessionInfo, SessionSummaryStreamUpdate
 
 from ee.api.session_summaries import SessionGroupSummaryViewSet, _NO_READY_SUMMARY_ERROR_SUBSTRING
@@ -465,17 +465,18 @@ class TestSessionSummariesAPI(APIBaseTest):
 
 class TestSessionGroupSummariesAPI(SimpleTestCase):
     def test_create_is_not_allowed_with_personal_api_key(self) -> None:
-        with patch.object(SessionGroupSummaryViewSet, "initial", autospec=True, return_value=None):
-            request = APIRequestFactory().post(
-                "/api/projects/1/session_group_summaries/",
-                {"title": "test"},
-                format="json",
-                HTTP_AUTHORIZATION="Bearer phx_valid_personal_api_key",
-            )
+        router = DefaultRouterPlusPlus()
+        projects_router = router.register(r"projects", SessionGroupSummaryViewSet, "projects")
+        projects_router.register(
+            r"session_group_summaries",
+            SessionGroupSummaryViewSet,
+            "project_session_group_summaries",
+            ["project_id"],
+        )
 
-            response = SessionGroupSummaryViewSet.as_view({"get": "list"})(request, project_id=1)
+        list_route = next(url for url in router.urls if url.name == "project_session_group_summaries-list")
 
-        self.assertEqual(response.status_code, 405)
+        self.assertEqual(list_route.callback.actions, {"get": "list"})
 
 
 MOCK_SUMMARY_DATA: dict[str, Any] = {
