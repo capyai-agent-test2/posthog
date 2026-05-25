@@ -21,7 +21,7 @@ from posthog.models.js_snippet_versioning import DEFAULT_SNIPPET_VERSION
 from posthog.models.plugin import PluginConfig
 from posthog.models.team.extensions import get_or_create_team_extension
 from posthog.models.team.js_snippet_config import TeamJsSnippetConfig
-from posthog.models.team.team import Team
+from posthog.models.team.team import DEFAULT_RECORDER_SCRIPT, Team
 from posthog.models.utils import UUIDTModel, execute_with_timeout
 from posthog.storage.hypercache import HyperCache, HyperCacheStoreMissing
 
@@ -101,7 +101,7 @@ class RemoteConfig(UUIDTModel):
         rrweb_script_config = None
         recorder_script = team.extra_settings.get("recorder_script") if team.extra_settings else None
         if not recorder_script and settings.DEBUG:
-            recorder_script = "posthog-recorder"
+            recorder_script = DEFAULT_RECORDER_SCRIPT
         if recorder_script:
             rrweb_script_config = {"script": recorder_script}
 
