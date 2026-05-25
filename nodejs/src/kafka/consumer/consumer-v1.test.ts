@@ -90,6 +90,14 @@ const triggerablePromise = (): {
 }
 
 describe('consumer', () => {
+    const OLD_ENV = process.env
+    const DEFAULT_HEARTBEAT_INTERVAL_MS = defaultConfig.CONSUMER_MAX_HEARTBEAT_INTERVAL_MS
+
+    beforeEach(() => {
+        process.env = { ...OLD_ENV }
+        defaultConfig.CONSUMER_MAX_HEARTBEAT_INTERVAL_MS = DEFAULT_HEARTBEAT_INTERVAL_MS
+    })
+
     afterEach(() => {
         // Final cleanup of any remaining promises
         while (activePromiseResolvers.length > 0) {
@@ -136,6 +144,8 @@ describe('consumer', () => {
     })
 
     afterEach(async () => {
+        process.env = OLD_ENV
+        defaultConfig.CONSUMER_MAX_HEARTBEAT_INTERVAL_MS = DEFAULT_HEARTBEAT_INTERVAL_MS
         if (consumer) {
             // CRITICAL: Clear background tasks BEFORE disconnect to prevent hanging
             if (consumer['backgroundTask']) {
@@ -172,6 +182,32 @@ describe('consumer', () => {
         expect(mockRdKafkaConsumer.offsetsStore.mock.calls).toMatchObject([
             [[{ offset: 2, partition: 0, topic: 'test-topic' }]],
         ])
+    })
+
+    it('uses the configured session timeout for heartbeat health checks', () => {
+        process.env.KAFKA_CONSUMPTION_SESSION_TIMEOUT_MS = '180000'
+
+        const timeoutConfiguredConsumer = new KafkaConsumer({
+            groupId: 'test-group',
+            topic: 'test-topic',
+        })
+
+        expect(timeoutConfiguredConsumer.getConfig()['session.timeout.ms']).toBe(180_000)
+        expect(timeoutConfiguredConsumer['maxHealthHeartbeatIntervalMs']).toBe(180_000)
+    })
+
+    it('prefers explicit heartbeat interval config over session timeout for health checks', () => {
+        process.env.KAFKA_CONSUMPTION_SESSION_TIMEOUT_MS = '180000'
+        process.env.CONSUMER_MAX_HEARTBEAT_INTERVAL_MS = '90000'
+        defaultConfig.CONSUMER_MAX_HEARTBEAT_INTERVAL_MS = 90_000
+
+        const heartbeatConfiguredConsumer = new KafkaConsumer({
+            groupId: 'test-group',
+            topic: 'test-topic',
+        })
+
+        expect(heartbeatConfiguredConsumer.getConfig()['session.timeout.ms']).toBe(180_000)
+        expect(heartbeatConfiguredConsumer['maxHealthHeartbeatIntervalMs']).toBe(90_000)
     })
 
     describe('background work', () => {
