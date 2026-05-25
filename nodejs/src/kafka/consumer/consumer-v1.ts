@@ -120,6 +120,17 @@ export type RdKafkaConsumerConfig = Omit<
 
 type RebalanceCallback = boolean | ((err: LibrdKafkaError, assignments: Assignment[]) => void)
 
+const getMaxHealthHeartbeatIntervalMs = (consumerOverrides: ConsumerGlobalConfig): number => {
+    if (process.env.CONSUMER_MAX_HEARTBEAT_INTERVAL_MS) {
+        return defaultConfig.CONSUMER_MAX_HEARTBEAT_INTERVAL_MS
+    }
+
+    const sessionTimeoutMs = consumerOverrides['session.timeout.ms']
+    return typeof sessionTimeoutMs === 'number'
+        ? sessionTimeoutMs
+        : defaultConfig.CONSUMER_MAX_HEARTBEAT_INTERVAL_MS || MAX_HEALTH_HEARTBEAT_INTERVAL_MS
+}
+
 interface RebalanceCoordination {
     isRebalancing: boolean
     rebalanceTimeoutMs: number
@@ -160,6 +171,7 @@ export class KafkaConsumer {
         this.lastBackgroundTaskCompletionTime = Date.now()
         // Generate unique consumer ID: pod + group + timestamp + random number (need timestamp/random number because multiple consumers per pod)
         this.consumerId = `${this.podName}-${this.config.groupId}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
+        const consumerOverrides = getKafkaConfigFromEnv('CONSUMER')
 
         this.config.autoCommit ??= true
         this.config.autoOffsetStore ??= true
@@ -167,8 +179,7 @@ export class KafkaConsumer {
         this.config.waitForBackgroundTasksOnRebalance = defaultConfig.CONSUMER_WAIT_FOR_BACKGROUND_TASKS_ON_REBALANCE
         this.maxBackgroundTasks = defaultConfig.CONSUMER_MAX_BACKGROUND_TASKS
         this.fetchBatchSize = defaultConfig.CONSUMER_BATCH_SIZE
-        this.maxHealthHeartbeatIntervalMs =
-            defaultConfig.CONSUMER_MAX_HEARTBEAT_INTERVAL_MS || MAX_HEALTH_HEARTBEAT_INTERVAL_MS
+        this.maxHealthHeartbeatIntervalMs = getMaxHealthHeartbeatIntervalMs(consumerOverrides)
         this.consumerLoopStallThresholdMs = defaultConfig.CONSUMER_LOOP_STALL_THRESHOLD_MS
         this.consumerLogStatsLevel = defaultConfig.CONSUMER_LOG_STATS_LEVEL
 
@@ -200,7 +211,7 @@ export class KafkaConsumer {
                 : {}),
             // Custom settings and overrides - this is where most configuration overrides should be done
             // e.g. KAFKA_CONSUMER_ENABLE_PARTITION_EOF=false to override the default above
-            ...getKafkaConfigFromEnv('CONSUMER'),
+            ...consumerOverrides,
             // Finally any specifically given consumer config overrides
             ...rdKafkaConfig,
             // Below is config that we explicitly DO NOT want to be overrideable by env vars - i.e. things that would require code changes to change
