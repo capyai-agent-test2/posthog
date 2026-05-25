@@ -14,7 +14,7 @@ from posthog.errors import CHQueryErrorTooManySimultaneousQueries
 from posthog.models.exported_asset import ExportedAsset
 from posthog.tasks import exporter
 from posthog.tasks.exports.failure_handler import FAILURE_TYPE_SYSTEM, FAILURE_TYPE_USER, is_user_query_error_type
-from posthog.tasks.exports.image_exporter import get_driver
+from posthog.tasks.exports.image_exporter import MEASURE_CONTENT_HEIGHT_JS, _screenshot_asset, get_driver
 
 from products.dashboards.backend.models.dashboard import Dashboard
 
@@ -54,6 +54,19 @@ class MockWebDriver(MagicMock):
 
     def find_element_by_class_name(self, name: str) -> Optional[MagicMock]:
         return None  # Never return anything for Spinner
+
+
+class ImmediateWebDriverWait:
+    def __init__(self, driver: MagicMock, timeout: int) -> None:
+        self.driver = driver
+        self.timeout = timeout
+
+    def until(self, method: MagicMock) -> MagicMock:
+        return method(self.driver)
+
+    def until_not(self, method: MagicMock) -> bool:
+        method(self.driver)
+        return True
 
 
 @patch("posthog.tasks.exports.image_exporter.uuid")
@@ -146,3 +159,54 @@ class TestExportAssetFailureRecording(APIBaseTest):
         assert asset.exception == "Code: None.\nToo many queries"
         assert asset.exception_type == "CHQueryErrorTooManySimultaneousQueries"
         assert asset.failure_type == FAILURE_TYPE_SYSTEM
+
+
+class TestScreenshotAssetWidth(TestCase):
+    def _make_driver(self, measured_width: int) -> MagicMock:
+        driver = MagicMock()
+
+        def execute_script(script: str) -> Optional[int]:
+            if script == MEASURE_CONTENT_HEIGHT_JS:
+                return 600
+            if "const heatmapElement" in script:
+                return measured_width
+            return None
+
+        driver.execute_script.side_effect = execute_script
+        return driver
+
+    @patch("posthog.tasks.exports.image_exporter.WebDriverWait", ImmediateWebDriverWait)
+    @patch("posthog.tasks.exports.image_exporter.get_driver")
+    def test_dashboard_exports_keep_requested_width(self, mock_get_driver: MagicMock) -> None:
+        driver = self._make_driver(measured_width=500)
+        mock_get_driver.return_value = driver
+
+        _screenshot_asset(
+            "/tmp/dashboard-export.png",
+            "https://example.com/exporter",
+            1920,
+            ".InsightCard",
+            resize_to_content_width=False,
+        )
+
+        assert all("const heatmapElement" not in call.args[0] for call in driver.execute_script.call_args_list)
+        assert driver.set_window_size.call_args_list[1].args[0] == 1920
+        assert driver.set_window_size.call_args_list[2].args[0] == 1920
+
+    @patch("posthog.tasks.exports.image_exporter.WebDriverWait", ImmediateWebDriverWait)
+    @patch("posthog.tasks.exports.image_exporter.get_driver")
+    def test_insight_exports_still_resize_to_content_width(self, mock_get_driver: MagicMock) -> None:
+        driver = self._make_driver(measured_width=500)
+        mock_get_driver.return_value = driver
+
+        _screenshot_asset(
+            "/tmp/insight-export.png",
+            "https://example.com/exporter",
+            800,
+            ".ExportedInsight",
+            resize_to_content_width=True,
+        )
+
+        assert any("const heatmapElement" in call.args[0] for call in driver.execute_script.call_args_list)
+        assert driver.set_window_size.call_args_list[1].args[0] == 500
+        assert driver.set_window_size.call_args_list[2].args[0] == 500
