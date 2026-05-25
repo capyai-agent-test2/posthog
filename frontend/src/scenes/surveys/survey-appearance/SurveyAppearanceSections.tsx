@@ -188,7 +188,7 @@ export function SurveyContainerAppearance({
                 label="Position"
                 info={
                     supportsTriggerAnchoredPosition(surveyType, appearance.widgetType)
-                        ? `The "${getTriggerAnchoredPositionLabel(appearance.widgetType).toLowerCase()}" option requires posthog.js version 1.235.2 or higher.`
+                        ? `The "${getTriggerAnchoredPositionLabel(appearance.widgetType).toLowerCase()}" option requires posthog.js version 1.294.0 or higher.`
                         : undefined
                 }
                 className="gap-1"
