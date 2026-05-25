@@ -1,7 +1,9 @@
 import os
+import time
 
 from django.apps import AppConfig
 from django.conf import settings
+from django.db.utils import OperationalError
 
 import structlog
 import posthoganalytics
@@ -19,6 +21,30 @@ from posthog.utils import (
 )
 
 logger = structlog.get_logger(__name__)
+
+ASYNC_MIGRATIONS_SETUP_MAX_ATTEMPTS = 5
+ASYNC_MIGRATIONS_SETUP_RETRY_SECONDS = 2
+
+
+def run_startup_async_migrations_setup() -> None:
+    from posthog.async_migrations.setup import setup_async_migrations
+
+    for attempt in range(1, ASYNC_MIGRATIONS_SETUP_MAX_ATTEMPTS + 1):
+        try:
+            setup_async_migrations()
+            return
+        except OperationalError:
+            if attempt == ASYNC_MIGRATIONS_SETUP_MAX_ATTEMPTS:
+                raise
+
+            logger.warning(
+                "async_migrations_setup_retrying_after_database_error",
+                attempt=attempt,
+                max_attempts=ASYNC_MIGRATIONS_SETUP_MAX_ATTEMPTS,
+                retry_in_seconds=ASYNC_MIGRATIONS_SETUP_RETRY_SECONDS,
+                exc_info=True,
+            )
+            time.sleep(ASYNC_MIGRATIONS_SETUP_RETRY_SECONDS)
 
 
 class PostHogConfig(AppConfig):
@@ -98,12 +124,10 @@ class PostHogConfig(AppConfig):
         if not posthoganalytics.disabled and posthoganalytics.feature_flag_definitions() is None:
             posthoganalytics.load_feature_flags()
 
-        from posthog.async_migrations.setup import setup_async_migrations
-
         if settings.SKIP_ASYNC_MIGRATIONS_SETUP:
             logger.warning("Skipping async migrations setup. This is unsafe in production!")
         else:
-            setup_async_migrations()
+            run_startup_async_migrations_setup()
 
         from posthog.api.file_system import registrations as file_system_registrations
         from posthog.tasks.hog_functions import queue_sync_hog_function_templates
