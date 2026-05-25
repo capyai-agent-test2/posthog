@@ -362,7 +362,7 @@ export function Settings({
                     className={clsx(
                         'border rounded w-[var(--settings-nav-width)] flex flex-col',
                         isFullScene
-                            ? 'fixed top-(--scene-padding) bottom-(--scene-padding)'
+                            ? 'sticky top-(--scene-padding) self-start max-h-[calc(100dvh-var(--scene-padding)-var(--scene-padding))]'
                             : 'sticky top-(--scene-layout-header-height) self-start max-h-[calc(100dvh-var(--scene-layout-header-height)-var(--scene-padding))]'
                     )}
                 >
@@ -370,12 +370,7 @@ export function Settings({
                 </div>
             )}
 
-            <div
-                className={clsx(
-                    'flex-1 w-full min-w-0 self-start pb-32',
-                    isFullScene && !hideSections && !isCompact && 'pl-[calc(var(--settings-nav-width)+2rem)]'
-                )}
-            >
+            <div className={clsx('flex-1 w-full min-w-0 self-start pb-32')}>
                 <AuthenticationAreaComponent>
                     <div className="space-y-2">
                         {headerSlot}
