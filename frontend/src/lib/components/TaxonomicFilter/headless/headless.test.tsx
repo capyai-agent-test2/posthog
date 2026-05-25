@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom'
 
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'kea'
 
@@ -122,6 +122,14 @@ describe('TaxonomicFilterHeadless integration', () => {
             'pageview',
             item
         )
+    })
+
+    it('prevents mousedown default on rows so embedded editors keep focus', async () => {
+        const item = { id: 8, name: 'pageview' }
+        apiGet.mockResolvedValue({ results: [item], count: 1 })
+        renderHeadless()
+        const row = await screen.findByText('pageview')
+        expect(fireEvent.mouseDown(row, { cancelable: true })).toBe(false)
     })
 
     it("switching tabs renders the other tab's items", async () => {
