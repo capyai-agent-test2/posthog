@@ -9,6 +9,7 @@ export const TRACES_PER_PAGE = 50
 
 // Query limits
 export const MAX_CLUSTERING_RUNS = 20
+export const CLUSTERING_RUNS_LOOKBACK_DAYS = 90
 
 // Cluster detail URL pattern. Mirrored in `manifest.tsx`'s route registration so any
 // `tabAwareUrlToAction` matcher (e.g. `clusterDetailLogic`, `llmAnalyticsSharedLogic`)

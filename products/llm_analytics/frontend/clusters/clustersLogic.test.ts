@@ -1,17 +1,25 @@
 import { expectLogic } from 'kea-test-utils'
 
+import api from 'lib/api'
+
 import { initKeaTests } from '~/test/init'
 
 import { clustersLogic } from './clustersLogic'
-import { NOISE_CLUSTER_ID } from './constants'
+import { CLUSTERING_RUNS_LOOKBACK_DAYS, NOISE_CLUSTER_ID } from './constants'
 import { EvaluationItemAttributes } from './traceSummaryLoader'
 import { Cluster, ClusterMetrics, ClusteringLevel, ClusteringRun } from './types'
 
+jest.mock('lib/api')
+
 describe('clustersLogic', () => {
     let logic: ReturnType<typeof clustersLogic.build>
+    const mockApi = api as jest.Mocked<typeof api>
 
     beforeEach(() => {
         initKeaTests()
+        jest.resetAllMocks()
+        mockApi.queryHogQL.mockResolvedValue({ results: [] })
+        mockApi.query.mockResolvedValue({ results: [] })
         logic = clustersLogic()
         logic.mount()
     })
@@ -21,6 +29,19 @@ describe('clustersLogic', () => {
     })
 
     describe('reducers', () => {
+        describe('loaders', () => {
+            it('loads clustering runs with a 90-day lookback window', async () => {
+                await expectLogic(logic, () => {
+                    logic.actions.loadClusteringRuns()
+                }).toFinishAllListeners()
+
+                expect(mockApi.queryHogQL).toHaveBeenCalled()
+                expect(mockApi.queryHogQL.mock.calls.at(-1)?.[0]).toContain(
+                    `AND timestamp >= now() - INTERVAL ${CLUSTERING_RUNS_LOOKBACK_DAYS} DAY`
+                )
+            })
+        })
+
         describe('selectedRunId', () => {
             it('sets selected run ID', async () => {
                 await expectLogic(logic, () => {

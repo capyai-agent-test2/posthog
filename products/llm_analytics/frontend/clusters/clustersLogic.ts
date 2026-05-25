@@ -20,6 +20,7 @@ import { loadClusterMetrics } from './clusterMetricsLoader'
 import type { clustersLogicType } from './clustersLogicType'
 import {
     FILTER_QUERY_MAX_ROWS,
+    CLUSTERING_RUNS_LOOKBACK_DAYS,
     LLM_ANALYTICS_CLUSTERS_SCENE_TAG,
     MAX_CLUSTERING_RUNS,
     NOISE_CLUSTER_ID,
@@ -334,7 +335,7 @@ export const clustersLogic = kea<clustersLogicType>([
                                 timestamp
                             FROM events
                             WHERE event = ${eventName}
-                                AND timestamp >= now() - INTERVAL 7 DAY
+                                AND timestamp >= now() - INTERVAL ${CLUSTERING_RUNS_LOOKBACK_DAYS} DAY
                             ORDER BY timestamp DESC
                             LIMIT ${MAX_CLUSTERING_RUNS}
                         `,
