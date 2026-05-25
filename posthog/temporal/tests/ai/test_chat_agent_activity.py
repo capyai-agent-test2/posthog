@@ -229,6 +229,23 @@ class TestProcessChatAgentActivity:
             assert len(callback_invocations) == 20
 
     @pytest.mark.asyncio
+    async def test_uses_background_heartbeater(self, conversation_inputs, mock_redis_stream, mock_assistant):
+        heartbeater = AsyncMock()
+        heartbeater.__aenter__.return_value = heartbeater
+        heartbeater.__aexit__.return_value = None
+
+        with (
+            patch("posthog.temporal.ai.chat_agent.ConversationRedisStream", return_value=mock_redis_stream),
+            patch("posthog.temporal.ai.chat_agent.ChatAgentRunner", return_value=mock_assistant),
+            patch("posthog.temporal.ai.chat_agent.Heartbeater", return_value=heartbeater) as mock_heartbeater,
+        ):
+            await process_chat_agent_activity(conversation_inputs)
+
+        mock_heartbeater.assert_called_once_with()
+        heartbeater.__aenter__.assert_awaited_once()
+        heartbeater.__aexit__.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_starts_queued_workflow(self, conversation_inputs, mock_redis_stream, mock_assistant):
         queue_store = Mock()
         queue_store.pop_next_async = AsyncMock(return_value={"id": "queue-1", "content": "Next up"})
@@ -312,3 +329,49 @@ class TestUtilityFunctions:
         result = get_conversation_stream_key(conversation_id)
 
         assert result == expected_key
+
+
+@pytest.mark.asyncio
+async def test_process_chat_agent_activity_uses_background_heartbeater_without_db():
+    conversation_id = uuid4()
+    inputs = ChatAgentWorkflowInputs(
+        team_id=1,
+        user_id=2,
+        conversation_id=conversation_id,
+        message={"content": "Hello", "type": "human"},
+        stream_key=get_conversation_stream_key(conversation_id),
+    )
+
+    team = Mock()
+    user = Mock()
+    conversation = Mock(approval_decisions={})
+    redis_stream = AsyncMock()
+    queue_store = Mock()
+    queue_store.pop_next_async = AsyncMock(return_value=None)
+    queue_store.clear_async = AsyncMock()
+    mock_assistant = MagicMock()
+    heartbeater = AsyncMock()
+    heartbeater.__aenter__.return_value = heartbeater
+    heartbeater.__aexit__.return_value = None
+
+    async def mock_astream():
+        yield ("message", {"type": "ai", "content": "Hello", "id": "1"})
+
+    mock_assistant.astream = mock_astream
+
+    with (
+        patch("posthog.temporal.ai.chat_agent.Team.objects.aget", AsyncMock(return_value=team)),
+        patch("posthog.temporal.ai.chat_agent.User.objects.aget", AsyncMock(return_value=user)),
+        patch("posthog.temporal.ai.chat_agent.Conversation.objects.aget", AsyncMock(return_value=conversation)),
+        patch("posthog.temporal.ai.chat_agent.ConversationRedisStream", return_value=redis_stream),
+        patch("posthog.temporal.ai.chat_agent.ConversationQueueStore", return_value=queue_store),
+        patch("posthog.temporal.ai.chat_agent.ChatAgentRunner", return_value=mock_assistant),
+        patch("posthog.temporal.ai.chat_agent.Heartbeater", return_value=heartbeater) as mock_heartbeater,
+    ):
+        await process_chat_agent_activity(inputs)
+
+    mock_heartbeater.assert_called_once_with()
+    heartbeater.__aenter__.assert_awaited_once()
+    heartbeater.__aexit__.assert_awaited_once()
+    redis_stream.write_to_stream.assert_awaited_once()
+    redis_stream.mark_complete.assert_awaited_once()
