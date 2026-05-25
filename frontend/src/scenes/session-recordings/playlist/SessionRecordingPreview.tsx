@@ -123,18 +123,27 @@ export function gatherIconProperties(
     recordingProperties: Record<string, any> | undefined,
     recording?: SessionRecordingType
 ): GatheredProperty[] {
-    const iconProperties =
-        recordingProperties && Object.keys(recordingProperties).length > 0
-            ? recordingProperties
-            : recording?.person?.properties || {}
+    const personProperties = recording?.person?.properties || {}
+    const recordingPropertiesLoaded = !!recordingProperties && Object.keys(recordingProperties).length > 0
+    const iconProperties = recordingPropertiesLoaded ? recordingProperties : personProperties
 
     const deviceType = iconProperties['$device_type'] || iconProperties['$initial_device_type']
     const iconPropertyKeys = deviceType === 'Mobile' ? mobileIconPropertyKeys : browserIconPropertyKeys
 
     return iconPropertyKeys
         .flatMap((property) => {
-            const value = property === '$device_type' ? deviceType : iconProperties[property]
-            const label = property === '$geoip_country_code' ? countryTitleFrom(iconProperties) : value
+            const value =
+                property === '$device_type'
+                    ? deviceType
+                    : property === '$geoip_country_code' && !recordingPropertiesLoaded
+                      ? undefined
+                      : iconProperties[property]
+            const label =
+                property === '$geoip_country_code'
+                    ? recordingPropertiesLoaded
+                        ? countryTitleFrom(iconProperties)
+                        : undefined
+                    : value
 
             return { property, value, label }
         })
