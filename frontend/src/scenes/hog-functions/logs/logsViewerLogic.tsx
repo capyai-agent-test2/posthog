@@ -1,3 +1,4 @@
+import equal from 'fast-deep-equal'
 import {
     actions,
     afterMount,
@@ -594,7 +595,7 @@ export const logsViewerLogic = kea<logsViewerLogicType>([
     urlToAction(({ actions, values }) => {
         const reactToTabChange = (_: any, search: Record<string, any>): void => {
             Object.keys(search).forEach((key) => {
-                if (key in values.filters && search[key] !== values.filters[key as keyof LogsViewerFilters]) {
+                if (key in values.filters && !equal(search[key], values.filters[key as keyof LogsViewerFilters])) {
                     actions.setFilters({ [key]: search[key] })
                 }
             })

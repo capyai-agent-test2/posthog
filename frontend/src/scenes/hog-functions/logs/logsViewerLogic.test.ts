@@ -1,9 +1,14 @@
+import { router } from 'kea-router'
+import { expectLogic } from 'kea-test-utils'
+
+import api from 'lib/api'
 import { dayjs } from 'lib/dayjs'
 import { teamLogic } from 'scenes/teamLogic'
 
+import { initKeaTests } from '~/test/init'
 import { LogEntryLevel } from '~/types'
 
-import { groupLogs, LogEntry, toAbsoluteClickhouseTimestamp } from './logsViewerLogic'
+import { ALL_LOG_LEVELS, groupLogs, LogEntry, logsViewerLogic, toAbsoluteClickhouseTimestamp } from './logsViewerLogic'
 
 const makeEntry = (instanceId: string, timestamp: string, level: LogEntryLevel = 'INFO'): LogEntry => ({
     instanceId,
@@ -14,6 +19,60 @@ const makeEntry = (instanceId: string, timestamp: string, level: LogEntryLevel =
 })
 
 describe('logsViewerLogic', () => {
+    describe('URL sync', () => {
+        let logic: ReturnType<typeof logsViewerLogic.build>
+
+        beforeEach(async () => {
+            jest.spyOn(api, 'queryHogQL').mockResolvedValue({ results: [] } as any)
+            initKeaTests()
+            logic = logsViewerLogic({ sourceType: 'hog_flow', sourceId: 'workflow-job', groupByInstanceId: true })
+            logic.mount()
+            await expectLogic(logic).toFinishAllListeners()
+        })
+
+        afterEach(() => {
+            logic.unmount()
+        })
+
+        it('does not reset levels when the URL reuses the same level values', async () => {
+            const setFiltersSpy = jest.spyOn(logic.actions, 'setFilters')
+
+            await expectLogic(logic, () => {
+                logic.actions.setFilters({ levels: ['INFO', 'ERROR'], search: 'a' })
+            }).toFinishAllListeners()
+
+            setFiltersSpy.mockClear()
+
+            await expectLogic(logic, () => {
+                router.actions.push(router.values.location.pathname, {
+                    ...router.values.searchParams,
+                    search: 'ab',
+                    levels: ['INFO', 'ERROR'],
+                })
+            }).toFinishAllListeners()
+
+            expect(logic.values.filters.levels).toEqual(['INFO', 'ERROR'])
+            expect(logic.values.filters.search).toBe('ab')
+            expect(setFiltersSpy).toHaveBeenCalledTimes(1)
+            expect(setFiltersSpy).toHaveBeenCalledWith({ search: 'ab' })
+        })
+
+        it('still updates levels when the URL level values actually change', async () => {
+            await expectLogic(logic, () => {
+                logic.actions.setFilters({ levels: ['INFO'], search: 'a' })
+            }).toFinishAllListeners()
+
+            await expectLogic(logic, () => {
+                router.actions.push(router.values.location.pathname, {
+                    ...router.values.searchParams,
+                    levels: ALL_LOG_LEVELS,
+                })
+            }).toFinishAllListeners()
+
+            expect(logic.values.filters.levels).toEqual(ALL_LOG_LEVELS)
+        })
+    })
+
     describe('toAbsoluteClickhouseTimestamp', () => {
         afterEach(() => jest.restoreAllMocks())
 
