@@ -5,13 +5,7 @@ import { objectsEqual } from 'lib/utils'
 import { eventUsageLogic } from 'lib/utils/eventUsageLogic'
 
 import { ProductAnalyticsInsightQueryNode } from '~/queries/schema/schema-general'
-import {
-    AnyFilterLike,
-    AnyPropertyFilter,
-    FilterLogicalOperator,
-    PropertyGroupFilter,
-    PropertyGroupFilterValue,
-} from '~/types'
+import { AnyPropertyFilter, FilterLogicalOperator, PropertyGroupFilter, PropertyGroupFilterValue } from '~/types'
 
 import type { propertyGroupFilterLogicType } from './propertyGroupFilterLogicType'
 
@@ -115,9 +109,7 @@ export const propertyGroupFilterLogic = kea<propertyGroupFilterLogicType>([
             eventUsageLogic.actions.reportPropertyGroupFilterDuplicated()
         },
         update: () => {
-            // Don't persist empty PropertyGroupFilter structures — they cause ghost
-            // empty filter groups when merged with dashboard filters on the backend.
-            const properties = hasAnyPropertyFilters(values.filters) ? values.filters : undefined
+            const properties = sanitizePropertyGroups(values.filters)
             props.setQuery({ ...props.query, properties })
         },
     })),
@@ -127,14 +119,24 @@ export const propertyGroupFilterLogic = kea<propertyGroupFilterLogicType>([
     }),
 ])
 
-function hasAnyPropertyFilters(filter: PropertyGroupFilter): boolean {
-    return filter.values.some((group: PropertyGroupFilterValue) => hasAnyFiltersInGroup(group))
+function sanitizePropertyGroups(filter: PropertyGroupFilter): PropertyGroupFilter | undefined {
+    const values = filter.values
+        .map(sanitizePropertyGroupValue)
+        .filter((value): value is PropertyGroupFilterValue => value !== null)
+
+    return values.length ? { ...filter, values } : undefined
 }
 
-function hasAnyFiltersInGroup(group: PropertyGroupFilterValue): boolean {
-    return group.values.some((v: AnyFilterLike | PropertyGroupFilterValue) =>
-        'values' in v && Array.isArray((v as PropertyGroupFilterValue).values)
-            ? hasAnyFiltersInGroup(v as PropertyGroupFilterValue)
-            : isValidPropertyFilter(v as AnyPropertyFilter)
-    )
+function sanitizePropertyGroupValue(group: PropertyGroupFilterValue): PropertyGroupFilterValue | null {
+    const values = group.values
+        .map((value): AnyPropertyFilter | PropertyGroupFilterValue | null =>
+            'values' in value && Array.isArray((value as PropertyGroupFilterValue).values)
+                ? sanitizePropertyGroupValue(value as PropertyGroupFilterValue)
+                : isValidPropertyFilter(value as AnyPropertyFilter)
+                  ? (value as AnyPropertyFilter)
+                  : null
+        )
+        .filter((value): value is AnyPropertyFilter | PropertyGroupFilterValue => value !== null)
+
+    return values.length ? { ...group, values } : null
 }

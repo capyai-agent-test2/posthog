@@ -89,5 +89,48 @@ describe('propertyGroupFilterLogic', () => {
             expect(lastCall.properties.values[0].values).toHaveLength(1)
             expect(lastCall.properties.values[0].values[0].key).toBe('$browser')
         })
+
+        it('removes blank filter groups when another group has real property values', async () => {
+            const logic = buildLogic(undefined)
+
+            logic.actions.setFilters({
+                type: FilterLogicalOperator.And,
+                values: [
+                    { type: FilterLogicalOperator.And, values: [] },
+                    {
+                        type: FilterLogicalOperator.And,
+                        values: [
+                            {
+                                type: PropertyFilterType.Event,
+                                key: '$browser',
+                                value: ['Chrome'],
+                                operator: PropertyOperator.Exact,
+                            },
+                        ],
+                    },
+                    { type: FilterLogicalOperator.Or, values: [] },
+                ],
+            })
+
+            await expectLogic(logic).toFinishAllListeners()
+
+            const lastCall = setQuerySpy.mock.calls[setQuerySpy.mock.calls.length - 1][0]
+            expect(lastCall.properties).toEqual({
+                type: FilterLogicalOperator.And,
+                values: [
+                    {
+                        type: FilterLogicalOperator.And,
+                        values: [
+                            {
+                                type: PropertyFilterType.Event,
+                                key: '$browser',
+                                value: ['Chrome'],
+                                operator: PropertyOperator.Exact,
+                            },
+                        ],
+                    },
+                ],
+            })
+        })
     })
 })
