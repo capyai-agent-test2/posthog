@@ -483,7 +483,11 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
 
     def _should_use_postgres_search_fallback(self, filter: Filter) -> bool:
         return bool(
-            filter.search and not filter.email and not filter.distinct_id and "properties" not in self.request.GET
+            filter.search
+            and not filter.email
+            and not filter.distinct_id
+            and not filter.updated_after
+            and "properties" not in self.request.GET
         )
 
     @extend_schema(

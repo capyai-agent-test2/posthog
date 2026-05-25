@@ -2046,6 +2046,19 @@ class TestPersonFromClickhouse(TestPerson):
 
 
 class TestPersonSearchFallback(SimpleTestCase):
+    def test_updated_after_disables_postgres_search_fallback(self) -> None:
+        view = PersonViewSet()
+        cast(Any, view).request = SimpleNamespace(GET={})
+
+        filter_stub = SimpleNamespace(
+            search="someone@gm",
+            email=None,
+            distinct_id=None,
+            updated_after="2026-01-01T00:00:00Z",
+        )
+
+        self.assertFalse(view._should_use_postgres_search_fallback(filter_stub))
+
     def test_list_uses_postgres_search_when_clickhouse_search_misses(self) -> None:
         request = RequestFactory().get("/api/person/?search=someone@gm")
         cast(Any, request).user = SimpleNamespace(is_authenticated=True)
@@ -2063,6 +2076,7 @@ class TestPersonSearchFallback(SimpleTestCase):
             search="someone@gm",
             email=None,
             distinct_id=None,
+            updated_after=None,
             limit=100,
             offset=0,
             hogql_context=SimpleNamespace(values={}),
