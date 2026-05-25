@@ -1,5 +1,6 @@
 import json
-from typing import Optional, cast
+from types import SimpleNamespace
+from typing import Any, Optional, cast
 from uuid import uuid4
 
 import pytest
@@ -18,16 +19,19 @@ from posthog.test.base import (
 )
 from unittest import mock
 
+from django.test import RequestFactory, SimpleTestCase
 from django.utils import timezone
 
 from parameterized import parameterized
 from rest_framework import status
 
 import posthog.models.person.deletion
+from posthog.api.person import PersonViewSet
 from posthog.clickhouse.client import sync_execute
 from posthog.models import Cohort, Organization, Person, PropertyDefinition, Team
 from posthog.models.async_deletion import AsyncDeletion, DeletionType
 from posthog.models.person import PersonDistinctId
+from posthog.models.person.person import READ_DB_FOR_PERSONS
 from posthog.models.person.sql import PERSON_DISTINCT_ID2_TABLE
 from posthog.models.person.util import create_person, create_person_distinct_id
 
@@ -84,6 +88,89 @@ class TestPerson(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
         response = self.client.get(f"/api/person/?search={person.uuid}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.json()["results"]), 1)
+
+    @also_test_with_materialized_columns(event_properties=["email"], person_properties=["email"])
+    def test_search_falls_back_to_postgres_when_clickhouse_properties_are_stale(self) -> None:
+        person = _create_person(
+            team=self.team,
+            distinct_ids=["distinct_id"],
+            properties={},
+            immediate=True,
+        )
+        flush_persons_and_events()
+
+        Person.objects.db_manager(READ_DB_FOR_PERSONS).filter(  # nosemgrep: no-direct-persons-db-orm
+            team_id=self.team.pk,
+            uuid=person.uuid,
+        ).update(  # nosemgrep: no-direct-persons-db-orm
+            properties={"email": "someone@gmail.com", "name": "Someone"}
+        )
+
+        response = self.client.get("/api/person/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["results"][0]["properties"]["email"], "someone@gmail.com")
+
+        response = self.client.get("/api/person/?search=someone@gm")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.json()["results"]), 1)
+        self.assertEqual(response.json()["results"][0]["id"], str(person.uuid))
+
+
+class TestPersonSearchFallback(SimpleTestCase):
+    def test_list_uses_postgres_fallback_when_clickhouse_search_misses(self) -> None:
+        request = RequestFactory().get("/api/person/?search=someone@gm")
+        cast(Any, request).user = SimpleNamespace(is_authenticated=True)
+
+        view = PersonViewSet()
+        cast(Any, view).team = SimpleNamespace(pk=1)
+        cast(Any, view).team_id = 1
+        cast(Any, view).kwargs = {}
+        cast(Any, view).request = SimpleNamespace(
+            accepted_renderer=SimpleNamespace(format="json"),
+            GET=request.GET,
+        )
+
+        filter_stub = SimpleNamespace(
+            search="someone@gm",
+            email=None,
+            distinct_id=None,
+            limit=100,
+            offset=0,
+            hogql_context=SimpleNamespace(values={}),
+        )
+        fallback_person = {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "uuid": "00000000-0000-0000-0000-000000000001",
+            "created_at": timezone.now(),
+            "last_seen_at": timezone.now(),
+            "properties": {"email": "someone@gmail.com"},
+            "is_identified": False,
+            "name": "someone@gmail.com",
+            "distinct_ids": ["distinct_id"],
+            "matched_recordings": [],
+            "type": "person",
+            "value_at_data_point": None,
+        }
+
+        with (
+            mock.patch("posthog.api.person.Filter", return_value=filter_stub),
+            mock.patch("posthog.api.person.PersonQuery") as person_query_mock,
+            mock.patch("posthog.api.person.insight_sync_execute", return_value=[]),
+            mock.patch("posthog.api.person.get_serialized_people", side_effect=[[], [fallback_person]]),
+            mock.patch.object(PersonViewSet, "get_serializer_context", return_value={}),
+            mock.patch.object(
+                PersonViewSet,
+                "_get_postgres_search_fallback_person_ids",
+                return_value=["00000000-0000-0000-0000-000000000001"],
+            ) as fallback_mock,
+        ):
+            person_query_mock.return_value.get_query.return_value = ("SELECT 1", {})
+
+            response = view.list(request)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["results"], [fallback_person])
+        fallback_mock.assert_called_once_with("someone@gm", [], 100)
 
     @also_test_with_materialized_columns(event_properties=["email"], person_properties=["email"])
     @snapshot_clickhouse_queries
