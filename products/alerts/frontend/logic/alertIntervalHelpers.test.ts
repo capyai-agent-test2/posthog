@@ -118,6 +118,12 @@ describe('alertIntervalHelpers', () => {
             expect(getAlertTimingGuidance(AlertCalculationInterval.DAILY, false, true)).toBe(
                 'Daily alerts run around 1 AM in the project timezone. With weekend checks off, Saturday and Sunday are skipped, so Monday will still evaluate Sunday.'
             )
+            expect(getAlertTimingGuidance(AlertCalculationInterval.DAILY, true, false)).toBe(
+                'Daily alerts run around 1 AM in the project timezone. With “Check ongoing period” enabled, they evaluate the current day so far instead of the previous day.'
+            )
+            expect(getAlertTimingGuidance(AlertCalculationInterval.DAILY, true, true)).toBe(
+                'Daily alerts run around 1 AM in the project timezone. With “Check ongoing period” enabled, they evaluate the current day so far instead of the previous day.'
+            )
         })
 
         it('returns null for weekly and monthly alerts', () => {

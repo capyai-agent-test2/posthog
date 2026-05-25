@@ -40,6 +40,10 @@ export function getAlertTimingGuidance(
     }
 
     if (interval === AlertCalculationInterval.DAILY) {
+        if (checkOngoingInterval) {
+            return 'Daily alerts run around 1 AM in the project timezone. With “Check ongoing period” enabled, they evaluate the current day so far instead of the previous day.'
+        }
+
         if (skipWeekend) {
             return 'Daily alerts run around 1 AM in the project timezone. With weekend checks off, Saturday and Sunday are skipped, so Monday will still evaluate Sunday.'
         }
