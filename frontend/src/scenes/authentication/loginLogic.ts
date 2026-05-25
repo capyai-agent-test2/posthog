@@ -46,7 +46,7 @@ const BACKEND_ONLY_ROUTES = [
     '/toolbar_oauth/check',
 ]
 
-export function handleLoginRedirect(): void {
+export function getLoginRedirectURL(): string {
     let nextURL = '/'
     try {
         const nextPath = getRelativeNextPath(router.values.searchParams['next'], location) || '/'
@@ -63,12 +63,14 @@ export function handleLoginRedirect(): void {
 
     // Check if this is a backend-only route that shouldn't go through the React router
     if (BACKEND_ONLY_ROUTES.some((route) => nextURL.startsWith(route))) {
-        window.location.href = nextURL
-        return
+        return nextURL
     }
 
-    // A safe way to redirect to a user input URL. Calls history.replaceState() ensuring the URLs origin does not change
-    router.actions.replace(nextURL)
+    return nextURL
+}
+
+export function handleLoginRedirect(): void {
+    window.location.replace(getLoginRedirectURL())
 }
 
 export interface LoginForm {
@@ -243,8 +245,6 @@ export const loginLogic = kea<loginLogicType>([
     listeners(({ actions, values }) => ({
         submitLoginSuccess: () => {
             handleLoginRedirect()
-            // Reload the page after login to ensure POSTHOG_APP_CONTEXT is set correctly.
-            window.location.reload()
         },
         devLogin: async ({ email }) => {
             actions.clearGeneralError()
@@ -256,7 +256,6 @@ export const loginLogic = kea<loginLogicType>([
                 return
             }
             handleLoginRedirect()
-            window.location.reload()
         },
         precheckSuccess: async (_, breakpoint) => {
             const { precheckResponse } = values

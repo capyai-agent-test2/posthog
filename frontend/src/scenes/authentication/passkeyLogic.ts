@@ -5,7 +5,6 @@ import {
 } from '@simplewebauthn/browser'
 import { actions, connect, kea, listeners, path, reducers } from 'kea'
 import { loaders } from 'kea-loaders'
-import { router } from 'kea-router'
 
 import api from 'lib/api'
 import { apiStatusLogic } from 'lib/logic/apiStatusLogic'
@@ -148,14 +147,12 @@ export const passkeyLogic = kea<passkeyLogicType>([
                 return
             }
 
-            // For regular login, redirect and reload
+            // For regular login, redirect
             if (values.redirectLink) {
-                router.actions.push(values.redirectLink)
+                window.location.replace(values.redirectLink)
             } else {
                 handleLoginRedirect()
             }
-
-            window.location.reload()
         },
         startPasskeyAuthenticationFailure: () => {
             // When passkey authentication fails (user cancels, etc.), reset state

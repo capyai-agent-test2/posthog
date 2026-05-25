@@ -2,7 +2,7 @@ import { router } from 'kea-router'
 import { testUtilsPlugin } from 'kea-test-utils'
 
 import { removeProjectIdIfPresent } from 'lib/utils/router-utils'
-import { handleLoginRedirect, loginLogic } from 'scenes/authentication/loginLogic'
+import { getLoginRedirectURL, loginLogic } from 'scenes/authentication/loginLogic'
 
 import { initKea } from '~/initKea'
 import { initKeaTests } from '~/test/init'
@@ -15,8 +15,7 @@ describe('loginLogic', () => {
         })
         it('should ignore redirect attempt to a different origin', () => {
             router.actions.push(`${origin}/login?next=//google.com`)
-            handleLoginRedirect()
-            expect(router.values.location.pathname).toEqual('/')
+            expect(getLoginRedirectURL()).toEqual('/')
         })
     })
 
@@ -55,10 +54,7 @@ describe('loginLogic', () => {
                 } else {
                     router.actions.push(origin)
                 }
-                handleLoginRedirect()
-                const newPath =
-                    router.values.location.pathname + router.values.location.search + router.values.location.hash
-                expect(removeProjectIdIfPresent(newPath)).toEqual(result)
+                expect(removeProjectIdIfPresent(getLoginRedirectURL())).toEqual(result)
             })
         }
     })
