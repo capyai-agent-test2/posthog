@@ -1,3 +1,6 @@
+import re
+from collections.abc import Iterable
+
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
 from rest_framework import pagination, serializers, viewsets
@@ -8,6 +11,8 @@ from posthog.schema import ProductKey
 from posthog.api.routing import TeamAndOrgViewSetMixin
 from posthog.auth import SharingAccessTokenAuthentication, SharingPasswordProtectedAuthentication
 from posthog.models.insight_variable import InsightVariable
+
+VARIABLE_PLACEHOLDER_REGEX = re.compile(r"\{variables\.([A-Za-z0-9_]+)\}")
 
 
 class InsightVariableSerializer(serializers.ModelSerializer):
@@ -100,3 +105,57 @@ def map_stale_to_latest(stale_variables: dict, latest_variables: list[InsightVar
             }
 
     return final_variables
+
+
+def get_hogql_variable_code_names(query: str | None) -> list[str]:
+    seen: set[str] = set()
+    code_names: list[str] = []
+
+    for code_name in VARIABLE_PLACEHOLDER_REGEX.findall(query or ""):
+        if code_name in seen:
+            continue
+        seen.add(code_name)
+        code_names.append(code_name)
+
+    return code_names
+
+
+def sync_hogql_query_variables(query: dict, latest_variables: Iterable[InsightVariable]) -> dict:
+    if query.get("kind") != "DataVisualizationNode":
+        return query
+
+    source = query.get("source")
+    if not isinstance(source, dict) or source.get("kind") != "HogQLQuery":
+        return query
+
+    query_code_names = get_hogql_variable_code_names(source.get("query"))
+    raw_existing_variables = source.get("variables")
+    existing_variables = raw_existing_variables if isinstance(raw_existing_variables, dict) else {}
+
+    latest_variables_by_code_name = {variable.code_name: variable for variable in latest_variables}
+    existing_variables_by_code_name = {
+        variable.get("code_name"): variable
+        for variable in existing_variables.values()
+        if isinstance(variable, dict) and variable.get("code_name")
+    }
+
+    synced_variables: dict[str, dict] = {}
+    for code_name in query_code_names:
+        matched_variable = latest_variables_by_code_name.get(code_name)
+        if not matched_variable:
+            continue
+
+        existing_variable = existing_variables_by_code_name.get(code_name, {})
+        synced_variables[str(matched_variable.id)] = {
+            **existing_variable,
+            "code_name": matched_variable.code_name,
+            "variableId": str(matched_variable.id),
+        }
+
+    synced_source = {**source}
+    if synced_variables:
+        synced_source["variables"] = synced_variables
+    else:
+        synced_source.pop("variables", None)
+
+    return {**query, "source": synced_source}

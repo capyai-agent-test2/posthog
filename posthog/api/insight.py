@@ -48,7 +48,7 @@ from posthog.api.documentation import extend_schema, extend_schema_field, extend
 from posthog.api.forbid_destroy_model import ForbidDestroyModel
 from posthog.api.insight_metadata import generate_insight_metadata
 from posthog.api.insight_suggestions import get_insight_analysis, get_insight_suggestions
-from posthog.api.insight_variable import map_stale_to_latest
+from posthog.api.insight_variable import get_hogql_variable_code_names, map_stale_to_latest, sync_hogql_query_variables
 from posthog.api.mixins import ValidatedRequest, validated_request
 from posthog.api.monitoring import Feature, monitor
 from posthog.api.openapi_parameters import make_filters_override_param, make_variables_override_param
@@ -599,6 +599,12 @@ class InsightSerializer(InsightBasicSerializer):
 
         return super().validate(attrs)
 
+    def validate_query(self, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        if value is None:
+            return None
+
+        return sync_hogql_query_variables(value, self.context["insight_variables"])
+
     @monitor(feature=Feature.INSIGHT, endpoint="insight", method="POST")
     def create(self, validated_data: dict, *args: Any, **kwargs: Any) -> Insight:
         request = self.context["request"]
@@ -701,6 +707,8 @@ class InsightSerializer(InsightBasicSerializer):
                 self._update_insight_dashboards(dashboards, instance)
 
         updated_insight = super().update(instance, validated_data)
+        if "query" in validated_data:
+            self._prune_dashboard_variables(updated_insight)
         if not updated_insight.are_alerts_supported:
             for alert in instance.alertconfiguration_set.all():
                 alert.delete()
@@ -710,6 +718,34 @@ class InsightSerializer(InsightBasicSerializer):
         self.user_permissions.reset_insights_dashboard_cached_results()
 
         return updated_insight
+
+    def _prune_dashboard_variables(self, insight: Insight) -> None:
+        for dashboard in Dashboard.objects.filter(dashboard_tiles__insight=insight).distinct():
+            active_variable_code_names: set[str] = set()
+
+            for tile in dashboard.tiles.exclude(deleted=True).select_related("insight"):
+                query = tile.insight.query if tile.insight else None
+                if not isinstance(query, dict):
+                    continue
+
+                source = query.get("source")
+                if not isinstance(source, dict) or source.get("kind") != "HogQLQuery":
+                    continue
+
+                active_variable_code_names.update(get_hogql_variable_code_names(source.get("query")))
+
+            current_variables = dashboard.variables or {}
+            pruned_variables = {
+                variable_id: variable
+                for variable_id, variable in current_variables.items()
+                if not isinstance(variable, dict) or variable.get("code_name") in active_variable_code_names
+            }
+
+            if pruned_variables == current_variables:
+                continue
+
+            dashboard.variables = pruned_variables or None
+            dashboard.save(update_fields=["variables"])
 
     def _log_insight_update(
         self,

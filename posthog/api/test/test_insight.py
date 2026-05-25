@@ -4168,6 +4168,169 @@ class TestInsight(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
             assert value["variableId"] == str(variable.id)
             assert value["value"] == "override value!"
 
+    def test_update_insight_removes_stale_hogql_dashboard_variable(self) -> None:
+        variable = InsightVariable.objects.create(
+            team=self.team, name="Test 1", code_name="test_1", default_value="some_default_value", type="String"
+        )
+        dashboard = Dashboard.objects.create(
+            team=self.team,
+            name="dashboard 1",
+            created_by=self.user,
+            variables={
+                str(variable.id): {
+                    "code_name": variable.code_name,
+                    "variableId": str(variable.id),
+                    "value": "some override value",
+                }
+            },
+        )
+        insight = Insight.objects.create(
+            filters={},
+            query={
+                "kind": "DataVisualizationNode",
+                "source": {
+                    "kind": "HogQLQuery",
+                    "query": "select {variables.test_1}",
+                    "variables": {
+                        str(variable.id): {
+                            "code_name": variable.code_name,
+                            "variableId": str(variable.id),
+                            "value": "some override value",
+                        }
+                    },
+                },
+                "chartSettings": {},
+                "tableSettings": {},
+            },
+            team=self.team,
+        )
+        DashboardTile.objects.create(dashboard=dashboard, insight=insight)
+
+        self.dashboard_api.update_insight(
+            insight.id,
+            {
+                "query": {
+                    "kind": "DataVisualizationNode",
+                    "source": {
+                        "kind": "HogQLQuery",
+                        "query": "select 1",
+                        "variables": {
+                            str(variable.id): {
+                                "code_name": variable.code_name,
+                                "variableId": str(variable.id),
+                                "value": "some override value",
+                            }
+                        },
+                    },
+                    "chartSettings": {},
+                    "tableSettings": {},
+                }
+            },
+        )
+
+        insight.refresh_from_db()
+        dashboard.refresh_from_db()
+
+        assert isinstance(insight.query, dict)
+        assert isinstance(insight.query["source"], dict)
+        assert "variables" not in insight.query["source"]
+        assert dashboard.variables is None
+
+        dashboard_response = self.dashboard_api.get_dashboard(dashboard.id)
+        assert dashboard_response["variables"] is None
+        assert dashboard_response["persisted_variables"] is None
+
+    def test_update_insight_prunes_sql_variables_without_crashing_on_legacy_dashboard_values(self) -> None:
+        variable = InsightVariable.objects.create(
+            team=self.team, name="Test 1", code_name="test_1", default_value="some_default_value", type="String"
+        )
+        dashboard = Dashboard.objects.create(
+            team=self.team,
+            name="dashboard 1",
+            created_by=self.user,
+            variables={
+                "legacy": "value",
+                str(variable.id): {
+                    "code_name": variable.code_name,
+                    "variableId": str(variable.id),
+                    "value": "some override value",
+                },
+            },
+        )
+        insight = Insight.objects.create(
+            filters={},
+            query={
+                "kind": "DataVisualizationNode",
+                "source": {
+                    "kind": "HogQLQuery",
+                    "query": "select {variables.test_1}",
+                    "variables": {
+                        str(variable.id): {
+                            "code_name": variable.code_name,
+                            "variableId": str(variable.id),
+                        }
+                    },
+                },
+                "chartSettings": {},
+                "tableSettings": {},
+            },
+            team=self.team,
+        )
+        DashboardTile.objects.create(dashboard=dashboard, insight=insight)
+
+        self.dashboard_api.update_insight(
+            insight.id,
+            {
+                "query": {
+                    "kind": "DataVisualizationNode",
+                    "source": {
+                        "kind": "HogQLQuery",
+                        "query": "select 1",
+                    },
+                    "chartSettings": {},
+                    "tableSettings": {},
+                }
+            },
+        )
+
+        dashboard.refresh_from_db()
+        assert dashboard.variables == {"legacy": "value"}
+
+    def test_update_insight_ignores_invalid_hogql_variables_payload_shape(self) -> None:
+        insight = Insight.objects.create(
+            filters={},
+            query={
+                "kind": "DataVisualizationNode",
+                "source": {
+                    "kind": "HogQLQuery",
+                    "query": "select 1",
+                },
+                "chartSettings": {},
+                "tableSettings": {},
+            },
+            team=self.team,
+        )
+
+        _, response = self.dashboard_api.update_insight(
+            insight.id,
+            {
+                "query": {
+                    "kind": "DataVisualizationNode",
+                    "source": {
+                        "kind": "HogQLQuery",
+                        "query": "select 1",
+                        "variables": ["not", "a", "dict"],
+                    },
+                    "chartSettings": {},
+                    "tableSettings": {},
+                }
+            },
+        )
+
+        assert isinstance(response["query"], dict)
+        assert isinstance(response["query"]["source"], dict)
+        assert "variables" not in response["query"]["source"]
+
     @parameterized.expand(
         [
             ("standalone", False),
