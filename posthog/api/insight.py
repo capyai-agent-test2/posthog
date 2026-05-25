@@ -738,7 +738,7 @@ class InsightSerializer(InsightBasicSerializer):
             pruned_variables = {
                 variable_id: variable
                 for variable_id, variable in current_variables.items()
-                if variable.get("code_name") in active_variable_code_names
+                if not isinstance(variable, dict) or variable.get("code_name") in active_variable_code_names
             }
 
             if pruned_variables == current_variables:
