@@ -1163,6 +1163,7 @@ function DefaultRow({ entry }: DefaultRowProps): JSX.Element {
         return (
             <Autocomplete.Item
                 value={entry}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={(e) => {
                     e.preventDefault()
                     ctx.onSelectEntry(entry)
@@ -1190,6 +1191,7 @@ function DefaultRow({ entry }: DefaultRowProps): JSX.Element {
                     <Autocomplete.Item
                         {...triggerProps}
                         value={entry}
+                        onMouseDown={(e) => e.preventDefault()}
                         onClick={(e) => {
                             e.preventDefault()
                             ctx.onSelectEntry(entry)
