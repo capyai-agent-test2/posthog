@@ -80,7 +80,7 @@ async fn test_group_batch_write(db: PgPool) {
     assert_eq!(updates.len(), 101);
 
     GroupTypeResolver::new(&config)
-        .resolve(&db, &mut updates)
+        .resolve_with_postgres_fallback(&db, &mut updates)
         .await
         .unwrap();
     process_batch(&config, cache, &db, updates).await;

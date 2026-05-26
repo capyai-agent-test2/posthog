@@ -6,6 +6,7 @@ use personhog_proto::personhog::{
     service::v1::person_hog_service_server::{PersonHogService, PersonHogServiceServer},
     types::v1::*,
 };
+use sqlx::PgPool;
 use tokio::net::TcpListener;
 use tonic::{Request, Response, Status};
 
@@ -519,4 +520,53 @@ async fn test_no_personhog_client_returns_error() {
     let result = resolver.resolve(&mut updates).await;
 
     assert!(result.is_err());
+}
+
+#[sqlx::test(migrations = "./tests/test_migrations")]
+async fn test_postgres_fallback_does_not_override_personhog_mapping(db: PgPool) {
+    sqlx::query(
+        r#"
+        INSERT INTO posthog_grouptypemapping (id, group_type, group_type_index, team_id, project_id)
+        VALUES (1, 'organization', 9, 1, 1)
+        "#,
+    )
+    .execute(&db)
+    .await
+    .unwrap();
+
+    let mock = MockPersonHogService::with_mappings(vec![GroupTypeMappingsByKey {
+        key: 1,
+        mappings: vec![GroupTypeMapping {
+            id: 1,
+            team_id: 1,
+            project_id: 1,
+            group_type: "organization".to_string(),
+            group_type_index: 3,
+            name_singular: None,
+            name_plural: None,
+            default_columns: None,
+            detail_dashboard_id: None,
+            created_at: None,
+        }],
+    }]);
+
+    let addr = start_mock_server(mock).await;
+    let config = make_config(&format!("http://{addr}"));
+    let resolver = GroupTypeResolver::new(&config);
+
+    let mut updates = vec![
+        make_group_update(1, "organization"),
+        make_group_update(1, "workspace"),
+    ];
+
+    resolver
+        .resolve_with_postgres_fallback(&db, &mut updates)
+        .await
+        .unwrap();
+
+    assert_eq!(get_resolved_index(&updates[0]), Some(3));
+    match &updates[1] {
+        Update::Property(p) => assert!(p.group_type_index.is_none()),
+        _ => panic!("expected Property update"),
+    }
 }

@@ -4,7 +4,7 @@ use personhog_proto::personhog::{
 };
 use quick_cache::sync::Cache;
 use sqlx::PgPool;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use tonic::transport::Channel;
 use tracing::{info, warn};
 
@@ -60,10 +60,23 @@ impl GroupTypeResolver {
         }
     }
 
-    pub async fn resolve(
+    pub async fn resolve(&self, updates: &mut [Update]) -> Result<(), anyhow::Error> {
+        self.resolve_internal(None, updates, true).await
+    }
+
+    pub async fn resolve_with_postgres_fallback(
         &self,
         pool: &PgPool,
         updates: &mut [Update],
+    ) -> Result<(), anyhow::Error> {
+        self.resolve_internal(Some(pool), updates, false).await
+    }
+
+    async fn resolve_internal(
+        &self,
+        pool: Option<&PgPool>,
+        updates: &mut [Update],
+        strict_personhog: bool,
     ) -> Result<(), anyhow::Error> {
         // Collect all unresolved group types that need lookup
         let mut to_resolve: Vec<(usize, String, i32)> = Vec::new();
@@ -97,6 +110,9 @@ impl GroupTypeResolver {
                 Err(e) => {
                     warn!(error = %e, "personhog group type resolution failed");
                     metrics::counter!(PERSONHOG_RESOLVE_ERRORS).increment(1);
+                    if strict_personhog {
+                        return Err(e);
+                    }
                 }
             }
 
@@ -108,9 +124,20 @@ impl GroupTypeResolver {
                 .cloned()
                 .collect();
 
-            if !missing_group_types.is_empty() {
+            if let Some(pool) = pool.filter(|_| !missing_group_types.is_empty()) {
+                let missing_keys: HashSet<(String, i32)> = missing_group_types
+                    .iter()
+                    .map(|(_, group_name, team_id)| (group_name.clone(), *team_id))
+                    .collect();
+
                 match self.resolve_via_postgres(pool, &missing_group_types).await {
-                    Ok(map) => resolved_map.extend(map),
+                    Ok(map) => {
+                        for (key, index) in map {
+                            if missing_keys.contains(&key) {
+                                resolved_map.entry(key).or_insert(index);
+                            }
+                        }
+                    }
                     Err(e) => warn!(error = %e, "postgres group type resolution failed"),
                 }
             }
