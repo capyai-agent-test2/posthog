@@ -85,4 +85,22 @@ describe('useDerivedSeries', () => {
         const unconstrained = result.current.find((s) => s.key === 'a__trendline')!.data
         expect(unconstrained[unconstrained.length - 1]).toBeGreaterThan(constrained[constrained.length - 1])
     })
+
+    it('keeps compare-period trend lines renderable when the previous series has sparse values', () => {
+        const series: Series[] = [
+            { key: 'current', label: 'A', data: [1, 2, 3], color: '#112233' },
+            { key: 'previous', label: 'A', data: [1, Number.NaN, 3], color: '#112233' },
+        ]
+        const { result } = renderHook(() =>
+            useDerivedSeries(series, {
+                trendLines: [
+                    { seriesKey: 'current', kind: 'linear' },
+                    { seriesKey: 'previous', kind: 'linear' },
+                ],
+                comparisonOf: { previous: 'current' },
+            })
+        )
+
+        expect(result.current.find((s) => s.key === 'previous__trendline')?.data).toEqual([1, 2, 3])
+    })
 })

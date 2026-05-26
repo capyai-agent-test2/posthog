@@ -30,7 +30,16 @@ export function trendLine(values: number[], fitUpTo?: number): number[] {
         return values
     }
     const fitEnd = fitUpTo != null ? Math.max(2, Math.min(fitUpTo, n)) : n
-    const coordinates: [number, number][] = values.slice(0, fitEnd).map((y, x) => [x, y])
+    const coordinates: [number, number][] = []
+    for (let x = 0; x < fitEnd; x++) {
+        const y = values[x]
+        if (Number.isFinite(y)) {
+            coordinates.push([x, y])
+        }
+    }
+    if (coordinates.length < 2) {
+        return values
+    }
     const { m, b } = linearRegression(coordinates)
     return values.map((_, x) => m * x + b)
 }
