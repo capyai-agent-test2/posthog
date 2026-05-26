@@ -254,10 +254,14 @@ def _build_pyarrow_decimal_type(precision: int, scale: int) -> pa.Decimal128Type
 
 def _pyarrow_type_for_clickhouse_type(clickhouse_type: str) -> pa.DataType:
     inner = clickhouse_type
-    while inner.startswith("Nullable(") and inner.endswith(")"):
-        inner = inner[len("Nullable(") : -1]
-    while inner.startswith("LowCardinality(") and inner.endswith(")"):
-        inner = inner[len("LowCardinality(") : -1]
+    while True:
+        previous_inner = inner
+        if inner.startswith("Nullable(") and inner.endswith(")"):
+            inner = inner[len("Nullable(") : -1]
+        if inner.startswith("LowCardinality(") and inner.endswith(")"):
+            inner = inner[len("LowCardinality(") : -1]
+        if inner == previous_inner:
+            break
 
     primitive_types: dict[str, pa.DataType] = {
         "Int8": pa.int8(),

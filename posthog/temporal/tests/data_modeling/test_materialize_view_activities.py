@@ -9,8 +9,10 @@ from django.test import override_settings
 
 import pyarrow as pa
 import pytest_asyncio
+import pyarrow.parquet as pq
 
 from posthog.sync import database_sync_to_async
+from posthog.temporal.data_imports.pipelines.pipeline_v3.s3.common import strip_s3_protocol
 from posthog.temporal.data_modeling.activities import (
     CreateDataModelingJobInputs,
     FailMaterializationInputs,
@@ -29,6 +31,7 @@ from products.data_modeling.backend.models import DAG, Node, NodeType
 from products.data_modeling.backend.models.data_modeling_job import DataModelingJob, DataModelingJobStatus
 from products.data_modeling.backend.models.datawarehouse_saved_query import DataWarehouseSavedQuery
 from products.data_warehouse.backend.data_load.create_table import CreateTableResult
+from products.data_warehouse.backend.s3 import get_s3_client
 from products.warehouse_sources.backend.models.table import DataWarehouseTable
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.django_db]
@@ -627,3 +630,10 @@ class TestMaterializeViewActivity:
 
         assert result.row_count == 0
         assert result.file_uris == [f"{result.table_uri}/empty.parquet"]
+        s3 = get_s3_client()
+        with s3.open(strip_s3_protocol(result.file_uris[0]), "rb") as output_file:
+            table = pq.read_table(output_file)
+        assert table.num_rows == 0
+        assert table.schema.names == ["id", "name"]
+        assert table.schema.field("id").type == pa.int64()
+        assert table.schema.field("name").type == pa.string()
