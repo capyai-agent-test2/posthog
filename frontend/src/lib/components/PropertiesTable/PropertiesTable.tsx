@@ -25,7 +25,7 @@ import {
     POSTHOG_EVENT_PROMOTED_PROPERTIES,
     isPostHogProperty,
 } from '~/taxonomy/taxonomy'
-import { CORE_FILTER_DEFINITIONS_BY_GROUP, PROPERTY_KEYS } from '~/taxonomy/taxonomy'
+import { PROPERTY_KEYS } from '~/taxonomy/taxonomy'
 import { PropertyDefinitionType, PropertyType } from '~/types'
 
 import { CopyToClipboardInline } from '../CopyToClipboard'
@@ -36,6 +36,19 @@ import { TaxonomicFilterGroupType } from '../TaxonomicFilter/types'
 
 type HandledType = 'string' | 'number' | 'bigint' | 'boolean' | 'undefined' | 'null'
 type Type = HandledType | 'symbol' | 'object' | 'function'
+
+function getTaxonomicGroupTypeForPropertyTable(
+    type: PropertyDefinitionType,
+    rootKey?: string
+): TaxonomicFilterGroupType | undefined {
+    if (rootKey && type === PropertyDefinitionType.Event && ['$set', '$set_once'].includes(rootKey)) {
+        return TaxonomicFilterGroupType.PersonProperties
+    }
+
+    return isKeyOf(type, PROPERTY_FILTER_TYPE_TO_TAXONOMIC_FILTER_GROUP_TYPE)
+        ? PROPERTY_FILTER_TYPE_TO_TAXONOMIC_FILTER_GROUP_TYPE[type]
+        : undefined
+}
 
 interface BasePropertyType {
     rootKey?: string // The key name of the object if it's nested
@@ -280,7 +293,10 @@ export function PropertiesTable({
                     [PropertyDefinitionType.WorkflowVariable]: TaxonomicFilterGroupType.WorkflowVariables,
                 }
 
-                const propertyType = propertyTypeMap[type] || TaxonomicFilterGroupType.EventProperties
+                const propertyType =
+                    getTaxonomicGroupTypeForPropertyTable(type, rootKey) ||
+                    propertyTypeMap[type] ||
+                    TaxonomicFilterGroupType.EventProperties
 
                 const left = getCoreFilterDefinition(a[0], propertyType)?.label || a[0]
                 const right = getCoreFilterDefinition(b[0], propertyType)?.label || b[0]
@@ -309,8 +325,11 @@ export function PropertiesTable({
 
         if (searchTerm) {
             const normalizedSearchTerm = searchTerm.toLowerCase()
+            const propertyType = getTaxonomicGroupTypeForPropertyTable(type, rootKey)
             entries = entries.filter(([key, value]) => {
-                const label = CORE_FILTER_DEFINITIONS_BY_GROUP.event_properties[key]?.label?.toLowerCase()
+                const label = propertyType
+                    ? getCoreFilterDefinition(key, propertyType)?.label?.toLowerCase()
+                    : undefined
                 return (
                     key.toLowerCase().includes(normalizedSearchTerm) ||
                     (label && label.includes(normalizedSearchTerm)) ||
@@ -426,13 +445,7 @@ export function PropertiesTable({
                         <div className="properties-table-key">
                             <PropertyKeyInfo
                                 value={item[0]}
-                                type={
-                                    rootKey && type === 'event' && ['$set', '$set_once'].includes(rootKey)
-                                        ? TaxonomicFilterGroupType.PersonProperties
-                                        : isKeyOf(type, PROPERTY_FILTER_TYPE_TO_TAXONOMIC_FILTER_GROUP_TYPE)
-                                          ? PROPERTY_FILTER_TYPE_TO_TAXONOMIC_FILTER_GROUP_TYPE[type]
-                                          : undefined
-                                }
+                                type={getTaxonomicGroupTypeForPropertyTable(type, rootKey)}
                             />
                         </div>
                     )

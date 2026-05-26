@@ -1,11 +1,45 @@
 import '@testing-library/jest-dom'
 
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { Provider } from 'kea'
 import { useState } from 'react'
 
 import { initKeaTests } from '~/test/init'
 import { PropertyDefinitionType } from '~/types'
+
+jest.mock(
+    '@posthog/quill',
+    () => {
+        const React = require('react')
+        const stub = React.forwardRef(({ children, ...props }: any, ref: any) =>
+            React.createElement('div', { ...props, ref }, children)
+        )
+
+        return {
+            __esModule: true,
+            Button: stub,
+            ButtonGroup: stub,
+            DropdownMenu: stub,
+            DropdownMenuContent: stub,
+            DropdownMenuGroup: stub,
+            DropdownMenuItem: stub,
+            DropdownMenuLabel: stub,
+            DropdownMenuSeparator: stub,
+            DropdownMenuTrigger: stub,
+            InputGroup: stub,
+            InputGroupInput: stub,
+            Popover: stub,
+            PopoverContent: stub,
+            PopoverTrigger: stub,
+            ScrollArea: stub,
+            Tooltip: stub,
+            TooltipContent: stub,
+            TooltipTrigger: stub,
+            cn: (...classes: any[]) => classes.filter(Boolean).join(' '),
+        }
+    },
+    { virtual: true }
+)
 
 import { PropertiesTable } from './PropertiesTable'
 
@@ -173,5 +207,35 @@ describe('PropertiesTable inline editor', () => {
             expect(screen.queryByText('Type as text…')).not.toBeInTheDocument()
             expect(screen.getByRole('textbox')).toBeInTheDocument()
         })
+    })
+})
+
+describe('PropertiesTable search', () => {
+    beforeEach(() => {
+        initKeaTests()
+    })
+
+    afterEach(() => {
+        cleanup()
+    })
+
+    it('filters person properties by the displayed label', () => {
+        render(
+            <Provider>
+                <PropertiesTable
+                    type={PropertyDefinitionType.Person}
+                    properties={{ $initial_referring_domain: 'posthog.com', custom_field: 'value' }}
+                    searchable
+                />
+            </Provider>
+        )
+
+        fireEvent.change(screen.getByPlaceholderText('Search property keys and values'), {
+            target: { value: 'Initial referring domain' },
+        })
+
+        const table = screen.getByRole('table')
+        expect(within(table).getByText('posthog.com')).toBeInTheDocument()
+        expect(within(table).queryByText('value')).not.toBeInTheDocument()
     })
 })
