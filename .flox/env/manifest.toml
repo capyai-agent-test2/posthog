@@ -21,6 +21,7 @@ corepack = { pkg-path = "corepack_24", pkg-group = "nodejs", version = "24.13.0"
 brotli = { pkg-path = "brotli", pkg-group = "nodejs" }
 zstd = { pkg-path = "zstd", pkg-group = "nodejs" }
 openssl = { pkg-path = "openssl", version = "3.4.1", pkg-group = "openssl", outputs = ["bin", "man", "dev", "out"] }
+libstdcxx = { pkg-path = "stdenv.cc.cc.lib", pkg-group = "python-runtime", systems = ["aarch64-linux", "x86_64-linux"] }
 nodemon = { pkg-path = "nodemon" }
 # Rust toolchain (based on https://flox.dev/docs/cookbook/languages/rust/)
 cargo = { pkg-path = "cargo", pkg-group = "rust-toolchain", version = "1.91.1" }
