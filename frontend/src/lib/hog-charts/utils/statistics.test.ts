@@ -67,6 +67,20 @@ describe('trendLine', () => {
             const result = trendLine([1, 3, 5], 999)
             expect(result).toEqual([1, 3, 5])
         })
+
+        it('skips non-finite points in the fit window and still extrapolates', () => {
+            const result = trendLine([1, Number.NaN, 3, 4], 3)
+            expect(result).toHaveLength(4)
+            expect(result[0]).toBeCloseTo(1)
+            expect(result[1]).toBeCloseTo(2)
+            expect(result[2]).toBeCloseTo(3)
+            expect(result[3]).toBeCloseTo(4)
+        })
+
+        it('falls back to the input when fewer than 2 finite points remain', () => {
+            const values = [Number.NaN, 5, Number.NaN]
+            expect(trendLine(values)).toEqual(values)
+        })
     })
 })
 
