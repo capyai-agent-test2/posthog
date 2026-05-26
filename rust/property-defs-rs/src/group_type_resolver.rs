@@ -3,7 +3,8 @@ use personhog_proto::personhog::{
     types::v1::{ConsistencyLevel, GetGroupTypeMappingsByTeamIdsRequest, ReadOptions},
 };
 use quick_cache::sync::Cache;
-use std::collections::HashMap;
+use sqlx::PgPool;
+use std::collections::{HashMap, HashSet};
 use tonic::transport::Channel;
 use tracing::{info, warn};
 
@@ -60,6 +61,23 @@ impl GroupTypeResolver {
     }
 
     pub async fn resolve(&self, updates: &mut [Update]) -> Result<(), anyhow::Error> {
+        self.resolve_internal(None, updates, true).await
+    }
+
+    pub async fn resolve_with_postgres_fallback(
+        &self,
+        pool: &PgPool,
+        updates: &mut [Update],
+    ) -> Result<(), anyhow::Error> {
+        self.resolve_internal(Some(pool), updates, false).await
+    }
+
+    async fn resolve_internal(
+        &self,
+        pool: Option<&PgPool>,
+        updates: &mut [Update],
+        strict_personhog: bool,
+    ) -> Result<(), anyhow::Error> {
         // Collect all unresolved group types that need lookup
         let mut to_resolve: Vec<(usize, String, i32)> = Vec::new();
 
@@ -85,14 +103,44 @@ impl GroupTypeResolver {
 
         // Batch resolve all uncached group types via personhog
         if !to_resolve.is_empty() {
-            let resolved_map = match self.resolve_via_personhog(&to_resolve).await {
-                Ok(map) => map,
+            let mut resolved_map = HashMap::new();
+
+            match self.resolve_via_personhog(&to_resolve).await {
+                Ok(map) => resolved_map.extend(map),
                 Err(e) => {
                     warn!(error = %e, "personhog group type resolution failed");
                     metrics::counter!(PERSONHOG_RESOLVE_ERRORS).increment(1);
-                    return Err(e);
+                    if strict_personhog {
+                        return Err(e);
+                    }
                 }
-            };
+            }
+
+            let missing_group_types: Vec<(usize, String, i32)> = to_resolve
+                .iter()
+                .filter(|(_, group_name, team_id)| {
+                    !resolved_map.contains_key(&(group_name.clone(), *team_id))
+                })
+                .cloned()
+                .collect();
+
+            if let Some(pool) = pool.filter(|_| !missing_group_types.is_empty()) {
+                let missing_keys: HashSet<(String, i32)> = missing_group_types
+                    .iter()
+                    .map(|(_, group_name, team_id)| (group_name.clone(), *team_id))
+                    .collect();
+
+                match self.resolve_via_postgres(pool, &missing_group_types).await {
+                    Ok(map) => {
+                        for (key, index) in map {
+                            if missing_keys.contains(&key) {
+                                resolved_map.entry(key).or_insert(index);
+                            }
+                        }
+                    }
+                    Err(e) => warn!(error = %e, "postgres group type resolution failed"),
+                }
+            }
 
             // Second pass: apply resolved group types to updates
             for (idx, group_name, team_id) in to_resolve {
@@ -120,6 +168,37 @@ impl GroupTypeResolver {
         }
 
         Ok(())
+    }
+
+    async fn resolve_via_postgres(
+        &self,
+        pool: &PgPool,
+        to_resolve: &[(usize, String, i32)],
+    ) -> Result<HashMap<(String, i32), i32>, anyhow::Error> {
+        let unique_team_ids: Vec<i32> = {
+            let mut ids: Vec<i32> = to_resolve.iter().map(|(_, _, tid)| *tid).collect();
+            ids.sort_unstable();
+            ids.dedup();
+            ids
+        };
+
+        let rows = sqlx::query_as::<_, (i32, String, i32)>(
+            r#"
+            SELECT team_id, group_type, group_type_index
+            FROM posthog_grouptypemapping
+            WHERE team_id = ANY($1)
+            "#,
+        )
+        .bind(&unique_team_ids)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|(team_id, group_type, group_type_index)| {
+                ((group_type, team_id), group_type_index)
+            })
+            .collect())
     }
 
     async fn resolve_via_personhog(
