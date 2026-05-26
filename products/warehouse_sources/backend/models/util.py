@@ -19,6 +19,7 @@ from posthog.hogql.database.models import (
     StringJSONDatabaseField,
     StructDatabaseField,
     UnknownDatabaseField,
+    UUIDDatabaseField,
 )
 
 if TYPE_CHECKING:
@@ -147,7 +148,7 @@ def clean_type(column_type: str) -> str:
 
 
 CLICKHOUSE_HOGQL_MAPPING: dict[str, DatabaseFieldFactory] = {
-    "UUID": StringDatabaseField,
+    "UUID": UUIDDatabaseField,
     "String": StringDatabaseField,
     "Nothing": UnknownDatabaseField,
     "DateTime64": DateTimeDatabaseField,
@@ -188,6 +189,7 @@ STR_TO_HOGQL_MAPPING: dict[str, DatabaseFieldFactory] = {
     "StringJSONDatabaseField": StringJSONDatabaseField,
     "StructDatabaseField": StructDatabaseField,
     "UnknownDatabaseField": UnknownDatabaseField,
+    "UUIDDatabaseField": UUIDDatabaseField,
     "boolean": BooleanDatabaseField,
     "date": DateDatabaseField,
     "datetime": DateTimeDatabaseField,
@@ -202,6 +204,7 @@ STR_TO_HOGQL_MAPPING: dict[str, DatabaseFieldFactory] = {
     "json": StringJSONDatabaseField,
     "struct": StructDatabaseField,
     "unknown": UnknownDatabaseField,
+    "uuid": UUIDDatabaseField,
 }
 
 
@@ -222,7 +225,7 @@ POSTGRES_TO_CLICKHOUSE_TYPE = {
     "text": "String",
     "json": "String",
     "jsonb": "String",
-    "uuid": "String",
+    "uuid": "UUID",
 }
 
 
@@ -235,6 +238,7 @@ CLICKHOUSE_TYPE_TO_HOGQL_LABEL = {
     "Bool": "boolean",
     "Date": "date",
     "DateTime64": "datetime",
+    "UUID": "uuid",
     "String": "string",
     "Decimal": "numeric",
 }
