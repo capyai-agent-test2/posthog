@@ -5,7 +5,7 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { FEATURE_FLAGS } from 'lib/constants'
 import { setupJsdom, setupSyncRaf } from 'lib/hog-charts/testing'
 
-import { NodeKind } from '~/queries/schema/schema-general'
+import { NodeKind, TrendsQueryResponse } from '~/queries/schema/schema-general'
 import {
     buildTrendsQuery,
     chart,
@@ -109,6 +109,89 @@ describe('TrendsLineChart', () => {
 
             const tooltip = createInsightTooltipAccessor(chart.getTooltip()!)
             expect(tooltip.row('Spike')).toContain('3')
+        })
+
+        it('keeps series columns when each series has distinct breakdown values', async () => {
+            const disjointBreakdownResponse: TrendsQueryResponse = {
+                results: [
+                    {
+                        action: { id: '$pageview', type: 'events', name: '$pageview', order: 0 },
+                        label: '$pageview',
+                        count: 10,
+                        aggregated_value: 10,
+                        data: [10, 0, 0, 0, 0],
+                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+                        days: ['2024-06-10', '2024-06-11', '2024-06-12', '2024-06-13', '2024-06-14'],
+                        breakdown_value: 'Chrome',
+                    },
+                    {
+                        action: { id: '$pageview', type: 'events', name: '$pageview', order: 0 },
+                        label: '$pageview',
+                        count: 0,
+                        aggregated_value: 0,
+                        data: [0, 0, 0, 0, 0],
+                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+                        days: ['2024-06-10', '2024-06-11', '2024-06-12', '2024-06-13', '2024-06-14'],
+                        breakdown_value: 'Safari',
+                    },
+                    {
+                        action: { id: '$napped', type: 'events', name: 'Napped', order: 1 },
+                        label: 'Napped',
+                        count: 0,
+                        aggregated_value: 0,
+                        data: [0, 0, 0, 0, 0],
+                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+                        days: ['2024-06-10', '2024-06-11', '2024-06-12', '2024-06-13', '2024-06-14'],
+                        breakdown_value: 'Edge',
+                    },
+                    {
+                        action: { id: '$napped', type: 'events', name: 'Napped', order: 1 },
+                        label: 'Napped',
+                        count: 7,
+                        aggregated_value: 7,
+                        data: [7, 0, 0, 0, 0],
+                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+                        days: ['2024-06-10', '2024-06-11', '2024-06-12', '2024-06-13', '2024-06-14'],
+                        breakdown_value: 'Firefox',
+                    },
+                ],
+            }
+
+            renderInsight({
+                query: buildTrendsQuery({
+                    series: [
+                        { kind: NodeKind.EventsNode, event: '$pageview', name: '$pageview' },
+                        { kind: NodeKind.EventsNode, event: 'Napped', name: 'Napped' },
+                    ],
+                    breakdownFilter: { breakdown: 'browser', breakdown_type: 'event' },
+                }),
+                mocks: {
+                    mockResponses: [
+                        {
+                            match: (query) => query.kind === NodeKind.TrendsQuery,
+                            response: disjointBreakdownResponse,
+                        },
+                    ],
+                },
+                featureFlags: HOG_CHARTS_FLAG,
+            })
+
+            await chart.clickAtIndex(0)
+
+            const tooltip = createInsightTooltipAccessor(chart.getTooltip()!)
+            const headerText = tooltip.element.querySelector('thead')?.textContent ?? ''
+            const edgeRow = Array.from(tooltip.element.querySelectorAll('tbody tr')).find((row) =>
+                row.textContent?.includes('Edge')
+            )
+            const firefoxRow = Array.from(tooltip.element.querySelectorAll('tbody tr')).find((row) =>
+                row.textContent?.includes('Firefox')
+            )
+
+            expect(headerText).toContain('Pageview')
+            expect(headerText).toContain('Napped')
+            expect(tooltip.row('Chrome')).toContain('10')
+            expect(edgeRow?.textContent).toContain('0')
+            expect(firefoxRow?.textContent).toContain('7')
         })
 
         it('shows current and previous period rows in compare mode', async () => {

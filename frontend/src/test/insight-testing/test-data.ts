@@ -83,9 +83,12 @@ export const actionDefinitions: object[] = []
 
 export interface SeriesData {
     label: string
+    order?: number
     data: number[]
     labels?: string[]
     days?: string[]
+    action_id?: string
+    action_name?: string
     breakdown_value?: string | number
     compare?: boolean
     compare_label?: string
@@ -107,11 +110,56 @@ export const trendsSeries = {
         labels,
     } satisfies CannedSeries,
     napsByHedgehog: [
-        { label: 'Spike', data: [1, 2, 3, 4, 1], days, labels, breakdown_value: 'Spike' },
-        { label: 'Bramble', data: [0, 0, 1, 1, 0], days, labels, breakdown_value: 'Bramble' },
-        { label: 'Thistle', data: [0, 1, 0, 2, 1], days, labels, breakdown_value: 'Thistle' },
-        { label: 'Conker', data: [0, 0, 0, 0, 0], days, labels, breakdown_value: 'Conker' },
-        { label: 'Prickles', data: [0, 0, 1, 1, 0], days, labels, breakdown_value: 'Prickles' },
+        {
+            label: 'Spike',
+            action_id: '$napped',
+            action_name: 'Napped',
+            order: 0,
+            data: [1, 2, 3, 4, 1],
+            days,
+            labels,
+            breakdown_value: 'Spike',
+        },
+        {
+            label: 'Bramble',
+            action_id: '$napped',
+            action_name: 'Napped',
+            order: 0,
+            data: [0, 0, 1, 1, 0],
+            days,
+            labels,
+            breakdown_value: 'Bramble',
+        },
+        {
+            label: 'Thistle',
+            action_id: '$napped',
+            action_name: 'Napped',
+            order: 0,
+            data: [0, 1, 0, 2, 1],
+            days,
+            labels,
+            breakdown_value: 'Thistle',
+        },
+        {
+            label: 'Conker',
+            action_id: '$napped',
+            action_name: 'Napped',
+            order: 0,
+            data: [0, 0, 0, 0, 0],
+            days,
+            labels,
+            breakdown_value: 'Conker',
+        },
+        {
+            label: 'Prickles',
+            action_id: '$napped',
+            action_name: 'Napped',
+            order: 0,
+            data: [0, 0, 1, 1, 0],
+            days,
+            labels,
+            breakdown_value: 'Prickles',
+        },
     ] satisfies CannedSeries[],
     withZeroCounts: [
         { label: 'EmptySeries', data: [0, 0, 0, 0, 0], days, labels },

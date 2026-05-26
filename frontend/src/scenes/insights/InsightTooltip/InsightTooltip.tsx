@@ -73,6 +73,14 @@ function renderDatumToTableCell(
     )
 }
 
+function getSeriesColumnKey(seriesDatum: SeriesDatum): string {
+    return JSON.stringify({
+        order: seriesDatum.order,
+        actionId: seriesDatum.action?.id ?? null,
+        actionName: seriesDatum.action?.name ?? null,
+    })
+}
+
 function closeColumn<T extends Record<string, any>>(onClose: () => void): LemonTableColumn<T, keyof T | undefined> {
     return {
         key: 'close',
@@ -161,12 +169,25 @@ export function InsightTooltip({
                 },
             },
         ]
-        const numDataPoints = Math.max(...dataSource.map((ds) => ds?.seriesData?.length ?? 0))
+        const flattenedSeriesData = dataSource.flatMap((datum) => datum.seriesData)
+        const seriesColumnsByIdentity = flattenedSeriesData.reduce<Map<string, SeriesDatum>>((acc, seriesDatum) => {
+            const columnKey = getSeriesColumnKey(seriesDatum)
+            if (!acc.has(columnKey)) {
+                acc.set(columnKey, seriesDatum)
+            }
+            return acc
+        }, new Map())
+        const uniqueOrders = new Set(flattenedSeriesData.map((seriesDatum) => seriesDatum.order))
+        const seriesColumns =
+            uniqueOrders.size <= 1
+                ? (dataSource.find(
+                      (datum) => datum.seriesData.length === Math.max(...dataSource.map((d) => d.seriesData.length))
+                  )?.seriesData ?? [])
+                : Array.from(seriesColumnsByIdentity.values()).sort((a, b) => a.order - b.order)
+        const numDataPoints = seriesColumns.length
 
         if (numDataPoints > 0) {
-            const indexOfLongestSeries = dataSource.findIndex((ds) => ds?.seriesData?.length === numDataPoints)
-            const longestSeriesData = dataSource?.[indexOfLongestSeries !== -1 ? indexOfLongestSeries : 0].seriesData
-            const truncatedCols = colCutoff !== undefined ? longestSeriesData.slice(0, colCutoff) : longestSeriesData
+            const truncatedCols = colCutoff !== undefined ? seriesColumns.slice(0, colCutoff) : seriesColumns
             const dataColumns: LemonTableColumn<InvertedSeriesDatum, keyof InvertedSeriesDatum | undefined>[] = []
             truncatedCols.forEach((seriesColumn) => {
                 const colIdx = seriesColumn.order
@@ -217,8 +238,8 @@ export function InsightTooltip({
                 })
             })
             dataColumns.sort((a, b) => {
-                const itemA = truncatedCols?.find((s) => s.order === parseInt(a.key as string))
-                const itemB = truncatedCols?.find((s) => s.order === parseInt(b.key as string))
+                const itemA = truncatedCols.find((s) => s.order === parseInt(a.key as string))
+                const itemB = truncatedCols.find((s) => s.order === parseInt(b.key as string))
 
                 return (itemA?.order || 0) - (itemB?.order || 0)
             })
