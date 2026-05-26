@@ -587,3 +587,43 @@ class TestMaterializeViewActivity:
             assert ajob.rows_expected == 5
             assert ajob.rows_materialized == 5
             assert result.row_count == 5
+
+    async def test_materializes_empty_view_to_queryable_parquet(
+        self, activity_environment, ateam, anode, asaved_query, ajob, bucket_name, adag
+    ):
+        async def mock_hogql_table(*args, **kwargs):
+            del args, kwargs
+            batch = pa.RecordBatch.from_arrays(
+                [
+                    pa.array([], type=pa.int64()),
+                    pa.array([], type=pa.string()),
+                ],
+                names=["id", "name"],
+            )
+            yield batch, [("id", "Int64"), ("name", "String")]
+
+        with (
+            override_settings(
+                BUCKET_URL=f"s3://{bucket_name}",
+                DATAWAREHOUSE_LOCAL_ACCESS_KEY=settings.OBJECT_STORAGE_ACCESS_KEY_ID,
+                DATAWAREHOUSE_LOCAL_ACCESS_SECRET=settings.OBJECT_STORAGE_SECRET_ACCESS_KEY,
+                DATAWAREHOUSE_LOCAL_BUCKET_REGION="us-east-1",
+            ),
+            unittest.mock.patch(
+                "posthog.temporal.data_modeling.activities.materialize_view.hogql_table", mock_hogql_table
+            ),
+            unittest.mock.patch(
+                "posthog.temporal.data_modeling.activities.materialize_view.get_query_row_count",
+                return_value=0,
+            ),
+        ):
+            inputs = MaterializeViewInputs(
+                team_id=ateam.pk,
+                dag_id=str(adag.id),
+                node_id=str(anode.id),
+                job_id=str(ajob.id),
+            )
+            result = await activity_environment.run(materialize_view_activity, inputs)
+
+        assert result.row_count == 0
+        assert result.file_uris == [f"{result.table_uri}/empty.parquet"]

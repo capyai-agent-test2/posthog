@@ -1,4 +1,5 @@
 # TODO(andrew): add s3 cleanup on failure
+import re
 import uuid
 import typing
 import asyncio
@@ -10,6 +11,7 @@ import pyarrow as pa
 import deltalake
 import asyncstdlib
 import pyarrow.compute as pc
+import pyarrow.parquet as pq
 from structlog.contextvars import bind_contextvars
 from structlog.types import FilteringBoundLogger
 from temporalio import activity
@@ -30,6 +32,7 @@ from posthog.sync import database_sync_to_async
 from posthog.temporal.common.clickhouse import get_client as get_clickhouse_client
 from posthog.temporal.common.heartbeat import Heartbeater
 from posthog.temporal.common.logger import get_logger
+from posthog.temporal.data_imports.pipelines.pipeline_v3.s3.common import strip_s3_protocol
 
 from products.data_modeling.backend.models import Node, NodeType
 from products.data_modeling.backend.models.data_modeling_job import DataModelingJob
@@ -48,6 +51,14 @@ DELTA_TABLE_RETENTION_HOURS = 24
 # module-level semaphore gates every activity on the same worker.
 MAX_CONCURRENT_CLICKHOUSE_QUERIES = 10
 _clickhouse_query_semaphore = asyncio.Semaphore(MAX_CONCURRENT_CLICKHOUSE_QUERIES)
+
+_DATETIME_RE = re.compile(r"^DateTime(?:\('([^']+)'\))?$")
+_DATETIME64_RE = re.compile(r"^DateTime64\((\d+)(?:,\s*'([^']+)')?\)$")
+_DECIMAL_FIXED_RE = re.compile(r"^Decimal(32|64|128|256)\((\d+)\)$")
+_DECIMAL_VAR_RE = re.compile(r"^Decimal\((\d+)(?:,\s*(\d+))?\)$")
+_FIXED_STRING_RE = re.compile(r"^FixedString\(\d+\)$")
+_ENUM_RE = re.compile(r"^Enum(?:8|16)\(.*\)$")
+_DECIMAL_FIXED_WIDTHS = {"32": 9, "64": 18, "128": 38, "256": 76}
 
 
 class EmptyHogQLResponseColumnsError(Exception):
@@ -233,6 +244,101 @@ def _transform_unsupported_decimals(batch: pa.RecordBatch) -> pa.RecordBatch:
     return pa.RecordBatch.from_arrays(new_columns, schema=pa.schema(new_fields, metadata=new_metadata))
 
 
+def _build_pyarrow_decimal_type(precision: int, scale: int) -> pa.Decimal128Type | pa.Decimal256Type:
+    if precision <= 38:
+        return pa.decimal128(precision, scale)
+    if precision <= 76:
+        return pa.decimal256(precision, scale)
+    return pa.decimal256(76, max(0, 76 - (precision - scale)))
+
+
+def _pyarrow_type_for_clickhouse_type(clickhouse_type: str) -> pa.DataType:
+    inner = clickhouse_type
+    while inner.startswith("Nullable(") and inner.endswith(")"):
+        inner = inner[len("Nullable(") : -1]
+    while inner.startswith("LowCardinality(") and inner.endswith(")"):
+        inner = inner[len("LowCardinality(") : -1]
+
+    primitive_types: dict[str, pa.DataType] = {
+        "Int8": pa.int8(),
+        "Int16": pa.int16(),
+        "Int32": pa.int32(),
+        "Int64": pa.int64(),
+        "UInt8": pa.uint8(),
+        "UInt16": pa.uint16(),
+        "UInt32": pa.uint32(),
+        "UInt64": pa.uint64(),
+        "Float32": pa.float32(),
+        "Float64": pa.float64(),
+        "Bool": pa.bool_(),
+        "String": pa.string(),
+        "UUID": pa.string(),
+        "Date": pa.date32(),
+        "Date32": pa.date32(),
+        "IPv4": pa.string(),
+        "IPv6": pa.string(),
+        "Int128": pa.string(),
+        "Int256": pa.string(),
+        "UInt128": pa.string(),
+        "UInt256": pa.string(),
+    }
+    if inner in primitive_types:
+        return primitive_types[inner]
+
+    if match := _DATETIME_RE.match(inner):
+        tz = match.group(1) or None
+        return pa.timestamp("s", tz=tz) if tz else pa.timestamp("s")
+
+    if match := _DATETIME64_RE.match(inner):
+        precision = int(match.group(1))
+        tz = match.group(2) or None
+        unit = "s" if precision <= 0 else "ms" if precision <= 3 else "us" if precision <= 6 else "ns"
+        return pa.timestamp(unit, tz=tz) if tz else pa.timestamp(unit)
+
+    if match := _DECIMAL_FIXED_RE.match(inner):
+        precision = _DECIMAL_FIXED_WIDTHS[match.group(1)]
+        scale = int(match.group(2))
+        return _build_pyarrow_decimal_type(precision, scale)
+
+    if match := _DECIMAL_VAR_RE.match(inner):
+        precision = int(match.group(1))
+        scale = int(match.group(2) or 0)
+        return _build_pyarrow_decimal_type(precision, scale)
+
+    if (
+        _FIXED_STRING_RE.match(inner)
+        or _ENUM_RE.match(inner)
+        or inner.startswith("Array(")
+        or inner.startswith("Map(")
+        or inner.startswith("Tuple(")
+        or inner.startswith("Nested(")
+        or inner.startswith("Variant(")
+        or inner.startswith("Dynamic")
+        or inner.startswith("JSON")
+        or inner.startswith("Object(")
+    ):
+        return pa.string()
+
+    return pa.string()
+
+
+def _empty_record_batch_for_query_types(query_types: list[tuple[str, str]]) -> pa.RecordBatch:
+    fields = [
+        pa.field(name, _pyarrow_type_for_clickhouse_type(clickhouse_type), nullable=True)
+        for name, clickhouse_type in query_types
+    ]
+    arrays = [pa.array([], type=field.type) for field in fields]
+    return pa.RecordBatch.from_arrays(arrays, schema=pa.schema(fields))
+
+
+def _write_empty_parquet_file(table_uri: str, batch: pa.RecordBatch) -> str:
+    file_uri = f"{table_uri.rstrip('/')}/empty.parquet"
+    s3 = get_s3_client()
+    with s3.open(strip_s3_protocol(file_uri), "wb") as output_file:
+        pq.write_table(pa.Table.from_batches([batch]), output_file)
+    return file_uri
+
+
 async def get_query_row_count(query: str, team: Team, logger: FilteringBoundLogger) -> int:
     """Get the total row count for a HogQL query."""
     count_query = f"SELECT count() FROM ({query})"
@@ -401,6 +507,14 @@ async def hogql_table(query: str, team: Team, logger: FilteringBoundLogger):
                 _combine_batches(batches),
                 [(column_name, column_type) for column_name, column_type, _ in query_typings],
             )
+        else:
+            await logger.adebug("Yielding empty batch for zero-row query")
+            yield (
+                _empty_record_batch_for_query_types(
+                    [(column_name, column_type) for column_name, column_type, _ in query_typings]
+                ),
+                [(column_name, column_type) for column_name, column_type, _ in query_typings],
+            )
 
 
 @database_sync_to_async
@@ -466,8 +580,11 @@ async def materialize_view_activity(inputs: MaterializeViewInputs) -> Materializ
         row_count = 0
         storage_options = _get_aws_storage_options()
         delta_table: deltalake.DeltaTable | None = None
+        query_types: list[tuple[str, str]] | None = None
         async for index, res in asyncstdlib.enumerate(hogql_table(hogql_query, team, logger)):
             batch, ch_types = res
+            if query_types is None:
+                query_types = ch_types
             batch = _transform_unsupported_decimals(batch)
             batch = _transform_date_and_datetimes(batch, ch_types)
             if index == 0:
@@ -520,6 +637,10 @@ async def materialize_view_activity(inputs: MaterializeViewInputs) -> Materializ
                 dry_run=False,
             )
             file_uris = delta_table.file_uris()
+            if row_count == 0 and not file_uris and query_types is not None:
+                await logger.adebug("Writing empty parquet file for zero-row materialization")
+                empty_batch = _empty_record_batch_for_query_types(query_types)
+                file_uris = [await asyncio.to_thread(_write_empty_parquet_file, table_uri, empty_batch)]
         await logger.ainfo(f"Materialized node {node.name} with {row_count} rows")
     return MaterializeViewResult(
         node_id=node.id,
