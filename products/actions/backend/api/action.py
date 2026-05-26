@@ -220,7 +220,9 @@ class ActionSerializer(
                 code="blank",
             )
 
-        if "name" in attrs:
+        is_soft_delete = bool(instance and attrs.get("deleted") is True)
+
+        if "name" in attrs and not is_soft_delete:
             colliding_action_ids = list(
                 Action.objects.filter(name=attrs["name"], deleted=False, **include_args)
                 .exclude(**exclude_args)[:1]
