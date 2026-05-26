@@ -123,6 +123,7 @@ export function HogFunctionList({
     const { openFeedbackDialog } = useActions(hogFunctionRequestModalLogic)
 
     const humanizedType = humanizeHogFunctionType(props.type)
+    const pageSize = props.type === 'destination' ? 20 : 30
 
     useOnMountEffect(loadHogFunctions)
 
@@ -335,7 +336,7 @@ export function HogFunctionList({
                     size="small"
                     loading={loading}
                     columns={columns}
-                    pagination={{ pageSize: 30 }}
+                    pagination={{ pageSize }}
                     emptyState={
                         hogFunctions.length === 0 && !loading ? (
                             (emptyText ?? `No ${humanizedType}s found`)
