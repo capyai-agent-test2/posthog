@@ -235,7 +235,7 @@ impl MinifiedSourceFile {
         possible_paths.push(guessed_path);
 
         for path in possible_paths.into_iter() {
-            if path.exists() {
+            if path.is_file() {
                 return Ok(Some(path));
             }
         }
