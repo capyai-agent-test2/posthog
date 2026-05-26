@@ -220,6 +220,10 @@ export GOPATH="$FLOX_ENV_CACHE/go"
 export GOCACHE="$FLOX_ENV_CACHE/go-build"
 export GOMODCACHE="$GOPATH/pkg/mod"
 
+if [[ "$(uname -s)" == "Linux" ]]; then
+  export LD_LIBRARY_PATH="$FLOX_ENV/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
+
 # ── Direnv first-time setup (interactive only) ─────────────────────
 if [[ "$_interactive" == true ]] && ! command -v direnv >/dev/null 2>&1 && [[ ! -f "$FLOX_ENV_CACHE/.hush-direnv" ]]; then
   read -p "$(echo -e "${C_BOLD}direnv${C_RESET} recommended for auto-activation. Set up now? (Y/n) ")" -n 1 -r
