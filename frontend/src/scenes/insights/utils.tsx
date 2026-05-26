@@ -460,7 +460,11 @@ export function sortCohorts(
 ): number {
     const nameA = getCohortNameFromId(cohortIdA, cohorts)
     const nameB = getCohortNameFromId(cohortIdB, cohorts)
-    return nameA.localeCompare(nameB)
+    return safeStringCompare(nameA, nameB)
+}
+
+export function safeStringCompare(a: string | null | undefined, b: string | null | undefined): number {
+    return String(a ?? '').localeCompare(String(b ?? ''))
 }
 
 export function sortDates(dates: Array<string | null>): Array<string | null> {

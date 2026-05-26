@@ -155,6 +155,49 @@ describe('LineGraph', () => {
             const firstTickLabel = chart.axes.x.tickLabel(0)
             expect(firstTickLabel).toBe('Jun 10')
         })
+
+        it('sorts tooltip items even when a label is missing', async () => {
+            renderInsight({
+                query: buildTrendsQuery(),
+                mocks: {
+                    mockResponses: [
+                        {
+                            match: (query: QueryBody) => query.kind === NodeKind.TrendsQuery,
+                            response: (): TrendsQueryResponse =>
+                                ({
+                                    results: [
+                                        {
+                                            action: { id: '$pageview', type: 'events', name: '$pageview' },
+                                            label: '$pageview',
+                                            count: 100,
+                                            data: [10, 20, 30],
+                                            labels: ['10-Jun-2024', '11-Jun-2024', '12-Jun-2024'],
+                                            days: ['2024-06-10', '2024-06-11', '2024-06-12'],
+                                        },
+                                        {
+                                            action: { id: '$signup', type: 'events', name: '$signup' },
+                                            label: undefined,
+                                            count: 50,
+                                            data: [5, 10, 15],
+                                            labels: ['10-Jun-2024', '11-Jun-2024', '12-Jun-2024'],
+                                            days: ['2024-06-10', '2024-06-11', '2024-06-12'],
+                                        },
+                                    ],
+                                }) as TrendsQueryResponse,
+                        },
+                    ],
+                },
+            })
+
+            const chart = await waitForChart()
+            const itemSort = chart.config.options?.plugins?.tooltip?.itemSort
+
+            expect(typeof itemSort).toBe('function')
+            expect(() =>
+                itemSort?.({ label: undefined } as any, { label: '$pageview' } as any, {} as any)
+            ).not.toThrow()
+            expect(itemSort?.({ label: undefined } as any, { label: '$pageview' } as any, {} as any)).toBeLessThan(0)
+        })
     })
 
     describe('onChartClick', () => {

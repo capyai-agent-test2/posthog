@@ -9,7 +9,7 @@ import { LemonTable, LemonTableColumn } from 'lib/lemon-ui/LemonTable'
 import { COUNTRY_CODE_TO_LONG_NAME } from 'lib/utils/geography/country'
 import { formatAggregationAxisValue } from 'scenes/insights/aggregationAxisFormat'
 import { insightLogic } from 'scenes/insights/insightLogic'
-import { formatBreakdownLabel } from 'scenes/insights/utils'
+import { formatBreakdownLabel, safeStringCompare } from 'scenes/insights/utils'
 import { teamLogic } from 'scenes/teamLogic'
 import { trendsDataLogic } from 'scenes/trends/trendsDataLogic'
 import { IndexedTrendResult } from 'scenes/trends/types'
@@ -222,7 +222,7 @@ export function InsightsTable({
 
             const labelA = a.action?.name || a.label || ''
             const labelB = b.action?.name || b.label || ''
-            return labelA.localeCompare(labelB)
+            return safeStringCompare(labelA, labelB)
         },
     })
 
@@ -263,7 +263,7 @@ export function InsightsTable({
                 sorter: (a, b) => {
                     const labelA = COUNTRY_CODE_TO_LONG_NAME[a.breakdown_value as string] || ''
                     const labelB = COUNTRY_CODE_TO_LONG_NAME[b.breakdown_value as string] || ''
-                    return labelA.localeCompare(labelB)
+                    return safeStringCompare(labelA, labelB)
                 },
             })
         }

@@ -9,6 +9,7 @@ import {
     getDisplayNameFromEntityNode,
     getTrendDatasetKey,
     NOT_IN_COHORT_ID,
+    safeStringCompare,
 } from 'scenes/insights/utils'
 import { IndexedTrendResult } from 'scenes/trends/types'
 
@@ -197,6 +198,15 @@ describe('formatAggregationValue', () => {
         const noOpFormatProperty = jest.fn((_, y) => String(y))
         const actual = formatAggregationValue('some name', 500, fakeRenderCount, noOpFormatProperty)
         expect(actual).toEqual('8m 20s')
+    })
+})
+
+describe('safeStringCompare', () => {
+    it('coalesces nullish values before comparing', () => {
+        expect(() => safeStringCompare(undefined, 'Australia')).not.toThrow()
+        expect(safeStringCompare(undefined, 'Australia')).toBeLessThan(0)
+        expect(safeStringCompare('Australia', undefined)).toBeGreaterThan(0)
+        expect(safeStringCompare(undefined, undefined)).toEqual(0)
     })
 })
 

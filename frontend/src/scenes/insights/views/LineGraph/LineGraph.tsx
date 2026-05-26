@@ -43,6 +43,7 @@ import { InsightTooltip } from 'scenes/insights/InsightTooltip/InsightTooltip'
 import { getDatumTitle, TooltipConfig } from 'scenes/insights/InsightTooltip/insightTooltipUtils'
 import { insightVizDataLogic } from 'scenes/insights/insightVizDataLogic'
 import { unpinTooltip, useInsightTooltip } from 'scenes/insights/useInsightTooltip'
+import { safeStringCompare } from 'scenes/insights/utils'
 import { PieChart } from 'scenes/insights/views/LineGraph/PieChart'
 import { createTooltipData } from 'scenes/insights/views/LineGraph/tooltip-data'
 import { teamLogic } from 'scenes/teamLogic'
@@ -725,7 +726,7 @@ export function LineGraph_({
                 mode: isHighlightBarMode ? 'point' : 'nearest',
                 axis: isHorizontal ? 'y' : 'x',
                 intersect: isHighlightBarMode,
-                itemSort: (a, b) => a.label.localeCompare(b.label),
+                itemSort: (a, b) => safeStringCompare(a.label, b.label),
             }
 
             const options: ChartOptions = {
