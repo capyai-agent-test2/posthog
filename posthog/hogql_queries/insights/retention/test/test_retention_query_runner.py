@@ -6875,6 +6875,58 @@ class TestClickhouseRetentionGroupAggregation(
         self.assertEqual(cohort_row["values"][0]["count"], 1)  # Interval 0
         self.assertEqual(cohort_row["values"][1]["count"], 0)  # Interval 1
 
+    def test_retention_24h_window_with_multiple_cohort_breakdowns(self):
+        _create_person(team_id=self.team.pk, distinct_ids=["person1"], properties={"country": "USA"})
+        _create_person(team_id=self.team.pk, distinct_ids=["person2"], properties={"country": "Canada"})
+
+        flush_persons_and_events()
+
+        cohort1 = Cohort.objects.create(
+            team=self.team,
+            groups=[{"properties": [{"key": "country", "value": "USA", "type": "person"}]}],
+            name="USA Cohort",
+        )
+        cohort1.calculate_people_ch(pending_version=0)
+
+        cohort2 = Cohort.objects.create(
+            team=self.team,
+            groups=[{"properties": [{"key": "country", "value": "Canada", "type": "person"}]}],
+            name="Canada Cohort",
+        )
+        cohort2.calculate_people_ch(pending_version=0)
+
+        _create_events(
+            self.team,
+            [
+                ("person1", datetime(2020, 6, 10, 14, 0).isoformat()),
+                ("person1", datetime(2020, 6, 11, 13, 0).isoformat()),
+                ("person2", datetime(2020, 6, 10, 14, 0).isoformat()),
+                ("person2", datetime(2020, 6, 11, 15, 0).isoformat()),
+            ],
+            event="$pageview",
+        )
+
+        result = self.run_query(
+            query={
+                "dateRange": {"date_from": _date(0), "date_to": _date(10)},
+                "retentionFilter": {
+                    "targetEntity": {"id": "$pageview", "type": "events"},
+                    "returningEntity": {"id": "$pageview", "type": "events"},
+                    "totalIntervals": 3,
+                    "timeWindowMode": "24_hour_windows",
+                },
+                "breakdownFilter": {"breakdown": [cohort1.pk, cohort2.pk], "breakdown_type": "cohort"},
+            }
+        )
+
+        usa_row = next(row for row in result if row.get("breakdown_value") == str(cohort1.pk))
+        self.assertEqual(usa_row["values"][0]["count"], 1)
+        self.assertEqual(usa_row["values"][1]["count"], 0)
+
+        canada_row = next(row for row in result if row.get("breakdown_value") == str(cohort2.pk))
+        self.assertEqual(canada_row["values"][0]["count"], 1)
+        self.assertEqual(canada_row["values"][1]["count"], 1)
+
     def test_retention_24h_window_rejects_cumulative(self):
         with self.assertRaisesMessage(
             ValidationError,
