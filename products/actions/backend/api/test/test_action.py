@@ -435,6 +435,40 @@ class TestActionApi(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
         deletion_response = self.client.delete(f"/api/projects/{self.team.id}/actions/{response.json()['id']}")
         self.assertEqual(deletion_response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
+    def test_soft_delete_allows_duplicate_named_action(self):
+        action_to_delete = Action.objects.create(team=self.team, name="duplicate action")
+        Action.objects.create(team=self.team, name="duplicate action")
+
+        response = self.client.patch(
+            f"/api/projects/{self.team.id}/actions/{action_to_delete.id}/",
+            data={"name": "duplicate action", "deleted": True},
+            headers={"origin": "http://testserver"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.json()
+        action_to_delete.refresh_from_db()
+        assert action_to_delete.deleted is True
+
+    def test_restoring_duplicate_named_action_still_requires_unique_name(self):
+        deleted_action = Action.objects.create(team=self.team, name="duplicate action", deleted=True)
+        colliding_action = Action.objects.create(team=self.team, name="duplicate action")
+
+        response = self.client.patch(
+            f"/api/projects/{self.team.id}/actions/{deleted_action.id}/",
+            data={"name": "duplicate action", "deleted": False},
+            headers={"origin": "http://testserver"},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST, response.json()
+        assert response.json() == {
+            "type": "validation_error",
+            "code": "unique",
+            "detail": f"This project already has an action with this name, ID {colliding_action.id}",
+            "attr": "name",
+        }
+        deleted_action.refresh_from_db()
+        assert deleted_action.deleted is True
+
     def test_create_action_in_specific_folder(self):
         """
         Verify that creating an Action with '_create_in_folder' stores its FileSystem entry
