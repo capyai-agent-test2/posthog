@@ -1020,6 +1020,34 @@ describe('insightLogic', () => {
         })
     })
 
+    describe('override prop changes', () => {
+        it('reloads the insight when variable overrides are discarded', async () => {
+            logic = insightLogic({
+                dashboardItemId: Insight42,
+                cachedInsight: {
+                    ...partialInsight42,
+                    query: {
+                        ...API_QUERY,
+                        variables: [{ code_name: 'series_limit', value: 10, variableId: 'series_limit' }],
+                    },
+                },
+                variablesOverride: {
+                    series_limit: { code_name: 'series_limit', value: 10, variableId: 'series_limit' },
+                },
+            })
+            logic.mount()
+
+            await expectLogic(logic, () => {
+                insightLogic({
+                    dashboardItemId: Insight42,
+                    variablesOverride: null,
+                }).mount()
+            })
+                .toDispatchActions([logic.actionCreators.loadInsight(Insight42, null, null, null)])
+                .toFinishAllListeners()
+        })
+    })
+
     describe('editingDisabledReason', () => {
         it.each([
             ['overrides present', { filtersOverride: { date_from: '-7d' } }, 'Discard overrides to edit the insight.'],
