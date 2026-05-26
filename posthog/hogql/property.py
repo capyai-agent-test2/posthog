@@ -977,7 +977,13 @@ def property_to_expr(
         else:
             field = ast.Field(chain=[*chain, property.key])
 
-        if scope == "person" and property.type == "person" and property.key != "":
+        if (
+            scope == "person"
+            and property.type == "person"
+            and property.key != ""
+            and chain == ["properties"]
+            and not str(property.key).startswith("$virt")
+        ):
             if operator == PropertyOperator.IS_SET:
                 return ast.Call(name="JSONHas", args=[ast.Field(chain=chain), ast.Constant(value=property.key)])
             elif operator == PropertyOperator.IS_NOT_SET:

@@ -456,6 +456,10 @@ class TestProperty(BaseTest):
             self._property_to_expr({"type": "person", "key": "a", "operator": "is_not_set"}, scope="person"),
             self._parse_expr("not(JSONHas(properties, 'a'))"),
         )
+        self.assertEqual(
+            self._property_to_expr({"type": "person", "key": "distinct_id", "operator": "is_not_set"}, scope="person"),
+            self._parse_expr("pdi.distinct_id = NULL"),
+        )
 
     def test_property_to_expr_error_tracking_issue_properties(self):
         self.assertEqual(
@@ -1232,6 +1236,10 @@ class TestProperty(BaseTest):
         assert self._property_to_expr(
             {"type": "person", "key": "$virt_mrr", "value": 100, "operator": "exact"}, scope="person"
         ) == self._parse_expr("$virt_mrr = 100")
+
+        assert self._property_to_expr(
+            {"type": "person", "key": "$virt_mrr", "operator": "is_not_set"}, scope="person"
+        ) == self._parse_expr("$virt_mrr = NULL")
 
     def test_virtual_group_properties_on_group_scope(self):
         assert self._property_to_expr(
