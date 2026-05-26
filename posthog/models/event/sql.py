@@ -191,7 +191,7 @@ def KAFKA_EVENTS_TABLE_JSON_SQL():
 """
     ).format(
         table_name="kafka_events_json",
-        on_cluster_clause=ON_CLUSTER_CLAUSE(),
+        on_cluster_clause=ON_CLUSTER_CLAUSE(cluster=settings.CLICKHOUSE_WRITABLE_CLUSTER),
         engine=kafka_engine(topic=KAFKA_EVENTS_JSON, group=CONSUMER_GROUP_EVENTS_JSON),
         extra_fields="",
         dynamically_materialized_columns=EVENTS_TABLE_DYNAMICALLY_MATERIALIZED_COLUMNS(),
@@ -263,7 +263,7 @@ FROM {database}.{kafka_table}
         kafka_table=kafka_table,
         target_table=target_table,
         dynamically_materialized_columns=MV_DYNAMICALLY_MATERIALIZED_COLUMNS(),
-        on_cluster_clause=f"ON CLUSTER '{settings.CLICKHOUSE_CLUSTER}'" if on_cluster else "",
+        on_cluster_clause=ON_CLUSTER_CLAUSE(on_cluster, settings.CLICKHOUSE_WRITABLE_CLUSTER),
         database=settings.CLICKHOUSE_DATABASE,
     )
 

@@ -6,6 +6,7 @@ from posthog.clickhouse.schema import (
     CREATE_KAFKA_TABLE_QUERIES,
     CREATE_MERGETREE_TABLE_QUERIES,
     CREATE_TABLE_QUERIES,
+    EVENTS_TABLE_JSON_MV_SQL,
     KAFKA_EVENTS_TABLE_JSON_SQL,
     build_query,
     get_table_name,
@@ -33,6 +34,25 @@ def test_create_kafka_table_with_different_kafka_host(query, snapshot):
 
 def test_create_kafka_events_with_disabled_protobuf(snapshot, settings):
     assert KAFKA_EVENTS_TABLE_JSON_SQL() == snapshot
+
+
+def test_events_kafka_table_uses_writable_cluster(settings):
+    settings.CLICKHOUSE_CLUSTER = "posthog"
+    settings.CLICKHOUSE_WRITABLE_CLUSTER = "posthog_writable"
+
+    sql = KAFKA_EVENTS_TABLE_JSON_SQL()
+
+    assert "ON CLUSTER 'posthog_writable'" in sql
+    assert "CREATE TABLE IF NOT EXISTS kafka_events_json ON CLUSTER 'posthog'" not in sql
+
+
+def test_events_kafka_mv_uses_writable_cluster(settings):
+    settings.CLICKHOUSE_CLUSTER = "posthog"
+    settings.CLICKHOUSE_WRITABLE_CLUSTER = "posthog_writable"
+
+    sql = EVENTS_TABLE_JSON_MV_SQL()
+
+    assert "CREATE MATERIALIZED VIEW IF NOT EXISTS events_json_mv ON CLUSTER 'posthog_writable'" in sql
 
 
 @pytest.fixture(autouse=True)
