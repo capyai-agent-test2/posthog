@@ -9,7 +9,8 @@ use sqlx::PgPool;
 use property_defs_rs::{
     batch_ingestion::process_batch,
     config::Config,
-    types::{Event, GroupType, PropertyParentType, Update},
+    group_type_resolver::GroupTypeResolver,
+    types::{Event, PropertyParentType, Update},
     update_cache::Cache,
 };
 
@@ -78,21 +79,10 @@ async fn test_group_batch_write(db: PgPool) {
     // should decompose into 1 group event def, 100 prop defs (of group type), 0 event props
     assert_eq!(updates.len(), 101);
 
-    // TODO(eli): quick hack - until we refacor the group type hydration on AppContext,
-    // we need to manually do this prior to passing to process_batch for the test
-    // to be realistic to prod behavior.
-    updates.iter_mut().for_each({
-        |u: &mut Update| {
-            if let Update::Property(group_prop) = u {
-                if group_prop.event_type == PropertyParentType::Group {
-                    if let Some(GroupType::Unresolved(group_name)) = &group_prop.group_type_index {
-                        group_prop.group_type_index =
-                            Some(GroupType::Resolved(group_name.clone(), 1))
-                    }
-                }
-            }
-        }
-    });
+    GroupTypeResolver::new(&config)
+        .resolve(&db, &mut updates)
+        .await
+        .unwrap();
     process_batch(&config, cache, &db, updates).await;
 
     // fetch results and ensure they landed correctly

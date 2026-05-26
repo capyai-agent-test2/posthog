@@ -45,6 +45,6 @@ impl AppContext {
         if self.skip_reads {
             return Ok(());
         }
-        self.group_type_resolver.resolve(updates).await
+        self.group_type_resolver.resolve(&self.pool, updates).await
     }
 }
