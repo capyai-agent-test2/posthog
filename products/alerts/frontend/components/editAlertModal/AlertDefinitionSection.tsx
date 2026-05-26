@@ -43,6 +43,18 @@ export interface AlertDefinitionSectionProps {
     onClearSimulationOverlay: () => void
 }
 
+export function getAlertSeriesLabel(
+    series: { custom_name?: string | null; name?: string | null; event?: string | null },
+    index: number,
+    isBreakdownValid: boolean
+): string {
+    if (isBreakdownValid) {
+        return 'any breakdown value'
+    }
+
+    return `${alphabet[index]} - ${series.custom_name ?? series.name ?? series.event ?? 'All events'}`
+}
+
 export function AlertDefinitionSection({
     alertForm,
     alertMode,
@@ -84,9 +96,11 @@ export function AlertDefinitionSection({
                                           value: index,
                                       }))
                                     : (alertSeries?.map(({ custom_name, name, event }, index) => ({
-                                          label: isBreakdownValid
-                                              ? 'any breakdown value'
-                                              : `${alphabet[index]} - ${custom_name ?? name ?? event}`,
+                                          label: getAlertSeriesLabel(
+                                              { custom_name, name, event },
+                                              index,
+                                              isBreakdownValid
+                                          ),
                                           value: isBreakdownValid ? 0 : index,
                                       })) ?? [])
                             }
