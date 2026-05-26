@@ -1,4 +1,4 @@
-import { isValidElement, ReactNode } from 'react'
+import { isValidElement, MouseEventHandler, ReactNode } from 'react'
 
 import { IconRewindPlay } from '@posthog/icons'
 import { LemonButton, LemonButtonProps, Tooltip } from '@posthog/lemon-ui'
@@ -14,8 +14,8 @@ type ViewRecordingsPlaylistButtonProps = {
     tooltip?: ReactNode
     disabled?: boolean
     disabledReason?: string | JSX.Element | null
-    onClick?: () => void
-} & Pick<LemonButtonProps, 'size' | 'type' | 'data-attr' | 'fullWidth' | 'className' | 'loading'>
+    onClick?: MouseEventHandler
+} & Pick<LemonButtonProps, 'size' | 'type' | 'data-attr' | 'fullWidth' | 'className' | 'loading' | 'stopPropagation'>
 
 /**
  * Button for opening the Session Replay page with filters applied.
@@ -30,8 +30,8 @@ export default function ViewRecordingsPlaylistButton({
     onClick: onClickCallback,
     ...buttonProps
 }: ViewRecordingsPlaylistButtonProps): JSX.Element {
-    const onClick = (): void => {
-        onClickCallback?.()
+    const onClick: MouseEventHandler = (event): void => {
+        onClickCallback?.(event)
         const url = urls.replay(ReplayTabs.Home, filters)
         newInternalTab(url)
     }

@@ -74,9 +74,13 @@ export const ReplayButton = ({ date_from, date_to, breakdownBy, value }: ReplayB
             date_to,
         }
         return (
-            <div onClick={handleClick}>
-                <ViewRecordingsPlaylistButton filters={filters} type="tertiary" size="xsmall" />
-            </div>
+            <ViewRecordingsPlaylistButton
+                filters={filters}
+                type="tertiary"
+                size="xsmall"
+                stopPropagation={true}
+                onClick={handleClick}
+            />
         )
     }
 
@@ -109,9 +113,13 @@ export const ReplayButton = ({ date_from, date_to, breakdownBy, value }: ReplayB
             },
         }
         return (
-            <div onClick={handleClick}>
-                <ViewRecordingsPlaylistButton filters={filters} type="tertiary" size="xsmall" />
-            </div>
+            <ViewRecordingsPlaylistButton
+                filters={filters}
+                type="tertiary"
+                size="xsmall"
+                stopPropagation={true}
+                onClick={handleClick}
+            />
         )
     }
 
@@ -151,9 +159,13 @@ export const ReplayButton = ({ date_from, date_to, breakdownBy, value }: ReplayB
             },
         }
         return (
-            <div onClick={handleClick}>
-                <ViewRecordingsPlaylistButton filters={filters} type="tertiary" size="xsmall" />
-            </div>
+            <ViewRecordingsPlaylistButton
+                filters={filters}
+                type="tertiary"
+                size="xsmall"
+                stopPropagation={true}
+                onClick={handleClick}
+            />
         )
     }
 
@@ -181,9 +193,13 @@ export const ReplayButton = ({ date_from, date_to, breakdownBy, value }: ReplayB
             },
         }
         return (
-            <div onClick={handleClick}>
-                <ViewRecordingsPlaylistButton filters={filters} type="tertiary" size="xsmall" />
-            </div>
+            <ViewRecordingsPlaylistButton
+                filters={filters}
+                type="tertiary"
+                size="xsmall"
+                stopPropagation={true}
+                onClick={handleClick}
+            />
         )
     }
 
@@ -216,8 +232,12 @@ export const ReplayButton = ({ date_from, date_to, breakdownBy, value }: ReplayB
         },
     }
     return (
-        <div onClick={handleClick}>
-            <ViewRecordingsPlaylistButton filters={filters} type="tertiary" size="xsmall" />
-        </div>
+        <ViewRecordingsPlaylistButton
+            filters={filters}
+            type="tertiary"
+            size="xsmall"
+            stopPropagation={true}
+            onClick={handleClick}
+        />
     )
 }
