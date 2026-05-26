@@ -46,6 +46,7 @@ import {
     aggregateBreakdownResult,
     aggregationLabelForHogQL,
     flattenedStepsByBreakdown,
+    hasBreakdown,
     getIncompleteConversionWindowStartDate,
     getLastFilledStep,
     getReferenceStep,
@@ -57,6 +58,59 @@ import {
 } from './funnelUtils'
 
 const DEFAULT_FUNNEL_LOGIC_KEY = 'default_funnel_key'
+
+function getVisibleBreakdownMetrics(
+    nestedBreakdowns: FunnelStepWithConversionMetrics[] | undefined,
+    stepIndex: number,
+    stepReference: FunnelStepReference
+): Pick<
+    FunnelStepWithConversionMetrics,
+    'count' | 'droppedOffFromPrevious' | 'conversionRates' | 'average_conversion_time' | 'median_conversion_time'
+> | null {
+    const visibleBreakdowns = nestedBreakdowns?.filter((breakdown) => hasBreakdown(breakdown.breakdown_value)) ?? []
+
+    if (!visibleBreakdowns.length) {
+        return null
+    }
+
+    const count = sum(visibleBreakdowns.map((breakdown) => breakdown.count ?? 0))
+    const droppedOffFromPrevious = sum(visibleBreakdowns.map((breakdown) => breakdown.droppedOffFromPrevious ?? 0))
+    const previousCount = count + droppedOffFromPrevious
+    const totalCount = sum(
+        visibleBreakdowns.map((breakdown) =>
+            breakdown.conversionRates?.total ? breakdown.count / breakdown.conversionRates.total : 0
+        )
+    )
+    const resultsWithAverage = visibleBreakdowns.filter((breakdown) => breakdown.average_conversion_time != null)
+    const averageConversionCount = sum(resultsWithAverage.map((breakdown) => breakdown.count ?? 0))
+    const averageConversionTime =
+        averageConversionCount > 0
+            ? sum(
+                  resultsWithAverage.map(
+                      (breakdown) => (breakdown.average_conversion_time ?? 0) * (breakdown.count ?? 0)
+                  )
+              ) / averageConversionCount
+            : null
+
+    return {
+        count,
+        droppedOffFromPrevious,
+        conversionRates: {
+            fromPrevious: previousCount === 0 ? 0 : count / previousCount,
+            total: totalCount === 0 ? 0 : count / totalCount,
+            fromBasisStep:
+                stepIndex > 0 && stepReference === FunnelStepReference.previous
+                    ? previousCount === 0
+                        ? 0
+                        : count / previousCount
+                    : totalCount === 0
+                      ? 0
+                      : count / totalCount,
+        },
+        average_conversion_time: averageConversionTime,
+        median_conversion_time: visibleBreakdowns.length === 1 ? visibleBreakdowns[0].median_conversion_time : null,
+    }
+}
 
 function getStepMetric(step: FunnelStepWithConversionMetrics | undefined, metric: string): number {
     if (!step) {
@@ -425,11 +479,12 @@ export const funnelDataLogic = kea<funnelDataLogicType>([
         ],
         resultCustomizations: [(s) => [s.funnelsFilter], (funnelsFilter) => funnelsFilter?.resultCustomizations],
         visibleStepsWithConversionMetrics: [
-            (s) => [s.stepsWithConversionMetrics, s.flattenedBreakdowns, s.hiddenLegendBreakdowns],
+            (s) => [s.stepsWithConversionMetrics, s.flattenedBreakdowns, s.hiddenLegendBreakdowns, s.funnelsFilter],
             (
                 steps: FunnelStepWithConversionMetrics[],
                 flattenedBreakdowns: FlattenedFunnelStepByBreakdown[],
-                hiddenLegendBreakdowns: string[] | undefined
+                hiddenLegendBreakdowns: string[] | undefined,
+                funnelsFilter: FunnelsFilter | null | undefined
             ): FunnelStepWithConversionMetrics[] => {
                 const isOnlySeries = flattenedBreakdowns.length <= 1
                 const baseLineSteps = flattenedBreakdowns.find((b) => b.isBaseline)
@@ -458,8 +513,15 @@ export const funnelDataLogic = kea<funnelDataLogicType>([
                             const bIdx = breakdownOrder.get(getVisibilityKey(b.breakdown_value)) ?? Infinity
                             return aIdx - bIdx
                         })
+                    const visibleBreakdownMetrics = getVisibleBreakdownMetrics(
+                        nested,
+                        stepIndex,
+                        funnelsFilter?.funnelStepReference ?? FunnelStepReference.total
+                    )
+
                     return {
                         ...step,
+                        ...visibleBreakdownMetrics,
                         nested_breakdown: nested,
                     }
                 })

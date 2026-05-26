@@ -680,16 +680,17 @@ describe('funnelDataLogic', () => {
                     visibleStepsWithConversionMetrics: [
                         expect.objectContaining({
                             name: '$pageview',
-                            count: 201,
+                            count: 148,
                             conversionRates: { fromPrevious: 1, total: 1, fromBasisStep: 1 },
                         }),
                         expect.objectContaining({
                             name: '$pageview',
-                            count: 99,
+                            count: 72,
+                            droppedOffFromPrevious: 76,
                             conversionRates: {
-                                fromPrevious: 0.4925373134328358,
-                                total: 0.4925373134328358,
-                                fromBasisStep: 0.4925373134328358,
+                                fromPrevious: 0.4864864864864865,
+                                total: 0.4864864864864865,
+                                fromBasisStep: 0.4864864864864865,
                             },
                             nested_breakdown: [
                                 expect.objectContaining({
@@ -733,16 +734,17 @@ describe('funnelDataLogic', () => {
                     visibleStepsWithConversionMetrics: [
                         expect.objectContaining({
                             name: '$pageview',
-                            count: 69,
+                            count: 20,
                             conversionRates: { fromPrevious: 1, total: 1, fromBasisStep: 1 },
                         }),
                         expect.objectContaining({
                             name: '$pageview',
-                            count: 37,
+                            count: 11,
+                            droppedOffFromPrevious: 9,
                             conversionRates: {
-                                fromPrevious: 0.5362318840579711,
-                                total: 0.5362318840579711,
-                                fromBasisStep: 0.5362318840579711,
+                                fromPrevious: 0.55,
+                                total: 0.55,
+                                fromBasisStep: 0.55,
                             },
                             nested_breakdown: [
                                 expect.objectContaining({
