@@ -19,7 +19,7 @@ import {
 import { IconDay, IconNight, IconSearch, IconSparkles, IconX } from '@posthog/icons'
 import { LemonTag, Link, Spinner } from '@posthog/lemon-ui'
 
-import { filterSearchItems } from 'lib/components/Search/utils'
+import { filterSearchItems, itemToStringValue } from 'lib/components/Search/utils'
 import { useFeatureFlag } from 'lib/hooks/useFeatureFlag'
 import { TreeDataItem } from 'lib/lemon-ui/LemonTree/LemonTree'
 import { ButtonPrimitive } from 'lib/ui/Button/ButtonPrimitives'
@@ -624,7 +624,7 @@ function SearchRoot({
                 <Autocomplete.Root
                     items={orderedItems}
                     mode="none"
-                    itemToStringValue={(item) => item?.name ?? ''}
+                    itemToStringValue={(item) => itemToStringValue(item?.name)}
                     actionsRef={actionsRef}
                     inline
                     autoHighlight

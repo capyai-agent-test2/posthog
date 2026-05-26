@@ -33,6 +33,8 @@ export function filterSearchItems<T extends FuseSearchable>(items: T[], query: s
     return fuse.search(trimmed).map((r) => r.item)
 }
 
+export const itemToStringValue = (name: unknown): string => String(name ?? '')
+
 export const getCategoryDisplayName = (category: string): string => {
     const displayNames: Record<string, string> = {
         create: 'Create new',

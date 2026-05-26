@@ -1,4 +1,4 @@
-import { filterSearchItems } from './utils'
+import { filterSearchItems, itemToStringValue } from './utils'
 
 interface TestItem {
     name: string
@@ -102,5 +102,11 @@ describe('filterSearchItems', () => {
             const results = filterSearchItems(items, 'xyzzyplugh')
             expect(results).toEqual([])
         })
+    })
+})
+
+describe('itemToStringValue', () => {
+    it('stringifies numeric item names for autocomplete', () => {
+        expect(itemToStringValue(12345)).toBe('12345')
     })
 })
