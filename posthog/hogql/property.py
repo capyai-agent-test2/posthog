@@ -977,6 +977,14 @@ def property_to_expr(
         else:
             field = ast.Field(chain=[*chain, property.key])
 
+        if scope == "person" and property.type == "person" and property.key != "":
+            if operator == PropertyOperator.IS_SET:
+                return ast.Call(name="JSONHas", args=[ast.Field(chain=chain), ast.Constant(value=property.key)])
+            elif operator == PropertyOperator.IS_NOT_SET:
+                return ast.Not(
+                    expr=ast.Call(name="JSONHas", args=[ast.Field(chain=chain), ast.Constant(value=property.key)])
+                )
+
         expr: ast.Expr = map_virtual_properties(field)
 
         if property.type == "recording" and property.key in ("snapshot_source", "snapshot_library"):

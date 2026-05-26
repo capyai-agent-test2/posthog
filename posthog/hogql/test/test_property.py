@@ -448,6 +448,14 @@ class TestProperty(BaseTest):
             self._property_to_expr({"type": "person", "key": "a", "value": "b", "operator": "exact"}),
             self._parse_expr("person.properties.a = 'b'"),
         )
+        self.assertEqual(
+            self._property_to_expr({"type": "person", "key": "a", "operator": "is_set"}, scope="person"),
+            self._parse_expr("JSONHas(properties, 'a')"),
+        )
+        self.assertEqual(
+            self._property_to_expr({"type": "person", "key": "a", "operator": "is_not_set"}, scope="person"),
+            self._parse_expr("not(JSONHas(properties, 'a'))"),
+        )
 
     def test_property_to_expr_error_tracking_issue_properties(self):
         self.assertEqual(
