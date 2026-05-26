@@ -5,6 +5,7 @@ import {
     formatAggregationValue,
     formatBreakdownLabel,
     formatBreakdownType,
+    getBreakdownItemLabelFallback,
     getDisplayNameFromEntityFilter,
     getDisplayNameFromEntityNode,
     getTrendDatasetKey,
@@ -569,6 +570,28 @@ describe('formatBreakdownType()', () => {
         }
 
         expect(formatBreakdownType(breakdownFilter)).toEqual('Cohort')
+    })
+})
+
+describe('getBreakdownItemLabelFallback()', () => {
+    it('strips the entity prefix from composite multi-entity labels', () => {
+        expect(
+            getBreakdownItemLabelFallback('Signed up - Power users', {
+                id: '$signup',
+                name: 'Signed up',
+                type: 'events',
+            })
+        ).toEqual('Power users')
+    })
+
+    it('leaves labels unchanged when there is no entity prefix match', () => {
+        expect(
+            getBreakdownItemLabelFallback('Power users', {
+                id: '$signup',
+                name: 'Signed up',
+                type: 'events',
+            })
+        ).toEqual('Power users')
     })
 })
 

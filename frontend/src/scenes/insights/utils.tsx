@@ -342,6 +342,23 @@ export function getCohortNameFromId(
     return cohorts?.filter((c) => c.id == cohortId)[0]?.name ?? (cohortId || '').toString()
 }
 
+export function getBreakdownItemLabelFallback(
+    itemLabel: string | null | undefined,
+    action: EntityFilter | ActionFilter | null | undefined
+): string | undefined {
+    if (!itemLabel) {
+        return undefined
+    }
+
+    const entityName = getDisplayNameFromEntityFilter(action ?? null)
+    if (!entityName) {
+        return itemLabel
+    }
+
+    const entityPrefix = `${entityName} - `
+    return itemLabel.startsWith(entityPrefix) ? itemLabel.slice(entityPrefix.length) : itemLabel
+}
+
 export function formatBreakdownLabel(
     breakdown_value: BreakdownKeyType | undefined,
     breakdownFilter: BreakdownFilter | null | undefined,

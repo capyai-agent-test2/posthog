@@ -10,7 +10,7 @@ import { propertyDefinitionsModel } from '~/models/propertyDefinitionsModel'
 import { BreakdownFilter, DateRange } from '~/queries/schema/schema-general'
 import { ActionFilter, CompareLabelType, FilterType, IntervalType } from '~/types'
 
-import { formatBreakdownLabel } from '../utils'
+import { formatBreakdownLabel, getBreakdownItemLabelFallback } from '../utils'
 
 export interface SeriesDatum {
     id: number // determines order that series will be displayed in
@@ -195,7 +195,7 @@ function getPillValues(
                 cohorts?.results,
                 formatPropertyValueForDisplay,
                 undefined,
-                s.label
+                getBreakdownItemLabelFallback(s.label, s.action)
             )
         )
     }

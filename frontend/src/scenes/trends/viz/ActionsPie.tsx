@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 
 import { formatAggregationAxisValue } from 'scenes/insights/aggregationAxisFormat'
 import { insightLogic } from 'scenes/insights/insightLogic'
-import { formatBreakdownLabel } from 'scenes/insights/utils'
+import { formatBreakdownLabel, getBreakdownItemLabelFallback } from 'scenes/insights/utils'
 import { PieChart } from 'scenes/insights/views/LineGraph/PieChart'
 import { teamLogic } from 'scenes/teamLogic'
 import { datasetToActorsQuery } from 'scenes/trends/viz/datasetToActorsQuery'
@@ -67,7 +67,7 @@ export function ActionsPie({ inSharedMode, showPersonsModal = true, context }: C
                             allCohorts.results,
                             formatPropertyValueForDisplay,
                             undefined,
-                            item.label
+                            getBreakdownItemLabelFallback(item.label, item.action)
                         )
                     }),
                     compareLabels: visibleResults.map((item) => item.compare_label),

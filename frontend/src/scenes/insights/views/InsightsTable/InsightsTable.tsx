@@ -9,7 +9,7 @@ import { LemonTable, LemonTableColumn } from 'lib/lemon-ui/LemonTable'
 import { COUNTRY_CODE_TO_LONG_NAME } from 'lib/utils/geography/country'
 import { formatAggregationAxisValue } from 'scenes/insights/aggregationAxisFormat'
 import { insightLogic } from 'scenes/insights/insightLogic'
-import { formatBreakdownLabel } from 'scenes/insights/utils'
+import { formatBreakdownLabel, getBreakdownItemLabelFallback } from 'scenes/insights/utils'
 import { teamLogic } from 'scenes/teamLogic'
 import { trendsDataLogic } from 'scenes/trends/trendsDataLogic'
 import { IndexedTrendResult } from 'scenes/trends/types'
@@ -146,7 +146,7 @@ export function InsightsTable({
                   allCohorts?.results,
                   formatPropertyValueForDisplay,
                   breakdownFilter.breakdowns ? 0 : undefined,
-                  item.label
+                  getBreakdownItemLabelFallback(item.label, item.action)
               )
         : undefined
 

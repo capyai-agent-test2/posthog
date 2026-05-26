@@ -8,7 +8,7 @@ import { LemonColorList } from 'lib/lemon-ui/LemonColor/LemonColorList'
 import { dataThemeLogic } from 'scenes/dataThemeLogic'
 import { insightLogic } from 'scenes/insights/insightLogic'
 import { insightVizDataLogic } from 'scenes/insights/insightVizDataLogic'
-import { formatBreakdownLabel } from 'scenes/insights/utils'
+import { formatBreakdownLabel, getBreakdownItemLabelFallback } from 'scenes/insights/utils'
 import { IndexedTrendResult } from 'scenes/trends/types'
 
 import { cohortsModel } from '~/models/cohortsModel'
@@ -102,7 +102,7 @@ function TrendsInfo({ dataset, resultCustomizationBy }: TrendsInfoProps): JSX.El
                             allCohorts.results,
                             formatPropertyValueForDisplay,
                             undefined,
-                            dataset.label
+                            getBreakdownItemLabelFallback(dataset.label, dataset.action)
                         )}
                     </b>
                     .

@@ -7,7 +7,11 @@ import { InsightLabel } from 'lib/components/InsightLabel'
 import { LemonCheckbox } from 'lib/lemon-ui/LemonCheckbox'
 import { formatAggregationAxisValue } from 'scenes/insights/aggregationAxisFormat'
 import { insightLogic } from 'scenes/insights/insightLogic'
-import { formatBreakdownLabel, getTrendResultCustomizationKey } from 'scenes/insights/utils'
+import {
+    formatBreakdownLabel,
+    getBreakdownItemLabelFallback,
+    getTrendResultCustomizationKey,
+} from 'scenes/insights/utils'
 import { formatCompareLabel } from 'scenes/insights/views/InsightsTable/columns/SeriesColumn'
 import { teamLogic } from 'scenes/teamLogic'
 import { trendsDataLogic } from 'scenes/trends/trendsDataLogic'
@@ -73,7 +77,7 @@ export function InsightLegendRow({ item, readOnly = false }: InsightLegendRowPro
         allCohorts.results,
         formatPropertyValueForDisplay,
         undefined,
-        item.label
+        getBreakdownItemLabelFallback(item.label, item.action)
     )
 
     const isPrevious = !!item.compare && item.compare_label === 'previous'
