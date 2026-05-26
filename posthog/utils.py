@@ -908,13 +908,16 @@ def get_compare_period_dates(
             hour=date_from.hour, minute=date_from.minute, second=date_from.second, microsecond=date_from.microsecond
         )
         # Handle date_from = -7d, -14d etc. specially
-        if (
+        should_shorten_week_based_relative_range = (
             interval == "day"
             and date_from_delta_mapping
             and date_from_delta_mapping.get("days", None)
             and date_from_delta_mapping["days"] % 7 == 0
             and not date_to_delta_mapping
-        ):
+            and date_from.time() == datetime.time(0, 0)
+            and date_to.time() == datetime.time(23, 59, 59, 999999)
+        )
+        if should_shorten_week_based_relative_range:
             # KLUDGE: Unfortunately common relative date ranges such as "Last 7 days" (-7d) or "Last 14 days" (-14d)
             # are wrong because they treat the current ongoing day as an _extra_ one. This means that those ranges
             # are in reality, respectively, 8 and 15 days long. So for the common use case of comparing weeks,
@@ -927,6 +930,8 @@ def get_compare_period_dates(
         new_date_to = (new_date_from + diff).replace(
             hour=date_to.hour, minute=date_to.minute, second=date_to.second, microsecond=date_to.microsecond
         )
+        if should_shorten_week_based_relative_range:
+            new_date_to -= datetime.timedelta(days=1)
     return new_date_from, new_date_to
 
 
