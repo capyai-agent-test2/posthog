@@ -1,4 +1,17 @@
-import { LogicWrapper, actions, connect, events, kea, key, listeners, path, props, reducers, selectors } from 'kea'
+import {
+    LogicWrapper,
+    actions,
+    connect,
+    events,
+    kea,
+    key,
+    listeners,
+    path,
+    props,
+    propsChanged,
+    reducers,
+    selectors,
+} from 'kea'
 import { loaders } from 'kea-loaders'
 import { router } from 'kea-router'
 import posthog from 'posthog-js'
@@ -830,4 +843,29 @@ export const insightLogic: LogicWrapper<insightLogicType> = kea<insightLogicType
             }
         },
     })),
+    propsChanged(({ actions, props }, oldProps) => {
+        if (
+            props.doNotLoad ||
+            !props.dashboardItemId ||
+            props.dashboardItemId === 'new' ||
+            props.dashboardItemId.startsWith('new-')
+        ) {
+            return
+        }
+
+        if (
+            objectsEqual(oldProps?.filtersOverride ?? null, props.filtersOverride ?? null) &&
+            objectsEqual(oldProps?.variablesOverride ?? null, props.variablesOverride ?? null) &&
+            objectsEqual(oldProps?.tileFiltersOverride ?? null, props.tileFiltersOverride ?? null)
+        ) {
+            return
+        }
+
+        actions.loadInsight(
+            props.dashboardItemId as InsightShortId,
+            props.filtersOverride,
+            props.variablesOverride,
+            props.tileFiltersOverride
+        )
+    }),
 ])
