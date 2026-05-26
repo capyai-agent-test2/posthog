@@ -444,6 +444,29 @@ class SessionRecordingListFromQuery(SessionRecordingsListingBaseQuery):
                     )
                 )
 
+            negated_test_account_cohort_filters = [
+                prop
+                for prop in self._test_account_filters
+                if getattr(prop, "type", None) == "cohort"
+                and getattr(prop, "operator", None) == PropertyOperator.NOT_IN
+            ]
+            for cohort_filter in negated_test_account_cohort_filters:
+                cohort_blocklist_query = test_account_query.model_copy(deep=True)
+                cohort_blocklist_query.properties = [
+                    cohort_filter.model_copy(update={"operator": PropertyOperator.IN_})
+                ]
+                cohort_blocklist_query.operand = FilterLogicalOperator.AND_
+
+                cohort_blocklist = CohortPropertyGroupsSubQuery(self._team, cohort_blocklist_query).get_query()
+                if cohort_blocklist:
+                    exprs.append(
+                        ast.CompareOperation(
+                            op=ast.CompareOperationOp.NotIn,
+                            left=ast.Field(chain=["s", "distinct_id"]),
+                            right=cohort_blocklist,
+                        )
+                    )
+
             person_sq = PersonsPropertiesSubQuery(self._team, test_account_query).get_query()
             if person_sq:
                 exprs.append(
@@ -452,7 +475,16 @@ class SessionRecordingListFromQuery(SessionRecordingsListingBaseQuery):
                     )
                 )
 
-            cohort_sq = CohortPropertyGroupsSubQuery(self._team, test_account_query).get_query()
+            cohort_query = test_account_query.model_copy(deep=True)
+            cohort_query.properties = [
+                prop
+                for prop in self._test_account_filters
+                if not (
+                    getattr(prop, "type", None) == "cohort"
+                    and getattr(prop, "operator", None) == PropertyOperator.NOT_IN
+                )
+            ]
+            cohort_sq = CohortPropertyGroupsSubQuery(self._team, cohort_query).get_query()
             if cohort_sq:
                 exprs.append(
                     ast.CompareOperation(

@@ -1,7 +1,7 @@
 import re
 from datetime import datetime
 from itertools import product
-from typing import Literal
+from typing import Literal, cast
 from uuid import uuid4
 
 from freezegun import freeze_time
@@ -15,8 +15,9 @@ from posthog.test.base import (
     flush_persons_and_events,
     snapshot_clickhouse_queries,
 )
-from unittest.mock import ANY
+from unittest.mock import ANY, patch
 
+from django.test import SimpleTestCase
 from django.utils.timezone import now
 
 from dateutil.relativedelta import relativedelta
@@ -25,8 +26,10 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from posthog.schema import PersonsOnEventsMode, RecordingsQuery
 
+from posthog.hogql import ast
 from posthog.hogql.ast import SelectQuery
 from posthog.hogql.context import HogQLContext
+from posthog.hogql.parser import parse_select
 from posthog.hogql.printer import prepare_and_print_ast
 
 from posthog.clickhouse.client import sync_execute
@@ -4340,6 +4343,126 @@ class TestSessionRecordingsListFromQuery(ClickhouseTestMixin, APIBaseTest):
             },
             ["actual_session"],
         )
+
+    @also_test_with_materialized_columns(person_properties=["email"], verify_no_jsonextract=False)
+    @freeze_time("2021-01-21T20:00:00.000Z")
+    @snapshot_clickhouse_queries
+    def test_filter_users_from_email_excluded_cohort_in_poe_mode(self):
+        """
+        Test that excluding an email-based cohort from replay keeps anonymous sessions in PoE mode.
+        """
+        with self.settings(
+            PERSON_ON_EVENTS_V2_OVERRIDE=True,
+            USE_PRECALCULATED_CH_COHORT_PEOPLE=True,
+        ):
+            internal_user = "internal@company.com"
+            external_user = "external@customer.com"
+            anonymous_user = "anonymous-user"
+
+            Person.objects.create(team=self.team, distinct_ids=[internal_user], properties={"email": internal_user})
+            Person.objects.create(team=self.team, distinct_ids=[external_user], properties={"email": external_user})
+
+            internal_users_cohort = Cohort.objects.create(
+                team=self.team,
+                groups=[{"properties": [{"key": "email", "value": internal_user, "type": "person"}]}],
+                name="internal_users_by_email",
+            )
+            flush_persons_and_events()
+            internal_users_cohort.calculate_people_ch(pending_version=0)
+
+            self.team.test_account_filters = [
+                {
+                    "key": "id",
+                    "value": internal_users_cohort.pk,
+                    "operator": "not_in",
+                    "type": "cohort",
+                }
+            ]
+            self.team.save()
+
+            produce_replay_summary(
+                distinct_id=internal_user,
+                session_id="internal_session",
+                first_timestamp=self.an_hour_ago,
+                team_id=self.team.id,
+            )
+            produce_replay_summary(
+                distinct_id=external_user,
+                session_id="external_session",
+                first_timestamp=self.an_hour_ago,
+                team_id=self.team.id,
+            )
+            produce_replay_summary(
+                distinct_id=anonymous_user,
+                session_id="anonymous_session",
+                first_timestamp=self.an_hour_ago,
+                team_id=self.team.id,
+            )
+
+            self._assert_query_matches_session_ids(
+                {
+                    "filter_test_accounts": False,
+                },
+                ["internal_session", "external_session", "anonymous_session"],
+            )
+            self._assert_query_matches_session_ids(
+                {
+                    "filter_test_accounts": True,
+                },
+                ["external_session", "anonymous_session"],
+            )
+
+
+class TestSessionRecordingListFromQueryTestAccountCohorts(SimpleTestCase):
+    def test_negated_test_account_cohort_filters_use_blocklist(self) -> None:
+        team = Team(
+            id=1,
+            project_id=1,
+            test_account_filters=[{"key": "id", "value": 123, "operator": "not_in", "type": "cohort"}],
+        )
+        query = RecordingsQuery.model_validate({"filter_test_accounts": True})
+        cohort_blocklist = cast(SelectQuery, parse_select("SELECT distinct_id FROM person_distinct_ids", {}))
+
+        def cohort_query_for_test_accounts(subquery: SessionRecordingListFromQuery) -> SelectQuery | None:
+            properties = list(subquery._query.properties or [])
+            if properties and getattr(properties[0], "operator", None) == "in":
+                return cohort_blocklist
+            return None
+
+        with (
+            patch(
+                "posthog.session_recordings.queries.session_recording_list_from_query.ReplayFiltersEventsSubQuery.get_queries_for_session_id_matching",
+                return_value=[],
+            ),
+            patch(
+                "posthog.session_recordings.queries.session_recording_list_from_query.ReplayFiltersEventsSubQuery.get_negative_blocklist_query",
+                return_value=None,
+            ),
+            patch(
+                "posthog.session_recordings.queries.session_recording_list_from_query.PersonsPropertiesSubQuery.get_query",
+                return_value=None,
+            ),
+            patch(
+                "posthog.session_recordings.queries.session_recording_list_from_query.CohortPropertyGroupsSubQuery.get_query",
+                autospec=True,
+                side_effect=cohort_query_for_test_accounts,
+            ),
+        ):
+            session_recording_list_instance = SessionRecordingListFromQuery(
+                query=query, team=team, hogql_query_modifiers=None
+            )
+            built_query = session_recording_list_instance.get_query()
+
+        assert isinstance(built_query.where, ast.And)
+        comparisons = [expr for expr in built_query.where.exprs if isinstance(expr, ast.CompareOperation)]
+        distinct_id_comparisons = [
+            compare
+            for compare in comparisons
+            if isinstance(compare.left, ast.Field) and compare.left.chain == ["s", "distinct_id"]
+        ]
+
+        assert any(compare.op == ast.CompareOperationOp.NotIn for compare in distinct_id_comparisons)
+        assert not any(compare.op == ast.CompareOperationOp.In for compare in distinct_id_comparisons)
 
 
 @freeze_time("2021-01-01T13:46:23")
