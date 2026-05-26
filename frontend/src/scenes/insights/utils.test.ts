@@ -222,6 +222,17 @@ describe('formatBreakdownLabel()', () => {
         expect(formatBreakdownLabel(3, breakdownFilter2, [], identity)).toEqual('3')
     })
 
+    it('uses the item label for cohort breakdowns when cohorts are unavailable', () => {
+        const breakdownFilter: BreakdownFilter = {
+            breakdown: [cohort.id],
+            breakdown_type: 'cohort',
+        }
+
+        expect(formatBreakdownLabel(cohort.id, breakdownFilter, [], identity, undefined, cohort.name)).toEqual(
+            cohort.name
+        )
+    })
+
     it('handles cohort breakdowns with all users', () => {
         const breakdownFilter1: BreakdownFilter = {
             breakdown: ['all'],

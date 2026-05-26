@@ -100,7 +100,9 @@ function TrendsInfo({ dataset, resultCustomizationBy }: TrendsInfoProps): JSX.El
                             dataset.breakdown_value,
                             breakdownFilter,
                             allCohorts.results,
-                            formatPropertyValueForDisplay
+                            formatPropertyValueForDisplay,
+                            undefined,
+                            dataset.label
                         )}
                     </b>
                     .
