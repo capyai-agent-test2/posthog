@@ -1,13 +1,14 @@
 from datetime import timedelta
+from types import SimpleNamespace
 from typing import cast
 from uuid import uuid4
 
 from posthog.test.base import APIBaseTest
-from unittest.mock import ANY, patch
+from unittest.mock import ANY, MagicMock, patch
 
 from django.conf import settings
 from django.core.cache import cache
-from django.test import override_settings
+from django.test import SimpleTestCase, override_settings
 from django.utils import timezone
 
 from parameterized import parameterized
@@ -15,7 +16,12 @@ from rest_framework import status
 from rest_framework.test import APIRequestFactory
 
 from posthog.api.oauth.test_dcr import generate_rsa_key
-from posthog.api.organization import OrganizationSerializer, _fetch_member_count, _org_serializer_cache_version
+from posthog.api.organization import (
+    OrganizationSerializer,
+    OrganizationViewSet,
+    _fetch_member_count,
+    _org_serializer_cache_version,
+)
 from posthog.models import FeatureFlag, Organization, OrganizationMembership, Team
 from posthog.models.oauth import OAuthAccessToken, OAuthApplication
 from posthog.models.personal_api_key import PersonalAPIKey
@@ -483,6 +489,49 @@ class TestOrganizationAPI(APIBaseTest):
 
         event_names = [call.kwargs.get("event") for call in mock_capture.call_args_list]
         self.assertIn("organization deletion initiated", event_names)
+
+
+class TestOrganizationDeletionUnit(SimpleTestCase):
+    @patch("posthog.api.organization.delete_organization_data_and_notify_task")
+    @patch("posthog.api.organization.report_organization_deletion_initiated")
+    @patch("posthog.api.organization.report_organization_deleted")
+    @patch("ee.billing.billing_manager.BillingManager.get_billing")
+    @patch("posthog.api.organization.get_cached_instance_license")
+    @patch("posthog.api.organization.is_cloud")
+    def test_delete_organization_allows_billing_lookup_failure(
+        self,
+        mock_is_cloud,
+        mock_get_license,
+        mock_get_billing,
+        _mock_report_deleted,
+        _mock_report_initiated,
+        mock_delete_task,
+    ):
+        mock_is_cloud.return_value = True
+        mock_get_license.return_value = True
+        mock_get_billing.side_effect = Exception("billing is down")
+
+        team = SimpleNamespace(pk=7, name="Project 1")
+        organization = MagicMock(pk=uuid4(), is_pending_deletion=False)
+        organization.name = "Org 1"
+        organization.teams.only.return_value.all.return_value = [team]
+
+        viewset = OrganizationViewSet()
+        request = APIRequestFactory().delete("/api/organizations/fake")
+        request.user = MagicMock(id=123)
+        viewset.request = request
+
+        viewset.perform_destroy(organization)
+
+        self.assertTrue(organization.is_pending_deletion)
+        organization.save.assert_called_once_with(update_fields=["is_pending_deletion"])
+        mock_delete_task.delay.assert_called_once_with(
+            team_ids=[7],
+            organization_id=str(organization.pk),
+            user_id=123,
+            organization_name="Org 1",
+            project_names=["Project 1"],
+        )
 
 
 def create_organization(name: str) -> Organization:
