@@ -11,7 +11,22 @@ from dateutil.relativedelta import relativedelta
 
 from posthog.models.team import Team
 
-SELECTOR_ATTRIBUTE_REGEX = r"([a-zA-Z]*)\[(.*)=[\'|\"](.*)[\'|\"]\]"
+SELECTOR_ATTRIBUTE_REGEX = re.compile(
+    r"""
+    \[
+        (?P<name>[^\s~|^$*=\]]+)
+        \s*=\s*
+        (?:
+            (?P<quote>["'])
+            (?P<quoted_value>.*?)
+            (?P=quote)
+            |
+            (?P<bare_value>[^\]]+?)
+        )
+    \]
+    """,
+    re.VERBOSE,
+)
 
 
 LAST_UPDATED_TEAM_ACTION: dict[int, datetime.datetime] = {}
@@ -30,15 +45,17 @@ class SelectorPart:
         self.data: dict[str, Union[str, list]] = {}
         self.ch_attributes: dict[str, Union[str, list]] = {}  # attributes for CH
 
-        result = re.search(SELECTOR_ATTRIBUTE_REGEX, tag)
-        if result and "[id=" in tag:
-            self.data["attr_id"] = result[3]
-            self.ch_attributes["attr_id"] = result[3]
-            tag = result[1]
-        if result and "[" in tag:
-            self.data[f"attributes__attr__{result[2]}"] = result[3]
-            self.ch_attributes[result[2]] = result[3]
-            tag = result[1]
+        for result in SELECTOR_ATTRIBUTE_REGEX.finditer(tag):
+            attr_name = result.group("name")
+            attr_value = result.group("quoted_value") or result.group("bare_value") or ""
+            if attr_name == "id":
+                self.data["attr_id"] = attr_value
+                self.ch_attributes["attr_id"] = attr_value
+            else:
+                self.data[f"attributes__attr__{attr_name}"] = attr_value
+                self.ch_attributes[attr_name] = attr_value
+        if "[" in tag:
+            tag = SELECTOR_ATTRIBUTE_REGEX.sub("", tag)
         if "nth-child(" in tag:
             parts = tag.split(":nth-child(")
             self.data["nth_child"] = parts[1].replace(")", "")
