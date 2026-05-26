@@ -44,7 +44,7 @@ class TestSessionRecordingsCommentFiltering(APIBaseTest, ClickhouseTestMixin, Qu
         Comment.objects.create(
             team=self.team,
             content="This comment contains the word needle for searching",
-            scope="recording",
+            scope="Replay",
             item_id=session_with_needle,
             created_by=self.user,
         )

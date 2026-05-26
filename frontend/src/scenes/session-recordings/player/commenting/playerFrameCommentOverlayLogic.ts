@@ -111,6 +111,9 @@ export const playerCommentOverlayLogic = kea<playerCommentOverlayLogicType>([
             actions.setRecordingCommentValue('richContent', comment.richContent)
             actions.setRecordingCommentValue('recordingId', comment.recordingId)
             actions.setRecordingCommentValue('commentId', comment.commentId)
+            actions.setRecordingCommentValue('timeInRecording', comment.timeInRecording ?? null)
+            actions.setRecordingCommentValue('timestampInRecording', comment.timestampInRecording ?? null)
+            actions.setRecordingCommentValue('dateForTimestamp', comment.dateForTimestamp ?? null)
             // opening to edit also sets the player timestamp, which will update the timestamps in the form
             actions.setIsCommenting(true)
 

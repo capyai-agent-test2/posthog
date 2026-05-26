@@ -223,9 +223,7 @@ def _get_session_ids_from_comment_search(
 
     base_query = Comment.objects.filter(
         team=team,
-        # TODO: discussions created `Replay` and comments create `recording`
-        # TODO: that's an unnecessary distinction but we'll ignore it for now
-        scope__in=["recording"],
+        scope__in=["recording", "Replay"],
     ).exclude(deleted=True)
 
     operator = comment_filter.operator
