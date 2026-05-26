@@ -265,6 +265,7 @@ class EventViewSet(
         tag_queries(product=ProductKey.PRODUCT_ANALYTICS, feature=Feature.QUERY)
         try:
             is_csv_request = self.request.accepted_renderer.format == "csv"
+            is_personal_api_key_request = isinstance(request.successful_authenticator, PersonalAPIKeyAuthentication)
 
             if self.request.GET.get("limit", None):
                 limit = int(self.request.GET.get("limit"))  # type: ignore
@@ -357,6 +358,7 @@ class EventViewSet(
                         order_by=order_by,
                         action_id=request.GET.get("action_id"),
                         time_window_seconds=window,
+                        default_to_last_24h=is_csv_request or is_personal_api_key_request,
                     )
 
                     # If window wasn't applied (e.g., ASC order), don't try other windows
@@ -385,6 +387,7 @@ class EventViewSet(
                         request_get_query_dict=request.GET.dict(),
                         order_by=order_by,
                         action_id=request.GET.get("action_id"),
+                        default_to_last_24h=is_csv_request or is_personal_api_key_request,
                     )
 
             result = ClickhouseEventSerializer(

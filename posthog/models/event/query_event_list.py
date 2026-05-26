@@ -73,6 +73,7 @@ def query_events_list(
     limit: int = DEFAULT_RETURNED_ROWS,
     offset: int = 0,
     time_window_seconds: Optional[int] = None,
+    default_to_last_24h: bool = False,
 ) -> tuple[list, Optional[int]]:
     # Note: This code is inefficient and problematic, see https://github.com/PostHog/posthog/issues/13485 for details.
     # To isolate its impact from rest of the queries its queries are run on different nodes as part of "offline" workloads.
@@ -93,7 +94,7 @@ def query_events_list(
 
     if request_get_query_dict.get("after"):
         request_get_query_dict["after"] = parse_timestamp(request_get_query_dict["after"], team.timezone_info)
-    elif settings.PATCH_EVENT_LIST_MAX_OFFSET > 1:
+    elif default_to_last_24h or settings.PATCH_EVENT_LIST_MAX_OFFSET > 1:
         request_get_query_dict["after"] = request_get_query_dict["before"] - timedelta(hours=24)
 
     if settings.PATCH_EVENT_LIST_MAX_OFFSET > 0 and request_get_query_dict.get("after"):
