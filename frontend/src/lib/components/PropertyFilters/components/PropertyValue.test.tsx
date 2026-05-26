@@ -181,4 +181,25 @@ describe('PropertyValue', () => {
 
         expect(input).toHaveValue('7.8')
     })
+
+    it('uses local data warehouse person property types for numeric inputs', async () => {
+        const onSet = jest.fn()
+        render(
+            <Provider>
+                <PropertyValue
+                    propertyKey="company.age"
+                    type={PropertyFilterType.DataWarehousePersonProperty}
+                    propertyTypeOverride={PropertyType.Numeric}
+                    operator={PropertyOperator.Exact}
+                    onSet={onSet}
+                    value={[]}
+                />
+            </Provider>
+        )
+
+        const input = screen.getByRole('textbox')
+        await userEvent.type(input, '7a.8$')
+
+        expect(input).toHaveValue('7.8')
+    })
 })

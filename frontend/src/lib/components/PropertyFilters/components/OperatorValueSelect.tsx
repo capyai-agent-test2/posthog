@@ -410,6 +410,7 @@ export function OperatorValueSelect({
                     ) : (
                         <PropertyValue
                             type={type}
+                            propertyTypeOverride={propertyDefinition?.property_type ?? null}
                             key={propertyKey}
                             propertyKey={propertyKey}
                             endpoint={endpoint}

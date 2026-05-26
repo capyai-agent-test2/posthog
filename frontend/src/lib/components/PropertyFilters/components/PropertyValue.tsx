@@ -43,6 +43,7 @@ import { GroupTypeIndex, PropertyFilterType, PropertyFilterValue, PropertyOperat
 export interface PropertyValueProps {
     propertyKey: string
     type: PropertyFilterType
+    propertyTypeOverride?: PropertyType | null
     endpoint?: string // Endpoint to fetch options from
     placeholder?: string
     onSet: CallableFunction
@@ -65,6 +66,7 @@ export interface PropertyValueProps {
 export function PropertyValue({
     propertyKey,
     type,
+    propertyTypeOverride = null,
     endpoint = undefined,
     placeholder = undefined,
     onSet,
@@ -93,16 +95,14 @@ export function PropertyValue({
     const isBetweenProperty = operator && isOperatorBetween(operator)
     const propertyDefinitionType = propertyFilterTypeToPropertyDefinitionType(type)
     const { isRefreshing } = useValues(propertyValueLogic({ propertyKey, type: propertyDefinitionType }))
+    const effectivePropertyType = propertyTypeOverride ?? describeProperty(propertyKey, propertyDefinitionType)
 
-    const isDurationProperty =
-        propertyKey && describeProperty(propertyKey, propertyDefinitionType) === PropertyType.Duration
+    const isDurationProperty = propertyKey && effectivePropertyType === PropertyType.Duration
 
     // Assignee values come from membersLogic/rolesLogic, not from the property values API
-    const isAssigneeProperty =
-        propertyKey && describeProperty(propertyKey, propertyDefinitionType) === PropertyType.Assignee
+    const isAssigneeProperty = propertyKey && effectivePropertyType === PropertyType.Assignee
 
-    const isNumericProperty =
-        propertyKey && describeProperty(propertyKey, propertyDefinitionType) === PropertyType.Numeric
+    const isNumericProperty = propertyKey && effectivePropertyType === PropertyType.Numeric
     const shouldRestrictToNumericInput = isNumericProperty && !isOperatorRegex(operator)
 
     const isGroupKeyProperty = propertyKey === '$group_key' && groupTypeIndex != null
