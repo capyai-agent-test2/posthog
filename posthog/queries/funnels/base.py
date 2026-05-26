@@ -92,6 +92,9 @@ class ClickhouseFunnelBase(ABC):
                 }
             )
 
+        if self._filter.sampling_factor is not None:
+            self._filter = self._filter.shallow_clone({"sampling_factor": None})
+
         if not self._filter.limit:
             new_limit = {LIMIT: 100}
             self._filter = self._filter.shallow_clone(new_limit)

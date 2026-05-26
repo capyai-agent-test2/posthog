@@ -3543,6 +3543,24 @@ def funnel_test_factory(Funnel, event_factory, person_factory):
             self.assertEqual(result[1]["name"], "watched movie")
             self.assertEqual(result[1]["count"], 1)
 
+        def test_funnel_ignores_sampling_factor(self):
+            funnel = self._basic_funnel(
+                filters={
+                    "events": [{"id": "user signed up", "type": "events", "order": 0}],
+                    "funnel_window_days": 14,
+                    "sampling_factor": 0.1,
+                }
+            )
+
+            person_factory(distinct_ids=["signed_up"], team_id=self.team.pk)
+            self._signup_event(distinct_id="signed_up")
+
+            result = funnel.run()
+
+            self.assertEqual(result[0]["count"], 1)
+            self.assertIsNone(funnel._filter.sampling_factor)
+            self.assertNotIn("SAMPLE", funnel._get_inner_event_query())
+
         def test_hogql_aggregation(self):
             # first person
             person_factory(

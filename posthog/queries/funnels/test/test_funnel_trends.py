@@ -88,6 +88,28 @@ class TestFunnelTrends(ClickhouseTestMixin, APIBaseTest):
         self.assertEqual(len(results), 7)
         self.assertEqual(formatted_results[0]["days"][0], "2021-06-07")
 
+    def test_funnel_trends_ignores_sampling_factor(self):
+        filter = Filter(
+            data={
+                "insight": INSIGHT_FUNNELS,
+                "display": TRENDS_LINEAR,
+                "interval": "day",
+                "date_from": "2021-05-01",
+                "date_to": "2021-05-07",
+                "funnel_window_days": 7,
+                "sampling_factor": 0.1,
+                "events": [
+                    {"id": "step one", "order": 0},
+                    {"id": "step two", "order": 1},
+                ],
+            }
+        )
+
+        funnel_trends = ClickhouseFunnelTrends(filter, self.team)
+
+        self.assertIsNone(funnel_trends._filter.sampling_factor)
+        self.assertNotIn("SAMPLE", funnel_trends.get_query())
+
     def test_only_one_user_reached_one_step(self):
         journeys_for(
             {"user a": [{"event": "step one", "timestamp": datetime(2021, 6, 7, 19)}]},
