@@ -593,6 +593,16 @@ describe('getBreakdownItemLabelFallback()', () => {
             })
         ).toEqual('Power users')
     })
+
+    it('strips raw event-name prefixes before display-name normalization', () => {
+        expect(
+            getBreakdownItemLabelFallback('$pageview - Power users', {
+                id: '$pageview',
+                name: '$pageview',
+                type: 'events',
+            })
+        ).toEqual('Power users')
+    })
 })
 
 describe('getTrendDatasetKey()', () => {

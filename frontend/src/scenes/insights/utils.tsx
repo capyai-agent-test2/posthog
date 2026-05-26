@@ -350,13 +350,21 @@ export function getBreakdownItemLabelFallback(
         return undefined
     }
 
-    const entityName = getDisplayNameFromEntityFilter(action ?? null)
-    if (!entityName) {
-        return itemLabel
+    const entityNameCandidates = [
+        action?.custom_name,
+        action?.name,
+        action?.id != null ? String(action.id) : null,
+        getDisplayNameFromEntityFilter(action ?? null),
+    ].filter((candidate, index, all): candidate is string => !!candidate && all.indexOf(candidate) === index)
+
+    for (const entityName of entityNameCandidates) {
+        const entityPrefix = `${entityName} - `
+        if (itemLabel.startsWith(entityPrefix)) {
+            return itemLabel.slice(entityPrefix.length)
+        }
     }
 
-    const entityPrefix = `${entityName} - `
-    return itemLabel.startsWith(entityPrefix) ? itemLabel.slice(entityPrefix.length) : itemLabel
+    return itemLabel
 }
 
 export function formatBreakdownLabel(
