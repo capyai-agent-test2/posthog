@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import cast
 
 from posthog.test.base import (
     APIBaseTest,
@@ -30,7 +31,13 @@ from posthog.schema import (
 )
 
 from posthog.hogql import ast
-from posthog.hogql.database.schema.persons import _is_virtual_field_requiring_join
+from posthog.hogql.context import HogQLContext
+from posthog.hogql.database.models import LazyTableToAdd
+from posthog.hogql.database.schema.persons import (
+    PersonsTable,
+    _is_virtual_field_requiring_join,
+    select_from_persons_table,
+)
 from posthog.hogql.modifiers import create_default_modifiers_for_team
 from posthog.hogql.parser import parse_select
 from posthog.hogql.query import execute_hogql_query
@@ -242,6 +249,68 @@ class TestPersonsV2LimitPushDown(ClickhouseTestMixin, APIBaseTest):
         # The cohort member is correctly returned
         assert len(response.results) == 1
         assert response.results[0][1] == "cohort_member@example.com"
+
+
+class TestPersonsV2LimitPushDownUnit:
+    def test_v2_direct_persons_query_still_pushes_limit_down(self):
+        query = parse_select(
+            """
+            SELECT persons.properties.tenant_id
+            FROM persons
+            ORDER BY persons.created_at DESC
+            LIMIT 1
+            """
+        )
+        assert query.select_from is not None
+        query.select_from.type = ast.LazyTableType(table=PersonsTable())
+
+        select = select_from_persons_table(
+            LazyTableToAdd(
+                lazy_table=PersonsTable(),
+                fields_accessed={"tenant_id": ["properties", "tenant_id"]},
+            ),
+            HogQLContext(
+                enable_select_queries=True,
+                modifiers=HogQLQueryModifiers(personsArgMaxVersion=PersonsArgMaxVersion.V2),
+            ),
+            query,
+        )
+
+        compare = cast(ast.CompareOperation, select.where)
+        right_select = cast(ast.SelectQuery, compare.right)
+
+        assert right_select.limit == ast.Constant(value=2)
+
+    def test_v2_join_from_persons_does_not_push_limit_down(self):
+        query = parse_select(
+            """
+            SELECT persons.properties.tenant_id
+            FROM persons
+            JOIN (SELECT 'matching-tenant' AS tenant_id) AS warehouse
+                ON persons.properties.tenant_id = warehouse.tenant_id
+            ORDER BY persons.created_at DESC
+            LIMIT 1
+            """
+        )
+        assert query.select_from is not None
+        query.select_from.type = ast.LazyTableType(table=PersonsTable())
+
+        select = select_from_persons_table(
+            LazyTableToAdd(
+                lazy_table=PersonsTable(),
+                fields_accessed={"tenant_id": ["properties", "tenant_id"]},
+            ),
+            HogQLContext(
+                enable_select_queries=True,
+                modifiers=HogQLQueryModifiers(personsArgMaxVersion=PersonsArgMaxVersion.V2),
+            ),
+            query,
+        )
+
+        compare = cast(ast.CompareOperation, select.where)
+        right_select = cast(ast.SelectQuery, compare.right)
+
+        assert right_select.limit is None
 
 
 class TestPersons(ClickhouseTestMixin, APIBaseTest):
