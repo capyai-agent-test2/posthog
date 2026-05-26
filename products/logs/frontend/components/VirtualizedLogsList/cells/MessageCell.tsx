@@ -23,11 +23,14 @@ export function MessageCell({ message, wrapBody, prettifyJson, parsedBody, style
     const displayValue = prettifyJson && parsedBody ? JSON.stringify(parsedBody, null, 2) : message
 
     return (
-        <div style={style} className="relative flex items-start self-stretch">
+        <div style={style} className="relative flex items-start self-stretch min-w-0 overflow-hidden">
             <div
                 ref={wrapBody ? undefined : scrollRef}
                 onScroll={wrapBody ? undefined : handleScroll}
-                className={cn('flex-1 self-stretch', wrapBody ? 'overflow-hidden' : 'overflow-x-auto hide-scrollbar')}
+                className={cn(
+                    'flex-1 self-stretch min-w-0',
+                    wrapBody ? 'overflow-hidden' : 'overflow-x-auto hide-scrollbar'
+                )}
             >
                 <div className={cn('flex items-center min-h-full', wrapBody ? 'py-1.5' : 'w-max')}>
                     {prettifyJson && parsedBody ? (
