@@ -23,8 +23,9 @@ from posthog.settings.data_stores import CLICKHOUSE_CLUSTER
 logger = dagster.get_dagster_logger("clickhouse")
 
 
-def ON_CLUSTER_CLAUSE(on_cluster=True):
-    return f"ON CLUSTER '{CLICKHOUSE_CLUSTER}'" if on_cluster else ""
+def ON_CLUSTER_CLAUSE(on_cluster: bool = True, cluster: str | None = None) -> str:
+    target_cluster = cluster or CLICKHOUSE_CLUSTER
+    return f"ON CLUSTER '{target_cluster}'" if on_cluster else ""
 
 
 # Smoke-test only: when migrating against the multinode docker-compose stack
