@@ -109,10 +109,10 @@ impl GroupTypeResolver {
                 .collect();
 
             if !missing_group_types.is_empty() {
-                resolved_map.extend(
-                    self.resolve_via_postgres(pool, &missing_group_types)
-                        .await?,
-                );
+                match self.resolve_via_postgres(pool, &missing_group_types).await {
+                    Ok(map) => resolved_map.extend(map),
+                    Err(e) => warn!(error = %e, "postgres group type resolution failed"),
+                }
             }
 
             // Second pass: apply resolved group types to updates
