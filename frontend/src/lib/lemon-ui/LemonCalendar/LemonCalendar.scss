@@ -8,8 +8,8 @@
     // Tricky: needs to match the equivalent height button from LemonButton.scss
     --lemon-calendar-time-button-height: 2.3125rem;
 
-    // Force height for month so when swtiching to longer months, the height doesn't change
-    height: var(--lemon-calendar-month-height);
+    // Keep shorter months from shrinking while still allowing six-week months to fully render.
+    min-height: var(--lemon-calendar-month-height);
 
     .LemonCalendar__month {
         width: 100%;

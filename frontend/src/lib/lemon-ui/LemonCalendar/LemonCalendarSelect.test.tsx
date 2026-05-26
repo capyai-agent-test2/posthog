@@ -102,6 +102,14 @@ describe('LemonCalendarSelect', () => {
         expect(onClose).toHaveBeenCalled()
     })
 
+    test('selects dates from october sixth week correctly', async () => {
+        const { onChange, clickOnDate } = renderLemonCalendarSelect(dayjs('2022-10-01'))
+
+        await clickOnDate('31')
+
+        expect(onChange).toHaveBeenCalledWith(dayjs('2022-10-31'))
+    })
+
     test('select various times', async () => {
         const { onChange, clickOnDate, clickOnTime } = renderLemonCalendarSelect(null, {
             granularity: 'minute',

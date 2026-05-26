@@ -127,6 +127,15 @@ describe('LemonCalendar', () => {
         expect(await within(calendar).findByText(thisMonth)).toBeTruthy()
     })
 
+    test('renders all six weeks for long october months', async () => {
+        const { container } = render(<LemonCalendar leftmostMonth={dayjs('2022-10-01')} months={1} />)
+
+        const lemonCalendarWeeks = getAllByDataAttr(container, 'lemon-calendar-week')
+        expect(lemonCalendarWeeks.length).toBe(6)
+        expect(await within(container).findByText('October 2022')).toBeTruthy()
+        expect(await within(container).findByText('31')).toBeTruthy()
+    })
+
     test('calls getLemonButtonProps for each day', async () => {
         const calls: any = []
         const { container } = render(
