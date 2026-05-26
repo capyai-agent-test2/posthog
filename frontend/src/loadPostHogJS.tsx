@@ -157,15 +157,21 @@ export function loadPostHogJS(): void {
         })
 
         posthog.onFeatureFlags((_flags, _variants, context) => {
-            if (inStorybook() || inStorybookTestRunner() || !context?.errorsLoading) {
+            if (inStorybook() || inStorybookTestRunner()) {
                 return
             }
 
-            posthog.capture('onFeatureFlags error')
-
-            // Track that we failed to load feature flags
             window.POSTHOG_GLOBAL_ERRORS ||= {}
-            window.POSTHOG_GLOBAL_ERRORS['onFeatureFlagsLoadError'] = true
+
+            if (context?.errorsLoading) {
+                posthog.capture('onFeatureFlags error')
+
+                // Track that we failed to load feature flags
+                window.POSTHOG_GLOBAL_ERRORS['onFeatureFlagsLoadError'] = true
+                return
+            }
+
+            delete window.POSTHOG_GLOBAL_ERRORS['onFeatureFlagsLoadError']
         })
     } else {
         posthog.init('fake_token', {
