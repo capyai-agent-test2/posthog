@@ -2421,6 +2421,8 @@ export type CachedWebExternalClicksTableQueryResponse = CachedQueryResponse<WebE
 export interface WebGoalsQuery extends WebAnalyticsQueryBase<WebGoalsQueryResponse> {
     kind: NodeKind.WebGoalsQuery
     limit?: integer
+    /** Opt this specific query into the web_goals_query precompute path. Requires the `web-analytics-precompute-toggle` PostHog feature flag to be on for the team's organization for the gate to pass. **/
+    useWebAnalyticsPrecompute?: boolean
 }
 
 export interface WebGoalsQueryResponse extends AnalyticsQueryResponseBase {
@@ -2432,6 +2434,10 @@ export interface WebGoalsQueryResponse extends AnalyticsQueryResponseBase {
     hasMore?: boolean
     limit?: integer
     offset?: integer
+    /** Whether the response was served from a precomputed table. */
+    usedPreAggregatedTables?: boolean
+    /** Whether the response was served from the lazy precompute path. */
+    usedLazyPrecompute?: boolean
 }
 export type CachedWebGoalsQueryResponse = CachedQueryResponse<WebGoalsQueryResponse>
 
@@ -2469,6 +2475,8 @@ export interface WebVitalsPathBreakdownQuery extends WebAnalyticsQueryBase<WebVi
     // This tuple represents a [good, poor] threshold, where values below good are good and values above poor are poor
     // Values in between the two values are the threshold for needs_improvements
     thresholds: [number, number]
+    /** Opt this specific query into the web vitals path breakdown precompute path. Requires the `web-analytics-precompute-toggle` PostHog feature flag to be on for the team's organization for the gate to pass. **/
+    useWebAnalyticsPrecompute?: boolean
 }
 
 export type WebVitalsPathBreakdownResultItem = { path: string; value: number }
@@ -2478,6 +2486,7 @@ export type WebVitalsPathBreakdownResult = Record<WebVitalsMetricBand, WebVitals
 // hence the tuple type rather than a single object.
 export interface WebVitalsPathBreakdownQueryResponse extends AnalyticsQueryResponseBase {
     results: [WebVitalsPathBreakdownResult]
+    usedLazyPrecompute?: boolean
 }
 export type CachedWebVitalsPathBreakdownQueryResponse = CachedQueryResponse<WebVitalsPathBreakdownQueryResponse>
 
