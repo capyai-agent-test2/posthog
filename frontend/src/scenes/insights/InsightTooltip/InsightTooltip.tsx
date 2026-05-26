@@ -75,10 +75,9 @@ function renderDatumToTableCell(
 
 function getSeriesColumnKey(seriesDatum: SeriesDatum): string {
     return JSON.stringify({
+        order: seriesDatum.order,
         actionId: seriesDatum.action?.id ?? null,
         actionName: seriesDatum.action?.name ?? null,
-        label: seriesDatum.label ?? null,
-        filter: seriesDatum.filter ?? null,
     })
 }
 
