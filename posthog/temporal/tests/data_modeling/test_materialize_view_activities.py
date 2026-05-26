@@ -9,8 +9,10 @@ from django.test import override_settings
 
 import pyarrow as pa
 import pytest_asyncio
+import pyarrow.parquet as pq
 
 from posthog.sync import database_sync_to_async
+from posthog.temporal.data_imports.pipelines.pipeline_v3.s3.common import strip_s3_protocol
 from posthog.temporal.data_modeling.activities import (
     CreateDataModelingJobInputs,
     FailMaterializationInputs,
@@ -29,6 +31,7 @@ from products.data_modeling.backend.models import DAG, Node, NodeType
 from products.data_modeling.backend.models.data_modeling_job import DataModelingJob, DataModelingJobStatus
 from products.data_modeling.backend.models.datawarehouse_saved_query import DataWarehouseSavedQuery
 from products.data_warehouse.backend.data_load.create_table import CreateTableResult
+from products.data_warehouse.backend.s3 import get_s3_client
 from products.warehouse_sources.backend.models.table import DataWarehouseTable
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.django_db]
@@ -587,3 +590,50 @@ class TestMaterializeViewActivity:
             assert ajob.rows_expected == 5
             assert ajob.rows_materialized == 5
             assert result.row_count == 5
+
+    async def test_materializes_empty_view_to_queryable_parquet(
+        self, activity_environment, ateam, anode, asaved_query, ajob, bucket_name, adag
+    ):
+        async def mock_hogql_table(*args, **kwargs):
+            del args, kwargs
+            batch = pa.RecordBatch.from_arrays(
+                [
+                    pa.array([], type=pa.int64()),
+                    pa.array([], type=pa.string()),
+                ],
+                names=["id", "name"],
+            )
+            yield batch, [("id", "Int64"), ("name", "String")]
+
+        with (
+            override_settings(
+                BUCKET_URL=f"s3://{bucket_name}",
+                DATAWAREHOUSE_LOCAL_ACCESS_KEY=settings.OBJECT_STORAGE_ACCESS_KEY_ID,
+                DATAWAREHOUSE_LOCAL_ACCESS_SECRET=settings.OBJECT_STORAGE_SECRET_ACCESS_KEY,
+                DATAWAREHOUSE_LOCAL_BUCKET_REGION="us-east-1",
+            ),
+            unittest.mock.patch(
+                "posthog.temporal.data_modeling.activities.materialize_view.hogql_table", mock_hogql_table
+            ),
+            unittest.mock.patch(
+                "posthog.temporal.data_modeling.activities.materialize_view.get_query_row_count",
+                return_value=0,
+            ),
+        ):
+            inputs = MaterializeViewInputs(
+                team_id=ateam.pk,
+                dag_id=str(adag.id),
+                node_id=str(anode.id),
+                job_id=str(ajob.id),
+            )
+            result = await activity_environment.run(materialize_view_activity, inputs)
+
+        assert result.row_count == 0
+        assert result.file_uris == [f"{result.table_uri}/empty.parquet"]
+        s3 = get_s3_client()
+        with s3.open(strip_s3_protocol(result.file_uris[0]), "rb") as output_file:
+            table = pq.read_table(output_file)
+        assert table.num_rows == 0
+        assert table.schema.names == ["id", "name"]
+        assert table.schema.field("id").type == pa.int64()
+        assert table.schema.field("name").type == pa.string()
