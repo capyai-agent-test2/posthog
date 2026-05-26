@@ -9,6 +9,7 @@ from django.db.models import Model, QuerySet
 from django.db.models.signals import post_delete, post_save
 from django.shortcuts import get_object_or_404
 
+import structlog
 import posthoganalytics
 from drf_spectacular.utils import extend_schema, extend_schema_field
 from opentelemetry import trace
@@ -57,6 +58,8 @@ from posthog.utils import get_safe_cache, safe_cache_set
 from ee.models.explicit_team_membership import ExplicitTeamMembership
 from ee.models.rbac.access_control import AccessControl
 from ee.models.rbac.role import RoleMembership
+
+logger = structlog.get_logger(__name__)
 
 
 class PremiumMultiorganizationPermission(permissions.BasePermission):
@@ -529,14 +532,19 @@ class OrganizationViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
         # Check if organization has an active billing subscription
         if is_cloud():
             license = get_cached_instance_license()
-            if license:
-                billing_manager = BillingManager(license)
-                billing = billing_manager.get_billing(organization)
-                if billing.get("has_active_subscription"):
-                    raise exceptions.ValidationError(
-                        "Cannot delete organization with an active subscription. "
-                        "Please cancel your subscription first in the billing page."
-                    )
+            try:
+                has_active_subscription = (
+                    bool(license) and BillingManager(license).get_billing(organization).get("has_active_subscription")
+                )
+            except Exception:
+                logger.exception("Failed to check billing status before organization deletion; allowing deletion to proceed")
+                has_active_subscription = False
+
+            if has_active_subscription:
+                raise exceptions.ValidationError(
+                    "Cannot delete organization with an active subscription. "
+                    "Please cancel your subscription first in the billing page."
+                )
 
         if organization.is_pending_deletion:
             raise exceptions.ValidationError("This organization is already being deleted.")
