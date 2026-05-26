@@ -70,10 +70,10 @@ function buildTrendsResponse(series: SeriesData[]): TrendsQueryResponse {
     return {
         results: series.map((s, i) => ({
             action: {
-                id: `$${s.label.toLowerCase().replace(/\s+/g, '_')}`,
+                id: s.action_id ?? `$${s.label.toLowerCase().replace(/\s+/g, '_')}`,
                 type: 'events',
-                name: s.label,
-                order: s.compare ? 0 : i,
+                name: s.action_name ?? s.label,
+                order: s.compare ? 0 : (s.order ?? i),
             },
             label: s.label,
             count: s.data.reduce((a, b) => a + b, 0),

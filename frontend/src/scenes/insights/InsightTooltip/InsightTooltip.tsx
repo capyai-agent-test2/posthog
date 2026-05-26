@@ -178,12 +178,13 @@ export function InsightTooltip({
             }
             return acc
         }, new Map())
+        const uniqueOrders = new Set(flattenedSeriesData.map((seriesDatum) => seriesDatum.order))
         const seriesColumns =
-            seriesColumnsByIdentity.size < flattenedSeriesData.length
-                ? Array.from(seriesColumnsByIdentity.values()).sort((a, b) => a.order - b.order)
-                : (dataSource.find(
+            uniqueOrders.size <= 1
+                ? (dataSource.find(
                       (datum) => datum.seriesData.length === Math.max(...dataSource.map((d) => d.seriesData.length))
                   )?.seriesData ?? [])
+                : Array.from(seriesColumnsByIdentity.values()).sort((a, b) => a.order - b.order)
         const numDataPoints = seriesColumns.length
 
         if (numDataPoints > 0) {

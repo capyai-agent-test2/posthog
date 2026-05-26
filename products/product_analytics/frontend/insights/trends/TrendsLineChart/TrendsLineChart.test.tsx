@@ -142,7 +142,7 @@ describe('TrendsLineChart', () => {
                         data: [0, 0, 0, 0, 0],
                         labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
                         days: ['2024-06-10', '2024-06-11', '2024-06-12', '2024-06-13', '2024-06-14'],
-                        breakdown_value: 'Chrome',
+                        breakdown_value: 'Edge',
                     },
                     {
                         action: { id: '$napped', type: 'events', name: 'Napped', order: 1 },
@@ -180,6 +180,9 @@ describe('TrendsLineChart', () => {
 
             const tooltip = createInsightTooltipAccessor(chart.getTooltip()!)
             const headerText = tooltip.element.querySelector('thead')?.textContent ?? ''
+            const edgeRow = Array.from(tooltip.element.querySelectorAll('tbody tr')).find((row) =>
+                row.textContent?.includes('Edge')
+            )
             const firefoxRow = Array.from(tooltip.element.querySelectorAll('tbody tr')).find((row) =>
                 row.textContent?.includes('Firefox')
             )
@@ -187,6 +190,7 @@ describe('TrendsLineChart', () => {
             expect(headerText).toContain('Pageview')
             expect(headerText).toContain('Napped')
             expect(tooltip.row('Chrome')).toContain('10')
+            expect(edgeRow?.textContent).toContain('0')
             expect(firefoxRow?.textContent).toContain('7')
         })
 
