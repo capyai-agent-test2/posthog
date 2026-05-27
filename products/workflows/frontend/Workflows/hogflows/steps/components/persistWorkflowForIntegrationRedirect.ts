@@ -10,6 +10,7 @@ type PersistWorkflowRedirectParams = {
     hogFunctionTemplatesById: Record<string, HogFunctionTemplateType>
     redirectUrl?: string
     currentTab?: string
+    shouldSaveDraft?: boolean
     setWorkflowValues: (workflow: HogFlow) => void
     saveDraftWorkflow: (workflow: HogFlow) => Promise<HogFlow>
 }
@@ -19,10 +20,15 @@ export async function persistWorkflowForIntegrationRedirect({
     hogFunctionTemplatesById,
     redirectUrl,
     currentTab,
+    shouldSaveDraft = true,
     setWorkflowValues,
     saveDraftWorkflow,
 }: PersistWorkflowRedirectParams): Promise<string | undefined> {
     if (!redirectUrl) {
+        return redirectUrl
+    }
+
+    if (!shouldSaveDraft) {
         return redirectUrl
     }
 

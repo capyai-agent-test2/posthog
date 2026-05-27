@@ -29,7 +29,7 @@ export function HogFlowFunctionConfiguration({
     setMappings?: (mappings: HogFunctionMappingType[]) => void
     errors?: Record<string, string>
 }): JSX.Element {
-    const { workflow, hogFunctionTemplatesById, hogFunctionTemplatesByIdLoading } = useValues(workflowLogic)
+    const { workflow, hogFunctionTemplatesById, hogFunctionTemplatesByIdLoading, logicProps } = useValues(workflowLogic)
     const { setWorkflowValues } = useActions(workflowLogic)
 
     const template = hogFunctionTemplatesById[templateId]
@@ -118,6 +118,7 @@ export function HogFlowFunctionConfiguration({
             hogFunctionTemplatesById,
             redirectUrl,
             currentTab: workflowSceneLogic.findMounted()?.values.currentTab,
+            shouldSaveDraft: !logicProps.editTemplateId,
             setWorkflowValues,
             saveDraftWorkflow: (savedWorkflow) =>
                 savedWorkflow.id && savedWorkflow.id !== 'new'

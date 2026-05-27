@@ -76,4 +76,23 @@ describe('persistWorkflowForIntegrationRedirect', () => {
         expect(setWorkflowValues).toHaveBeenCalledWith(expect.objectContaining({ id: 'wf-456', name: 'Saved draft' }))
         expect(next).toBe('/project/1/workflows/wf-456/workflow?integration_target=slack')
     })
+
+    it('skips persistence for template edit redirects', async () => {
+        const setWorkflowValues = jest.fn()
+        const saveDraftWorkflow = jest.fn()
+
+        const next = await persistWorkflowForIntegrationRedirect({
+            workflow: makeWorkflow({ id: 'tpl-123' }),
+            hogFunctionTemplatesById: templatesById,
+            redirectUrl: '/project/1/workflows/new?integration_target=slack',
+            currentTab: 'workflow',
+            shouldSaveDraft: false,
+            setWorkflowValues,
+            saveDraftWorkflow,
+        })
+
+        expect(saveDraftWorkflow).not.toHaveBeenCalled()
+        expect(setWorkflowValues).not.toHaveBeenCalled()
+        expect(next).toBe('/project/1/workflows/new?integration_target=slack')
+    })
 })

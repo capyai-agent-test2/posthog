@@ -1,5 +1,5 @@
 import { useActions, useValues } from 'kea'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 import { IconExternal, IconTrash, IconX } from '@posthog/icons'
 import { LemonButton, LemonMenu, LemonSkeleton } from '@posthog/lemon-ui'
@@ -8,6 +8,7 @@ import api from 'lib/api'
 import { integrationsLogic } from 'lib/integrations/integrationsLogic'
 import { IntegrationView } from 'lib/integrations/IntegrationView'
 import { getIntegrationNameFromKind } from 'lib/integrations/utils'
+import { lemonToast } from 'lib/lemon-ui/LemonToast'
 import { urls } from 'scenes/urls'
 
 import { getAllRegisteredIntegrationSetups, getIntegrationSetup } from './integrationSetupRegistry'
@@ -36,6 +37,7 @@ export function IntegrationChoice({
     const { newGoogleCloudKey, openNewIntegrationModal, closeNewIntegrationModal, deleteIntegration } =
         useActions(integrationsLogic)
     const kind = integration
+    const [isRedirecting, setIsRedirecting] = useState(false)
 
     const integrationsOfKind = integrations?.filter((x) => x.kind === kind)
     const integrationKind = integrationsOfKind?.find((integration) => integration.id === value)
@@ -105,14 +107,26 @@ export function IntegrationChoice({
           : {
                 to: authorizeUrl,
                 disableClientSideRouting: true,
+                disabledReason: isRedirecting ? 'Connecting…' : undefined,
                 onClick: async (e) => {
                     e.preventDefault()
-                    const next = (await beforeRedirect?.(redirectUrl)) ?? redirectUrl
-                    window.location.href = api.integrations.authorizeUrl({
-                        kind,
-                        next,
-                        is_sandbox: isSandbox || undefined,
-                    })
+                    if (isRedirecting) {
+                        return
+                    }
+
+                    setIsRedirecting(true)
+
+                    try {
+                        const next = (await beforeRedirect?.(redirectUrl)) ?? redirectUrl
+                        window.location.href = api.integrations.authorizeUrl({
+                            kind,
+                            next,
+                            is_sandbox: isSandbox || undefined,
+                        })
+                    } catch {
+                        setIsRedirecting(false)
+                        lemonToast.error(`Could not save changes before connecting ${kindName.toLowerCase()}`)
+                    }
                 },
                 label: integrationsOfKind?.length
                     ? `Connect to a different integration for ${kindName}`
@@ -170,9 +184,21 @@ export function IntegrationChoice({
             ]}
         >
             {integrationKind ? (
-                <LemonButton type="secondary">Change</LemonButton>
+                <LemonButton
+                    type="secondary"
+                    loading={isRedirecting}
+                    disabledReason={isRedirecting ? 'Connecting…' : undefined}
+                >
+                    Change
+                </LemonButton>
             ) : (
-                <LemonButton type="secondary">Choose {kindName} connection</LemonButton>
+                <LemonButton
+                    type="secondary"
+                    loading={isRedirecting}
+                    disabledReason={isRedirecting ? 'Connecting…' : undefined}
+                >
+                    Choose {kindName} connection
+                </LemonButton>
             )}
         </LemonMenu>
     )
