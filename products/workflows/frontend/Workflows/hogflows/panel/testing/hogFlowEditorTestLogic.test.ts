@@ -1,18 +1,50 @@
-import { expectLogic } from 'kea-test-utils'
+import { resetContext } from 'kea'
+import { expectLogic, testUtilsPlugin } from 'kea-test-utils'
 
+import { useMocks } from '~/mocks/jest'
+import { performQuery } from '~/queries/query'
+import { NodeKind } from '~/queries/schema/schema-general'
 import { initKeaTests } from '~/test/init'
 
-import { hogFlowEditorTestLogic } from './hogFlowEditorTestLogic'
+import { workflowLogic } from '../../../workflowLogic'
+import { hogFlowEditorTestLogic, SAMPLE_EVENT_SELECT } from './hogFlowEditorTestLogic'
+
+jest.mock('~/queries/query', () => {
+    const actual = jest.requireActual('~/queries/query')
+    return {
+        ...actual,
+        performQuery: jest.fn().mockResolvedValue({ results: [] }),
+    }
+})
 
 describe('hogFlowEditorTestLogic', () => {
     let logic: ReturnType<typeof hogFlowEditorTestLogic.build>
 
     beforeEach(() => {
+        localStorage.clear()
+        sessionStorage.clear()
+        resetContext({
+            plugins: [testUtilsPlugin],
+        })
+        useMocks({
+            get: {
+                '/api/environments/@current/hog_flows/test-workflow/': {
+                    id: 'test-workflow',
+                    team_id: 1,
+                    name: 'Test Workflow',
+                    status: 'draft',
+                    actions: [],
+                    edges: [],
+                },
+            },
+        })
         initKeaTests()
     })
 
     describe('accumulatedVariables reducer', () => {
         beforeEach(() => {
+            const workflowLogicInstance = workflowLogic({ id: 'test-workflow' })
+            workflowLogicInstance.mount()
             logic = hogFlowEditorTestLogic({ id: 'test-workflow' })
             logic.mount()
         })
@@ -154,6 +186,32 @@ describe('hogFlowEditorTestLogic', () => {
             }).toMatchValues({
                 accumulatedVariables: {},
             })
+        })
+    })
+
+    describe('sample event query shape', () => {
+        beforeEach(() => {
+            const workflowLogicInstance = workflowLogic({ id: 'test-workflow' })
+            workflowLogicInstance.mount()
+            logic = hogFlowEditorTestLogic({ id: 'test-workflow' })
+            logic.mount()
+        })
+
+        it('requests only the fields needed to build test globals', async () => {
+            ;(performQuery as jest.Mock).mockResolvedValueOnce({
+                results: [['event-uuid', 'distinct-id', '2024-01-01T00:00:00Z', '', '$pageview', {}, 'person-1', {}]],
+            })
+
+            await expectLogic(logic, () => {
+                logic.actions.loadSampleEventByName({ eventName: '$pageview' })
+            })
+
+            expect(performQuery).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    kind: NodeKind.EventsQuery,
+                    select: [...SAMPLE_EVENT_SELECT],
+                })
+            )
         })
     })
 })
