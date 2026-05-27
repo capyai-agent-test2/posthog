@@ -38,12 +38,20 @@ logger = getLogger(__name__)
 
 
 def _compiled_parser_probe(module_name: str) -> bool:
-    completed = subprocess.run(
-        [sys.executable, "-c", f"import {module_name}"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            [sys.executable, "-c", f"import {module_name}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as err:
+        logger.warning(
+            "compiled HogQL parser probe could not spawn; falling back to safer backend",
+            module_name=module_name,
+            error=repr(err),
+        )
+        return False
     if completed.returncode == 0:
         return True
     logger.warning(
