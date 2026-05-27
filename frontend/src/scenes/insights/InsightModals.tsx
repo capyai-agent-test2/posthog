@@ -47,7 +47,10 @@ function InsightSubscriptionsModalWrapper({
 }: {
     insightLogicProps: InsightLogicProps
 }): JSX.Element {
-    const { insightMode, itemId } = useValues(insightSceneLogic)
+    const scopedInsightSceneLogic = insightLogicProps.tabId
+        ? insightSceneLogic({ tabId: insightLogicProps.tabId })
+        : insightSceneLogic
+    const { insightMode, itemId } = useValues(scopedInsightSceneLogic)
     const { insight } = useValues(insightLogic(insightLogicProps))
     const { push } = useActions(router)
 
@@ -63,7 +66,10 @@ function InsightSubscriptionsModalWrapper({
 }
 
 function InsightSharingModalWrapper({ insightLogicProps }: { insightLogicProps: InsightLogicProps }): JSX.Element {
-    const { insightMode } = useValues(insightSceneLogic)
+    const scopedInsightSceneLogic = insightLogicProps.tabId
+        ? insightSceneLogic({ tabId: insightLogicProps.tabId })
+        : insightSceneLogic
+    const { insightMode } = useValues(scopedInsightSceneLogic)
     const theInsightLogic = insightLogic(insightLogicProps)
     const { insightProps, insight } = useValues(theInsightLogic)
     const { insightData } = useValues(insightDataLogic(insightProps))
@@ -85,7 +91,10 @@ function InsightSharingModalWrapper({ insightLogicProps }: { insightLogicProps: 
 }
 
 function InsightAlertsModals({ insightLogicProps }: { insightLogicProps: InsightLogicProps }): JSX.Element {
-    const { insightMode, alertId } = useValues(insightSceneLogic)
+    const scopedInsightSceneLogic = insightLogicProps.tabId
+        ? insightSceneLogic({ tabId: insightLogicProps.tabId })
+        : insightSceneLogic
+    const { insightMode, alertId } = useValues(scopedInsightSceneLogic)
     const { insightProps, insight } = useValues(insightLogic(insightLogicProps))
     const { query } = useValues(insightDataLogic(insightProps))
     const { push } = useActions(router)

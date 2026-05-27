@@ -25,9 +25,11 @@ export interface InsightAsSceneProps {
 }
 
 export function InsightAsScene({ insightId, attachTo, tabId }: InsightAsSceneProps): JSX.Element | null {
+    const scopedInsightSceneLogic = insightSceneLogic({ tabId })
+
     // insightSceneLogic
     const { insightMode, insight, filtersOverride, variablesOverride, hasOverrides, dashboardId } =
-        useValues(insightSceneLogic)
+        useValues(scopedInsightSceneLogic)
     const { currentTeamId } = useValues(teamLogic)
 
     // insightLogic

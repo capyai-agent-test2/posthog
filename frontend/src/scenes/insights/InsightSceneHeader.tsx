@@ -19,7 +19,10 @@ export interface InsightSceneHeaderProps {
 }
 
 export function InsightSceneHeader({ insightLogicProps }: InsightSceneHeaderProps): JSX.Element {
-    const { insightMode, hasOverrides, freshQuery } = useValues(insightSceneLogic)
+    const scopedInsightSceneLogic = insightLogicProps.tabId
+        ? insightSceneLogic({ tabId: insightLogicProps.tabId })
+        : insightSceneLogic
+    const { insightMode, hasOverrides, freshQuery } = useValues(scopedInsightSceneLogic)
     const { showDebugPanel } = useValues(insightDataLogic(insightLogicProps))
     const { insight } = useValues(insightLogic(insightLogicProps))
     const insightId = insightLogicProps.dashboardItemId

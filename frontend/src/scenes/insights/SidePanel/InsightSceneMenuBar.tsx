@@ -81,6 +81,9 @@ export function InsightSceneMenuBar({
 }
 
 function InsightSceneMenuBarInner({ insightLogicProps }: { insightLogicProps: InsightLogicProps }): JSX.Element {
+    const scopedInsightSceneLogic = insightLogicProps.tabId
+        ? insightSceneLogic({ tabId: insightLogicProps.tabId })
+        : insightSceneLogic
     const theInsightLogic = insightLogic(insightLogicProps)
     const { insightProps, insight, hasDashboardItemId, canEditInsight, isSavingTags } = useValues(theInsightLogic)
     const { duplicateInsight, deleteInsight, setInsightMetadata } = useActions(theInsightLogic)
@@ -90,8 +93,8 @@ function InsightSceneMenuBarInner({ insightLogicProps }: { insightLogicProps: In
         useValues(theInsightDataLogic)
     const { toggleQueryEditorPanel, toggleDebugPanel } = useActions(theInsightDataLogic)
 
-    const { insightMode, dashboardId } = useValues(insightSceneLogic)
-    const { setInsightMode } = useActions(insightSceneLogic)
+    const { insightMode, dashboardId } = useValues(scopedInsightSceneLogic)
+    const { setInsightMode } = useActions(scopedInsightSceneLogic)
 
     const { createStaticCohort, startExport } = useActions(exportsLogic)
     const { featureFlags } = useValues(featureFlagLogic)
