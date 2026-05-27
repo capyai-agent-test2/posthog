@@ -53,6 +53,7 @@ import { ExportedSessionRecordingFileV2 } from '../file-playback/types'
 import { sessionRecordingEventUsageLogic } from '../sessionRecordingEventUsageLogic'
 import { playerCommentOverlayLogic } from './commenting/playerFrameCommentOverlayLogic'
 import { playerCommentOverlayLogicType } from './commenting/playerFrameCommentOverlayLogicType'
+import { getClipTimeBounds } from './controller/clipUtils'
 import { playerSettingsLogic } from './playerSettingsLogic'
 import type { sessionRecordingPlayerLogicType } from './sessionRecordingPlayerLogicType'
 import { snapshotDataLogic } from './snapshotDataLogic'
@@ -2105,12 +2106,12 @@ export const sessionRecordingPlayerLogic = kea<sessionRecordingPlayerLogicType>(
             actions.exportRecording(ExporterFormat.PNG, timestamp, SessionRecordingPlayerMode.Screenshot)
         },
         getClip: async ({ format, duration = 5, filename }) => {
-            // Center the clip around current time, minus 1 second offset for player start
-            const timestamp = Math.max(
-                0,
-                Math.floor(getCurrentPlayerTime(values.logicProps) - 1 - Math.floor(duration / 2))
+            const { startSeconds } = getClipTimeBounds(
+                values.currentPlayerTime,
+                values.sessionPlayerData?.durationMs ?? 0,
+                duration
             )
-            actions.exportRecording(format, timestamp, SessionRecordingPlayerMode.Screenshot, duration, filename)
+            actions.exportRecording(format, startSeconds, SessionRecordingPlayerMode.Screenshot, duration, filename)
         },
         exportRecordingToVideoFile: async () => {
             const duration = values.sessionPlayerData?.durationMs

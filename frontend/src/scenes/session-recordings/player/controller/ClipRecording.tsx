@@ -12,6 +12,8 @@ import { sessionRecordingPlayerLogic } from 'scenes/session-recordings/player/se
 import { KeyboardShortcut } from '~/layout/navigation-3000/components/KeyboardShortcut'
 import { ExporterFormat } from '~/types'
 
+import { getClipTimeBounds } from './clipUtils'
+
 interface ClipTimes {
     current: string
     startClip: string
@@ -19,32 +21,18 @@ interface ClipTimes {
 }
 
 function calculateClipTimes(currentTimeMs: number | null, sessionDurationMs: number, clipDuration: number): ClipTimes {
-    const startTimeSeconds = (currentTimeMs ?? 0) / 1000
-    const endTimeSeconds = Math.floor(sessionDurationMs / 1000)
-    const fixedUnits = endTimeSeconds > 3600 ? 3 : 2
+    const { currentSeconds, startSeconds, endSeconds } = getClipTimeBounds(
+        currentTimeMs,
+        sessionDurationMs,
+        clipDuration
+    )
+    const fixedUnits = endSeconds > 3600 ? 3 : 2
 
-    const current = colonDelimitedDuration(startTimeSeconds, fixedUnits)
-
-    // Calculate ideal start/end centered around current time
-    let idealStart = startTimeSeconds - clipDuration / 2
-    let idealEnd = startTimeSeconds + clipDuration / 2
-
-    // Adjust if we hit the beginning boundary
-    if (idealStart < 0) {
-        idealStart = 0
-        idealEnd = Math.min(clipDuration, endTimeSeconds)
+    return {
+        current: colonDelimitedDuration(currentSeconds, fixedUnits),
+        startClip: colonDelimitedDuration(startSeconds, fixedUnits),
+        endClip: colonDelimitedDuration(endSeconds, fixedUnits),
     }
-
-    // Adjust if we hit the end boundary
-    if (idealEnd > endTimeSeconds) {
-        idealEnd = endTimeSeconds
-        idealStart = Math.max(0, endTimeSeconds - clipDuration)
-    }
-
-    const startClip = colonDelimitedDuration(idealStart, fixedUnits)
-    const endClip = colonDelimitedDuration(idealEnd, fixedUnits)
-
-    return { current, startClip, endClip }
 }
 
 export function ClipOverlay(): JSX.Element | null {
