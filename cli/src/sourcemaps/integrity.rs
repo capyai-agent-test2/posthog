@@ -22,7 +22,7 @@ fn attr_regex() -> Regex {
 }
 
 fn integrity_regex() -> Regex {
-    Regex::new(r#"(?is)\bintegrity\s*=\s*(?P<quote>["'])(?P<value>[^"']*)(?:["'])"#)
+    Regex::new(r#"(?is)(?P<prefix>\s)integrity\s*=\s*(?P<quote>["'])(?P<value>[^"']*)(?:["'])"#)
         .expect("valid integrity regex")
 }
 
@@ -192,11 +192,15 @@ fn rewrite_integrity_attributes(
         updated_count += 1;
         integrity_regex()
             .replace(tag, |integrity_caps: &Captures| {
+                let prefix = integrity_caps
+                    .name("prefix")
+                    .map(|m| m.as_str())
+                    .unwrap_or(" ");
                 let quote = integrity_caps
                     .name("quote")
                     .map(|m| m.as_str())
                     .unwrap_or("\"");
-                format!("integrity={quote}{new_integrity}{quote}")
+                format!("{prefix}integrity={quote}{new_integrity}{quote}")
             })
             .to_string()
     });
@@ -358,5 +362,27 @@ mod tests {
         assert!(candidates.contains("/assets/app.js"));
         assert!(candidates.contains("static/assets/app.js"));
         assert!(candidates.contains("/static/assets/app.js"));
+    }
+
+    #[test]
+    fn rewrites_integrity_without_touching_data_integrity() {
+        let original_hash = "sha512-old";
+        let expected_hash = format!("sha512-{}", STANDARD.encode(Sha512::digest(b"updated")));
+        let html = format!(
+            r#"<script data-integrity="keep-me" integrity="{original_hash}" src="/assets/app.js"></script>"#
+        );
+
+        let mut assets = BTreeMap::new();
+        assets.insert("assets/app.js".to_string(), b"updated".to_vec());
+
+        let (rewritten, count) = rewrite_integrity_attributes(
+            &html,
+            Path::new("/tmp/dist/index.html"),
+            Path::new("/tmp/dist"),
+            &assets,
+        );
+        assert_eq!(count, 1);
+        assert!(rewritten.contains(r#"data-integrity="keep-me""#));
+        assert!(rewritten.contains(&format!(r#"integrity="{expected_hash}""#)));
     }
 }

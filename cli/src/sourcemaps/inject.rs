@@ -85,6 +85,8 @@ pub fn inject_impl(
         .directory
         .iter()
         .filter_map(|path| path.canonicalize().ok())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
         .map(|path| normalize_integrity_root(&path))
         .collect::<BTreeSet<_>>()
         .into_iter()
