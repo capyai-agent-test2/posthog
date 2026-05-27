@@ -1249,21 +1249,16 @@ export const sessionRecordingPlayerLogic = kea<sessionRecordingPlayerLogicType>(
         tryInitReplayer: () => {
             // Tries to initialize a new player
             const windowId = values.segmentForTimestamp(values.currentTimestamp)?.windowId
+            const snapshots = windowId !== undefined ? values.sessionPlayerData.snapshotsByWindowId[windowId] : null
+
+            if (!values.rootFrame || !snapshots || snapshots.length < 2) {
+                return
+            }
 
             actions.setPlayer(null)
 
             if (values.rootFrame) {
                 values.rootFrame.innerHTML = '' // Clear the previously drawn frames
-            }
-
-            if (
-                !values.rootFrame ||
-                windowId === undefined ||
-                !values.sessionPlayerData.snapshotsByWindowId[windowId] ||
-                values.sessionPlayerData.snapshotsByWindowId[windowId].length < 2
-            ) {
-                actions.setPlayer(null)
-                return
             }
 
             const hlsPlugin = createHLSPlayerPlugin()
@@ -1336,7 +1331,7 @@ export const sessionRecordingPlayerLogic = kea<sessionRecordingPlayerLogicType>(
 
             cache.disposables.add(
                 () => {
-                    const replayer = new Replayer(values.sessionPlayerData.snapshotsByWindowId[windowId], config)
+                    const replayer = new Replayer(snapshots, config)
                     const iframeCleanups: (() => void)[] = []
 
                     replayer.on('fullsnapshot-rebuilded', () => {

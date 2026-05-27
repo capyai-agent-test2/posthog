@@ -941,5 +941,23 @@ describe('sessionRecordingPlayerLogic', () => {
 
             expect(tryInitReplayerSpy).not.toHaveBeenCalled()
         })
+
+        it('does not clear the existing frame when replayer initialization is not possible', () => {
+            const rootFrame = document.createElement('div')
+            rootFrame.innerHTML = '<div class="existing-player">still here</div>'
+
+            logic.actions.setCurrentTimestamp(1500)
+            logic.actions.setCurrentSegment({
+                kind: 'window',
+                startTimestamp: 1000,
+                endTimestamp: 2000,
+                windowId: 99999,
+                isActive: true,
+                durationMs: 1000,
+            })
+            logic.actions.setRootFrame(rootFrame)
+
+            expect(rootFrame.innerHTML).toContain('existing-player')
+        })
     })
 })
