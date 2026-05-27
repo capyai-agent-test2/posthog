@@ -32,6 +32,10 @@
         border-radius: 0 0 var(--radius) var(--radius);
     }
 
+    .InsightCard__viz {
+        min-height: 24rem;
+    }
+
     .LemonTable {
         --lemon-table-background-color: var(--color-bg-surface-primary);
     }
