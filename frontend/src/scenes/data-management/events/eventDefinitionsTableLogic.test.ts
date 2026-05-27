@@ -30,6 +30,8 @@ describe('eventDefinitionsTableLogic', () => {
                 '/api/projects/:team/event_definitions': (req) => {
                     const limit = req.url.searchParams.get('limit')
                     const offset = req.url.searchParams.get('offset')
+                    const search = req.url.searchParams.get('search')
+                    const verified = req.url.searchParams.get('verified')
 
                     if (limit === '50' && !offset) {
                         return [
@@ -43,6 +45,8 @@ describe('eventDefinitionsTableLogic', () => {
                                         limit: 50,
                                         offset: 50,
                                         event_type: EventDefinitionType.Event,
+                                        ...(search ? { search } : {}),
+                                        ...(verified ? { verified } : {}),
                                     }).search
                                 }`,
                             },
@@ -58,6 +62,8 @@ describe('eventDefinitionsTableLogic', () => {
                                     combineUrl(req.url.pathname, {
                                         limit: 50,
                                         event_type: EventDefinitionType.Event,
+                                        ...(search ? { search } : {}),
+                                        ...(verified ? { verified } : {}),
                                     }).search
                                 }`,
                                 next: null,
@@ -222,8 +228,80 @@ describe('eventDefinitionsTableLogic', () => {
         })
 
         it('does not reset filters when the pagination URL updates during a page change', async () => {
+            const url = combineUrl(urls.eventDefinitions(), {
+                event: 'event-filter',
+                verified: true,
+            }).url
+            const secondPageUrl = `api/projects/${MOCK_TEAM_ID}/event_definitions${
+                combineUrl('', {
+                    limit: 50,
+                    offset: 50,
+                    event_type: EventDefinitionType.Event,
+                    search: 'event-filter',
+                    verified: true,
+                }).search
+            }`
+
+            router.actions.push(url)
+            await expectLogic(logic)
+                .toDispatchActions([
+                    router.actionCreators.push(url),
+                    'loadEventDefinitions',
+                    'loadEventDefinitionsSuccess',
+                ])
+                .toMatchValues({
+                    eventDefinitions: partial({
+                        count: 50,
+                        next: secondPageUrl,
+                    }),
+                })
+            expect(logic.values.filters).toEqual({
+                event: 'event-filter',
+                properties: [],
+                event_type: EventDefinitionType.Event,
+                ordering: 'event',
+                tags: undefined,
+                verified: true,
+            })
+
+            api.get.mockClear()
+
+            await expectLogic(logic, () => {
+                logic.actions.loadEventDefinitions(secondPageUrl)
+                router.actions.push(combineUrl(url, { page: 2 }).url)
+            })
+                .toDispatchActionsInAnyOrder([
+                    'loadEventDefinitions',
+                    'loadEventDefinitionsSuccess',
+                    router.actionCreators.push(combineUrl(url, { page: 2 }).url),
+                ])
+                .toMatchValues({
+                    eventDefinitions: partial({
+                        count: 6,
+                        previous: `api/projects/${MOCK_TEAM_ID}/event_definitions?limit=50&event_type=event&search=event-filter&verified=true`,
+                        next: null,
+                    }),
+                })
+
+            expect(logic.values.filters).toEqual({
+                event: 'event-filter',
+                properties: [],
+                event_type: EventDefinitionType.Event,
+                ordering: 'event',
+                tags: undefined,
+                verified: true,
+            })
+            expect(api.get).toHaveBeenCalledTimes(1)
+            expect(api.get).toHaveBeenCalledWith(secondPageUrl)
+        })
+
+        it('applies URL-driven filter changes even while a page load is in flight', async () => {
             const url = urls.eventDefinitions()
             const secondPageUrl = `api/projects/${MOCK_TEAM_ID}/event_definitions?limit=50&offset=50&event_type=event`
+            const updatedUrl = combineUrl(url, {
+                event: 'new-filter',
+                verified: true,
+            }).url
 
             router.actions.push(url)
             await expectLogic(logic)
@@ -241,21 +319,28 @@ describe('eventDefinitionsTableLogic', () => {
 
             api.get.mockClear()
 
-            logic.actions.loadEventDefinitions(secondPageUrl)
-            router.actions.push(combineUrl(url, { page: 2 }).url)
+            await expectLogic(logic, () => {
+                logic.actions.loadEventDefinitions(secondPageUrl)
+                router.actions.push(updatedUrl)
+            }).toDispatchActionsInAnyOrder([
+                'loadEventDefinitions',
+                'setFilters',
+                'loadEventDefinitionsSuccess',
+                router.actionCreators.push(updatedUrl),
+            ])
 
-            await expectLogic(logic)
-                .toFinishAllListeners()
-                .toMatchValues({
-                    eventDefinitions: partial({
-                        count: 6,
-                        previous: `api/projects/${MOCK_TEAM_ID}/event_definitions?limit=50&event_type=event`,
-                        next: null,
-                    }),
-                })
-
+            expect(logic.values.filters).toEqual({
+                event: 'new-filter',
+                properties: [],
+                event_type: EventDefinitionType.Event,
+                ordering: 'event',
+                tags: undefined,
+                verified: true,
+            })
             expect(api.get).toHaveBeenCalledTimes(1)
-            expect(api.get).toHaveBeenCalledWith(secondPageUrl)
+            expect(api.get).toHaveBeenCalledWith(
+                `api/projects/${MOCK_TEAM_ID}/event_definitions?limit=50&search=new-filter&ordering=event&event_type=event&verified=true`
+            )
         })
     })
 
