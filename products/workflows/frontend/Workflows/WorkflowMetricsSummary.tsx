@@ -11,6 +11,8 @@ import { humanFriendlyNumber } from 'lib/utils'
 import {
     WORKFLOW_SUMMARY_METRICS,
     type EmailMetricRow,
+    workflowSummaryMetricLabels,
+    workflowSummarySeriesMetadata,
     withDisplayName,
     workflowMetricsSummaryLogic,
     type WorkflowMetricsSummaryLogicProps,
@@ -139,7 +141,13 @@ export function WorkflowMetricsSummary({ onSelectAction, ...props }: WorkflowMet
                 emptyState="No email actions in this workflow"
             />
 
-            <AppMetricsTrends appMetricsTrends={workflowSummaryTrends} loading={loading} />
+            <AppMetricsTrends
+                appMetricsTrends={workflowSummaryTrends}
+                loading={loading}
+                metricLabels={workflowSummaryMetricLabels}
+                seriesMetadata={workflowSummarySeriesMetadata}
+                showSeriesFilter
+            />
         </>
     )
 }
