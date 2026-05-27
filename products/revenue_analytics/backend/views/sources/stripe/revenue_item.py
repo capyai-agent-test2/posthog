@@ -294,7 +294,7 @@ def build(handle: SourceHandle) -> BuiltQuery:
                         ast.Alias(
                             alias="invoice_line_items_total_amount_before_discount",
                             expr=parse_expr(
-                                "coalesce(arraySum(arrayMap(x -> JSONExtractInt(x, 'amount'), JSONExtractArrayRaw(assumeNotNull(lines.data)))), 0)"
+                                "coalesce(arraySum(arrayMap(x -> JSONExtractUInt(x, 'amount'), JSONExtractArrayRaw(assumeNotNull(lines.data)))), 0)"
                             ),
                         ),
                         ast.Alias(
