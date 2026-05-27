@@ -24,8 +24,8 @@ describe('VariableInput', () => {
                     code_name: 'start_date',
                     name: 'Start date',
                     type: 'String',
-                    default_value: null,
-                    value: null,
+                    default_value: '',
+                    value: '',
                     isNull: true,
                 }}
             />
@@ -42,7 +42,7 @@ describe('VariableInput', () => {
                     code_name: 'start_date',
                     name: 'Start date',
                     type: 'String',
-                    default_value: null,
+                    default_value: '',
                     value: '2025-09-01',
                     isNull: false,
                 }}

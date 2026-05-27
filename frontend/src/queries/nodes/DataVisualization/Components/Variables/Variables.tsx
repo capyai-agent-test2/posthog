@@ -136,7 +136,7 @@ export const VariableInput = ({
     useEffect(() => {
         setLocalInputValue(getLocalInputValue(variable))
         setIsNull(variable.isNull ?? false)
-    }, [variable])
+    }, [variable.default_value, variable.isNull, variable.type, variable.value])
 
     const variableAsHogQL = `{variables.${variable.code_name}}`
 
