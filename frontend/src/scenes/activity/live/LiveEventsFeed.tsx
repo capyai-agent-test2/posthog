@@ -17,6 +17,8 @@ import { PersonDisplay } from 'scenes/persons/PersonDisplay'
 import { EventCopyLinkButton } from '~/queries/nodes/DataTable/EventRowActions'
 import { LiveEvent } from '~/types'
 
+import { getLiveEventLocationValue } from './liveEventsUtils'
+
 export type LiveEventsFeedColumn = 'event' | 'person' | 'url' | 'recording' | 'timestamp' | 'more'
 
 const ALL_COLUMNS: LiveEventsFeedColumn[] = ['event', 'person', 'url', 'recording', 'timestamp', 'more']
@@ -45,13 +47,7 @@ const COLUMN_DEFINITIONS: Record<LiveEventsFeedColumn, LemonTableColumn<LiveEven
         key: '$current_url' as any,
         className: 'max-w-80',
         render: function Render(_, event: LiveEvent) {
-            return (
-                <span>
-                    {event.properties['$current_url'] ||
-                        event.properties['$screen_name'] ||
-                        event.properties['$pathname']}
-                </span>
-            )
+            return <span>{getLiveEventLocationValue(event.properties)}</span>
         },
     },
     recording: {
