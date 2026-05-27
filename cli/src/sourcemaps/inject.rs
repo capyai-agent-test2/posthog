@@ -8,6 +8,7 @@ use crate::{
     sourcemaps::{
         args::{FileSelectionArgs, ReleaseArgs},
         content::SourceMapFile,
+        integrity::update_html_integrity_for_sources,
         source_pairs::{read_pairs, SourcePair},
     },
     utils::{files::FileSelection, git::get_git_info},
@@ -72,6 +73,11 @@ pub fn inject_impl(
     for pair in &pairs {
         pair.save()?;
     }
+    let updated_sources = pairs
+        .iter()
+        .map(|pair| pair.source.inner.path.clone())
+        .collect::<Vec<_>>();
+    update_html_integrity_for_sources(&file_selection.directory, &updated_sources)?;
     info!("injecting done");
     Ok(())
 }
