@@ -36,6 +36,8 @@ def test_detect_property_type_expression(cluster: ClickhouseCluster) -> None:
                     '{"$survey_response": 1, "$survey_response_2": 2}',
                     [("$survey_response", "String"), ("$survey_response_2", "String")],
                 ),
+                PropertyTypeTestData('{"$el_text": 28}', [("$el_text", "String")]),
+                PropertyTypeTestData('{"$el_text": "2025-04-24"}', [("$el_text", "String")]),
                 # special cases: timestamp detection
                 PropertyTypeTestData(
                     json.dumps({"timestamp": time.time()}),
