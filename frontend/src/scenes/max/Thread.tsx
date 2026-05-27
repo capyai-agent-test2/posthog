@@ -83,18 +83,14 @@ import { MessageTemplate } from './messages/MessageTemplate'
 import { MultiQuestionFormRecap } from './messages/MultiQuestionForm'
 import { NotebookArtifactAnswer } from './messages/NotebookArtifactAnswer'
 import { SessionSummarizationProgress } from './messages/SessionSummarizationProgress'
-import {
-    RecordingsWidget,
-    SummarizeSessionsWidget,
-    UIPayloadAnswer,
-    isRenderableUIPayloadTool,
-} from './messages/UIPayloadAnswer'
+import { RecordingsWidget, SummarizeSessionsWidget, UIPayloadAnswer } from './messages/UIPayloadAnswer'
 import { VisualizationArtifactAnswer } from './messages/VisualizationArtifactAnswer'
 import { MAX_SLASH_COMMANDS, SlashCommandName } from './slash-commands'
 import { getVisibleThreadItems } from './threadVisibility'
 import { TicketPrompt } from './TicketPrompt'
 import { getTicketPromptData, getTicketSummaryData, isTicketConfirmationMessage } from './ticketUtils'
 import { TraceIdProvider, useTraceId } from './TraceIdContext'
+import { isRenderableUIPayloadTool } from './uiPayloadRenderability'
 import { useFeedback } from './useFeedback'
 import {
     isArtifactMessage,
