@@ -88,12 +88,18 @@ pub fn inject_impl(
         .collect::<BTreeSet<_>>()
         .into_iter()
         .map(|path| {
+            let search_boundary = integrity_search_boundary(&path);
             let relevant_sources = updated_sources
                 .iter()
                 .filter(|source| source.starts_with(&path) || path.starts_with(source))
                 .cloned()
                 .collect::<Vec<_>>();
-            normalize_integrity_root(&path, &relevant_sources, public_path_prefix.as_deref())
+            normalize_integrity_root(
+                &path,
+                &relevant_sources,
+                public_path_prefix.as_deref(),
+                search_boundary.as_deref(),
+            )
         })
         .collect::<BTreeSet<_>>()
         .into_iter()
@@ -111,6 +117,7 @@ fn normalize_integrity_root(
     path: &Path,
     relevant_sources: &[PathBuf],
     public_path_prefix: Option<&str>,
+    search_boundary: Option<&Path>,
 ) -> PathBuf {
     let sources = if relevant_sources.is_empty() {
         vec![path.to_path_buf()]
@@ -137,8 +144,18 @@ fn normalize_integrity_root(
         if parent == current {
             return best_match.unwrap_or(fallback);
         }
+        if let Some(boundary) = search_boundary {
+            if !parent.starts_with(boundary) {
+                return best_match.unwrap_or(fallback);
+            }
+        }
         current = parent.to_path_buf();
     }
+}
+
+fn integrity_search_boundary(path: &Path) -> Option<PathBuf> {
+    let cwd = std::env::current_dir().ok()?.canonicalize().ok()?;
+    path.starts_with(&cwd).then_some(cwd)
 }
 
 enum HtmlReferenceStatus {
@@ -266,8 +283,12 @@ mod tests {
         .expect("Failed to write HTML");
         std::fs::write(assets.join("app.js"), "console.log('x');").expect("Failed to write JS");
 
-        let normalized =
-            normalize_integrity_root(&assets.join("app.js"), &[assets.join("app.js")], None);
+        let normalized = normalize_integrity_root(
+            &assets.join("app.js"),
+            &[assets.join("app.js")],
+            None,
+            Some(tempdir.path()),
+        );
         assert_eq!(normalized, dist);
     }
 
@@ -290,8 +311,12 @@ mod tests {
         .expect("Failed to write nested HTML");
         std::fs::write(assets.join("app.js"), "console.log('x');").expect("Failed to write JS");
 
-        let normalized =
-            normalize_integrity_root(&assets.join("app.js"), &[assets.join("app.js")], None);
+        let normalized = normalize_integrity_root(
+            &assets.join("app.js"),
+            &[assets.join("app.js")],
+            None,
+            Some(tempdir.path()),
+        );
         assert_eq!(normalized, dist);
     }
 
@@ -308,7 +333,35 @@ mod tests {
         .expect("Failed to write HTML");
         std::fs::write(assets.join("app.js"), "console.log('x');").expect("Failed to write JS");
 
-        let normalized = normalize_integrity_root(&assets, &[assets.join("app.js")], None);
+        let normalized = normalize_integrity_root(
+            &assets,
+            &[assets.join("app.js")],
+            None,
+            Some(tempdir.path()),
+        );
         assert_eq!(normalized, dist);
+    }
+
+    #[test]
+    fn normalize_integrity_root_respects_search_boundary() {
+        let tempdir = tempfile::tempdir().expect("Failed to create tempdir");
+        let project = tempdir.path().join("project");
+        let dist = project.join("dist");
+        let assets = dist.join("assets");
+        std::fs::create_dir_all(&assets).expect("Failed to create asset directory");
+        std::fs::write(
+            tempdir.path().join("index.html"),
+            r#"<script src="/project/dist/assets/app.js"></script>"#,
+        )
+        .expect("Failed to write outer HTML");
+        std::fs::write(assets.join("app.js"), "console.log('x');").expect("Failed to write JS");
+
+        let normalized = normalize_integrity_root(
+            &assets.join("app.js"),
+            &[assets.join("app.js")],
+            None,
+            Some(&project),
+        );
+        assert_eq!(normalized, assets);
     }
 }
