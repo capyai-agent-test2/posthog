@@ -273,6 +273,43 @@ export function findSegmentForTimestamp(segments: RecordingSegment[], timestamp?
     return null
 }
 
+export async function waitForRecordingToLoadForExport({
+    isFullyLoaded,
+    getSnapshotCount,
+    loadNextSnapshotSource,
+    sleep = delay,
+    delayTimeMs = 1000,
+    maxIdleIterations = 300,
+}: {
+    isFullyLoaded: () => boolean
+    getSnapshotCount: () => number
+    loadNextSnapshotSource: () => void
+    sleep?: (ms: number) => Promise<void>
+    delayTimeMs?: number
+    maxIdleIterations?: number
+}): Promise<void> {
+    let stallCount = 0
+    let lastSnapshotCount = 0
+
+    while (!isFullyLoaded()) {
+        const currentCount = getSnapshotCount()
+
+        if (currentCount > lastSnapshotCount) {
+            stallCount = 0
+            lastSnapshotCount = currentCount
+        } else {
+            stallCount++
+        }
+
+        if (stallCount >= maxIdleIterations) {
+            throw new Error('Timeout waiting for recording to load')
+        }
+
+        loadNextSnapshotSource()
+        await sleep(delayTimeMs)
+    }
+}
+
 function isUserActivity(snapshot: eventWithTime): boolean {
     return (
         snapshot.type === INCREMENTAL_SNAPSHOT_EVENT_TYPE &&
@@ -2012,29 +2049,17 @@ export const sessionRecordingPlayerLogic = kea<sessionRecordingPlayerLogicType>(
                 actions.setPause()
                 actions.loadAllSources()
 
-                const delayTime = 1000
-                const maxStallIterations = 15
-                let stallCount = 0
-                let lastSnapshotCount = 0
-                while (!values.sessionPlayerData.fullyLoaded) {
-                    const currentCount = values.sessionPlayerData.snapshotsByWindowId
-                        ? Object.values(values.sessionPlayerData.snapshotsByWindowId).reduce(
-                              (sum, snaps) => sum + snaps.length,
-                              0
-                          )
-                        : 0
-                    if (currentCount > lastSnapshotCount) {
-                        stallCount = 0
-                        lastSnapshotCount = currentCount
-                    } else {
-                        stallCount++
-                    }
-                    if (stallCount >= maxStallIterations) {
-                        throw new Error('Timeout waiting for recording to load')
-                    }
-                    actions.loadNextSnapshotSource()
-                    await delay(delayTime)
-                }
+                await waitForRecordingToLoadForExport({
+                    isFullyLoaded: () => values.sessionPlayerData.fullyLoaded,
+                    getSnapshotCount: () =>
+                        values.sessionPlayerData.snapshotsByWindowId
+                            ? Object.values(values.sessionPlayerData.snapshotsByWindowId).reduce(
+                                  (sum, snaps) => sum + snaps.length,
+                                  0
+                              )
+                            : 0,
+                    loadNextSnapshotSource: () => actions.loadNextSnapshotSource(),
+                })
 
                 const exportedRecording = values.createExportJSON()
 

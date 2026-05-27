@@ -21,7 +21,12 @@ import {
     recordingMetaJson,
     setupSessionRecordingTest,
 } from './__mocks__/test-setup'
-import { findNewEvents, findSegmentForTimestamp, stripRrwebScriptShims } from './sessionRecordingPlayerLogic'
+import {
+    findNewEvents,
+    findSegmentForTimestamp,
+    stripRrwebScriptShims,
+    waitForRecordingToLoadForExport,
+} from './sessionRecordingPlayerLogic'
 import { snapshotDataLogic } from './snapshotDataLogic'
 import { deleteRecording as deleteRecordingMock } from './utils/playerUtils'
 
@@ -223,6 +228,46 @@ describe('findSegmentForTimestamp', () => {
         expect(result?.windowId).toBe(undefined)
         expect(result?.startTimestamp).toBe(3000)
         expect(result?.endTimestamp).toBe(2001)
+    })
+})
+
+describe('waitForRecordingToLoadForExport', () => {
+    it('allows long exports to finish when progress resumes after the old 15 second timeout', async () => {
+        let iteration = 0
+        let snapshotCount = 0
+        const loadNextSnapshotSource = jest.fn(() => {
+            iteration += 1
+            if (iteration === 16) {
+                snapshotCount = 1
+            }
+        })
+
+        await waitForRecordingToLoadForExport({
+            isFullyLoaded: () => iteration >= 17,
+            getSnapshotCount: () => snapshotCount,
+            loadNextSnapshotSource,
+            sleep: async () => undefined,
+        })
+
+        expect(loadNextSnapshotSource).toHaveBeenCalledTimes(17)
+    })
+
+    it('still times out when loading makes no progress for the full export timeout window', async () => {
+        let iteration = 0
+
+        await expect(
+            waitForRecordingToLoadForExport({
+                isFullyLoaded: () => false,
+                getSnapshotCount: () => 0,
+                loadNextSnapshotSource: () => {
+                    iteration += 1
+                },
+                sleep: async () => undefined,
+                maxIdleIterations: 3,
+            })
+        ).rejects.toThrow('Timeout waiting for recording to load')
+
+        expect(iteration).toBe(2)
     })
 })
 
