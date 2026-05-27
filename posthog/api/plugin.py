@@ -38,6 +38,7 @@ from posthog.models.activity_logging.activity_log import (
 )
 from posthog.models.activity_logging.activity_page import activity_page_response
 from posthog.models.activity_logging.serializers import ActivityLogSerializer
+from posthog.models.hog_function_template import HogFunctionTemplate
 from posthog.models.organization import Organization
 from posthog.models.plugin import PluginSourceFile, transpile, update_validated_data_from_url
 from posthog.models.utils import generate_random_token
@@ -737,12 +738,13 @@ class PluginConfigSerializer(serializers.ModelSerializer):
             # Return plugin config without saving if hog function was created successfully
             return PluginConfig(**validated_data)
 
+        except HogFunctionTemplate.DoesNotExist:
+            plugin_config = cast(PluginConfig, super().create(validated_data))
+            _update_plugin_attachments(self.context["request"], plugin_config)
+            return plugin_config
         except Exception as e:
-            # If anything goes wrong with hog function creation, capture the error but continue with plugin creation
             capture_exception(e)
-            raise ValidationError(
-                "Plugin creation is no longer possible. Please refer to the Hog Functions documentation for more information."
-            )
+            raise ValidationError("Plugin creation failed. Please fix the plugin configuration and try again.")
 
     def update(self, instance: Any, validated_data: Any) -> Any:
         plugin_config = cast(PluginConfig, instance)

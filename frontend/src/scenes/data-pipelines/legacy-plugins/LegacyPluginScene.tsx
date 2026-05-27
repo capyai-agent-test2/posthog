@@ -17,12 +17,13 @@ const LEGACY_PLUGIN_SCENE_TABS = ['configuration', 'metrics', 'logs', 'history']
 export type LegacyPluginSceneTab = (typeof LEGACY_PLUGIN_SCENE_TABS)[number]
 
 export interface LegacyPluginSceneLogicProps {
-    id: string
+    id?: string
+    pluginId?: string
 }
 
 export const legacyPluginSceneLogic = kea<legacyPluginSceneLogicType>([
     props({} as LegacyPluginSceneLogicProps),
-    key(({ id }: LegacyPluginSceneLogicProps) => id ?? 'new'),
+    key(({ id, pluginId }: LegacyPluginSceneLogicProps) => (id ? `ID:${id}` : pluginId ? `NEW:${pluginId}` : 'new')),
     path((key) => ['scenes', 'data-pipelines', 'legacy-plugins', 'legacyPluginSceneLogic', key]),
     actions({
         setCurrentTab: (tab: LegacyPluginSceneTab) => ({ tab }),
@@ -38,18 +39,17 @@ export const legacyPluginSceneLogic = kea<legacyPluginSceneLogicType>([
     selectors({
         logicProps: [() => [(_, props) => props], (props) => props],
         breadcrumbs: [
-            () => [],
-            (): Breadcrumb[] => {
+            () => [(_, props) => props],
+            ({ pluginId }: LegacyPluginSceneLogicProps): Breadcrumb[] => {
                 return [
                     {
-                        key: Scene.Destinations,
-                        name: 'Destinations',
-                        path: urls.destinations(),
+                        key: 'data-pipelines',
+                        name: 'Data pipelines',
                         iconType: 'data_pipeline',
                     },
                     {
                         key: Scene.LegacyPlugin,
-                        name: 'Plugin destination (deprecated)',
+                        name: pluginId ? 'New custom plugin' : 'Plugin destination (deprecated)',
                         iconType: 'data_pipeline',
                     },
                 ]
@@ -78,9 +78,16 @@ export const legacyPluginSceneLogic = kea<legacyPluginSceneLogicType>([
             }
         }
 
+        const reactToNewPluginTabChange = (_: any, _search: Record<string, string>): void => {
+            if (values.currentTab !== 'configuration') {
+                actions.setCurrentTab('configuration')
+            }
+        }
+
         return {
             // All possible routes for this scene need to be listed here
             [urls.legacyPlugin(':id')]: reactToTabChange,
+            [urls.legacyPluginNew(':pluginId')]: reactToNewPluginTabChange,
         }
     }),
 ])
@@ -88,8 +95,9 @@ export const legacyPluginSceneLogic = kea<legacyPluginSceneLogicType>([
 export const scene: SceneExport = {
     component: LegacyPluginScene,
     logic: legacyPluginSceneLogic,
-    paramsToProps: ({ params: { id } }): (typeof legacyPluginSceneLogic)['props'] => ({
+    paramsToProps: ({ params: { id, pluginId } }): (typeof legacyPluginSceneLogic)['props'] => ({
         id,
+        pluginId,
     }),
 }
 
@@ -97,31 +105,38 @@ export function LegacyPluginScene(): JSX.Element {
     const { currentTab, logicProps } = useValues(legacyPluginSceneLogic)
     const { setCurrentTab } = useActions(legacyPluginSceneLogic)
 
-    const { id } = logicProps
+    const { id, pluginId } = logicProps
 
-    const pluginConfigId = parseInt(id)
+    const pluginConfigId = id ? parseInt(id) : undefined
+    const parsedPluginId = pluginId ? parseInt(pluginId) : undefined
 
     const tabs: (LemonTab<LegacyPluginSceneTab> | null)[] = [
         {
             label: 'Configuration',
             key: 'configuration',
-            content: <PipelinePluginConfiguration pluginConfigId={pluginConfigId} />,
+            content: <PipelinePluginConfiguration pluginId={parsedPluginId} pluginConfigId={pluginConfigId} />,
         },
-        {
-            label: 'Metrics',
-            key: 'metrics',
-            content: <PipelineNodeMetrics id={pluginConfigId} />,
-        },
-        {
-            label: 'Logs',
-            key: 'logs',
-            content: <PipelineNodeLogs id={pluginConfigId} />,
-        },
-        {
-            label: 'History',
-            key: 'history',
-            content: <ActivityLog id={id} scope={ActivityScope.PLUGIN} />,
-        },
+        pluginConfigId
+            ? {
+                  label: 'Metrics',
+                  key: 'metrics',
+                  content: <PipelineNodeMetrics id={pluginConfigId} />,
+              }
+            : null,
+        pluginConfigId
+            ? {
+                  label: 'Logs',
+                  key: 'logs',
+                  content: <PipelineNodeLogs id={pluginConfigId} />,
+              }
+            : null,
+        pluginConfigId
+            ? {
+                  label: 'History',
+                  key: 'history',
+                  content: <ActivityLog id={id} scope={ActivityScope.PLUGIN} />,
+              }
+            : null,
     ]
 
     return <LemonTabs activeKey={currentTab} tabs={tabs} onChange={setCurrentTab} />

@@ -933,6 +933,7 @@ export const routes: Record<string, [Scene | string, string]> = {
     [urls.dataOps()]: [Scene.DataOps, 'dataOps'],
     [urls.batchExportNew(':service')]: [Scene.BatchExportNew, 'batchExportNew'],
     [urls.batchExport(':id')]: [Scene.BatchExport, 'batchExport'],
+    [urls.legacyPluginNew(':pluginId')]: [Scene.LegacyPlugin, 'legacyPluginNew'],
     [urls.legacyPlugin(':id')]: [Scene.LegacyPlugin, 'legacyPlugin'],
     [urls.hogFunction(':id')]: [Scene.HogFunction, 'hogFunction'],
     [urls.hogFunctionNew(':templateId')]: [Scene.HogFunction, 'hogFunctionNew'],

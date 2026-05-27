@@ -16,6 +16,7 @@ import { ProductKey } from '~/queries/schema/schema-general'
 import { ActivityScope } from '~/types'
 
 import { DataPipelinesHogFunctions } from './DataPipelinesHogFunctions'
+import { InstallLegacyPluginButton } from './legacy-plugins/InstallLegacyPluginButton'
 import { webScriptsSceneLogic } from './webScriptsSceneLogic'
 
 export const scene: SceneExport = {
@@ -29,24 +30,27 @@ export function WebScriptsScene(): JSX.Element {
     const { setActiveTab } = useActions(webScriptsSceneLogic)
 
     const action = (
-        <AppShortcut
-            name="NewPipelineApp"
-            keybind={[keyBinds.new]}
-            intent="New JS snippet"
-            interaction="click"
-            scope={Scene.WebScripts}
-        >
-            <LemonButton
-                type="primary"
-                to={urls.webScriptsNew()}
-                icon={<IconPlusSmall />}
-                size="small"
-                tooltip="New web script"
-                data-attr="new-web-script"
+        <div className="flex items-center gap-2">
+            <InstallLegacyPluginButton />
+            <AppShortcut
+                name="NewPipelineApp"
+                keybind={[keyBinds.new]}
+                intent="New JS snippet"
+                interaction="click"
+                scope={Scene.WebScripts}
             >
-                New web script
-            </LemonButton>
-        </AppShortcut>
+                <LemonButton
+                    type="primary"
+                    to={urls.webScriptsNew()}
+                    icon={<IconPlusSmall />}
+                    size="small"
+                    tooltip="New web script"
+                    data-attr="new-web-script"
+                >
+                    New web script
+                </LemonButton>
+            </AppShortcut>
+        </div>
     )
 
     const tabs = [
