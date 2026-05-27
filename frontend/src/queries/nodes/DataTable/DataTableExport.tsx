@@ -33,6 +33,7 @@ import {
 import { ExportContext, ExporterFormat } from '~/types'
 
 import { dataTableLogic } from './dataTableLogic'
+import { getPersonActorsExportPath, isPersonActorsQuery, shouldUsePersonActorsExportPath } from './personExportUtils'
 
 // Sync with posthog/hogql/constants.py
 export const MAX_SELECT_RETURNED_ROWS = 50000
@@ -48,6 +49,7 @@ export async function startDownload(
 ): Promise<void> {
     const shouldOptimize = shouldOptimizeForExport(query)
 
+    const shouldUsePersonPath = shouldUsePersonActorsExportPath(query.source, onlySelectedColumns)
     let exportSource = query.source
 
     const team = teamLogic.findMounted()?.values?.currentTeam
@@ -60,7 +62,9 @@ export async function startDownload(
 
     const exportContext: ExportContext = isPersonsNode(query.source)
         ? { path: getPersonsEndpoint(query.source) }
-        : { source: exportSource }
+        : shouldUsePersonPath
+          ? { path: getPersonActorsExportPath(query.source) }
+          : { source: exportSource }
 
     if (!exportContext) {
         throw new Error('Unsupported node type')
@@ -116,7 +120,7 @@ export function DataTableExport({ query, fileNameForExport }: DataTableExportPro
         (isEventsQuery(source) || isPersonsNode(source) ? source.properties?.length || 0 : 0) +
         (isEventsQuery(source) && source.event ? 1 : 0) +
         (isPersonsNode(source) && source.search ? 1 : 0)
-    const canExportAllColumns = isEventsQuery(source) && source.select.includes('*')
+    const canExportAllColumns = (isEventsQuery(source) && source.select.includes('*')) || isPersonActorsQuery(source)
     const showExportClipboardButtons =
         isPersonsNode(source) ||
         isEventsQuery(source) ||
