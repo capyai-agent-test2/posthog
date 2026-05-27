@@ -1,18 +1,50 @@
-import { expectLogic } from 'kea-test-utils'
+import { resetContext } from 'kea'
+import { expectLogic, testUtilsPlugin } from 'kea-test-utils'
 
+import { useMocks } from '~/mocks/jest'
+import { performQuery } from '~/queries/query'
+import { NodeKind } from '~/queries/schema/schema-general'
 import { initKeaTests } from '~/test/init'
 
-import { hogFlowEditorTestLogic } from './hogFlowEditorTestLogic'
+import { workflowLogic } from '../../../workflowLogic'
+import { hogFlowEditorTestLogic, SAMPLE_EVENT_SELECT } from './hogFlowEditorTestLogic'
+
+jest.mock('~/queries/query', () => {
+    const actual = jest.requireActual('~/queries/query')
+    return {
+        ...actual,
+        performQuery: jest.fn().mockResolvedValue({ results: [] }),
+    }
+})
 
 describe('hogFlowEditorTestLogic', () => {
     let logic: ReturnType<typeof hogFlowEditorTestLogic.build>
 
     beforeEach(() => {
+        localStorage.clear()
+        sessionStorage.clear()
+        resetContext({
+            plugins: [testUtilsPlugin],
+        })
+        useMocks({
+            get: {
+                '/api/environments/@current/hog_flows/test-workflow/': {
+                    id: 'test-workflow',
+                    team_id: 1,
+                    name: 'Test Workflow',
+                    status: 'draft',
+                    actions: [],
+                    edges: [],
+                },
+            },
+        })
         initKeaTests()
     })
 
     describe('accumulatedVariables reducer', () => {
         beforeEach(() => {
+            const workflowLogicInstance = workflowLogic({ id: 'test-workflow' })
+            workflowLogicInstance.mount()
             logic = hogFlowEditorTestLogic({ id: 'test-workflow' })
             logic.mount()
         })
@@ -153,6 +185,64 @@ describe('hogFlowEditorTestLogic', () => {
                 logic.actions.loadSampleEventByName({ eventName: '$pageview' })
             }).toMatchValues({
                 accumulatedVariables: {},
+            })
+        })
+    })
+
+    describe('sample event query shape', () => {
+        beforeEach(() => {
+            const workflowLogicInstance = workflowLogic({ id: 'test-workflow' })
+            workflowLogicInstance.mount()
+            logic = hogFlowEditorTestLogic({ id: 'test-workflow' })
+            logic.mount()
+        })
+
+        it('requests only the fields needed to build test globals', async () => {
+            ;(performQuery as jest.Mock).mockResolvedValueOnce({
+                results: [['event-uuid', 'distinct-id', '2024-01-01T00:00:00Z', '', '$pageview', {}, 'person-1', {}]],
+            })
+
+            await expectLogic(logic, () => {
+                logic.actions.loadSampleEventByName({ eventName: '$pageview' })
+            })
+
+            expect(performQuery).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    kind: NodeKind.EventsQuery,
+                    select: [...SAMPLE_EVENT_SELECT],
+                })
+            )
+        })
+
+        it('rotates to a different matching event when the current one is already loaded', async () => {
+            ;(performQuery as jest.Mock).mockResolvedValueOnce({
+                results: [
+                    ['event-1', 'distinct-id-1', '2024-01-01T00:00:00Z', '', '$pageview', {}, 'person-1', {}],
+                    ['event-2', 'distinct-id-2', '2024-01-02T00:00:00Z', '', '$pageview', {}, 'person-2', {}],
+                ],
+            })
+
+            logic.actions.setSampleGlobals(
+                JSON.stringify({
+                    event: {
+                        uuid: 'event-1',
+                        distinct_id: 'distinct-id-1',
+                        timestamp: '2024-01-01T00:00:00Z',
+                        elements_chain: '',
+                        event: '$pageview',
+                        properties: {},
+                    },
+                })
+            )
+
+            await expectLogic(logic, () => {
+                logic.actions.loadSampleGlobals()
+            }).toMatchValues({
+                sampleGlobals: expect.objectContaining({
+                    event: expect.objectContaining({
+                        uuid: 'event-2',
+                    }),
+                }),
             })
         })
     })

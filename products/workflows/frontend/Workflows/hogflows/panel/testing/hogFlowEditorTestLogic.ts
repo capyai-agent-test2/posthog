@@ -31,6 +31,27 @@ const STANDARD_SEARCH_DAYS = 7
 const EXTENDED_SEARCH_DAYS = 30
 const STANDARD_SEARCH_RANGE = `-${STANDARD_SEARCH_DAYS}d`
 const EXTENDED_SEARCH_RANGE = `-${EXTENDED_SEARCH_DAYS}d`
+export const SAMPLE_EVENT_SELECT = [
+    'uuid',
+    'distinct_id',
+    'timestamp',
+    'elements_chain',
+    'event',
+    'properties',
+    'person.id',
+    'person.properties',
+] as const
+
+type SampleEventResultRow = [
+    string,
+    string,
+    string,
+    string | null,
+    string,
+    Record<string, any>,
+    string | null,
+    Record<string, any> | null,
+]
 
 export interface HogflowTestInvocation {
     globals: string
@@ -120,6 +141,33 @@ export const createGlobalsFromResponse = (
             url: window.location.href.split('#')[0],
         },
     }
+}
+
+export const createGlobalsFromQueryRow = (
+    row: SampleEventResultRow,
+    teamId: number,
+    workflowName?: string | null
+): CyclotronJobInvocationGlobals => {
+    const [uuid, distinctId, timestamp, elementsChain, eventName, properties, personId, personProperties] = row
+
+    return createGlobalsFromResponse(
+        {
+            uuid,
+            distinct_id: distinctId,
+            timestamp,
+            elements_chain: elementsChain || '',
+            event: eventName,
+            properties,
+        },
+        personId
+            ? {
+                  id: personId,
+                  properties: personProperties ?? {},
+              }
+            : null,
+        teamId,
+        workflowName
+    )
 }
 
 export const hogFlowEditorTestLogic = kea<hogFlowEditorTestLogicType>([
@@ -268,7 +316,7 @@ export const hogFlowEditorTestLogic = kea<hogFlowEditorTestLogicType>([
                         const query: EventsQuery = {
                             kind: NodeKind.EventsQuery,
                             fixedProperties: [values.matchingFilters],
-                            select: ['*', 'person'],
+                            select: [...SAMPLE_EVENT_SELECT],
                             after: timeRange,
                             limit: 10,
                             orderBy: ['timestamp DESC'],
@@ -311,7 +359,7 @@ export const hogFlowEditorTestLogic = kea<hogFlowEditorTestLogicType>([
                         if (values.sampleGlobals?.event?.uuid && response.results.length > 1) {
                             // Find the index of the current event
                             const currentIndex = response.results.findIndex(
-                                (result) => result[0].uuid === values.sampleGlobals?.event?.uuid
+                                (result) => result[0] === values.sampleGlobals?.event?.uuid
                             )
                             // Pick the next event in the list, cycling back to the start if needed
                             if (currentIndex !== -1) {
@@ -319,10 +367,11 @@ export const hogFlowEditorTestLogic = kea<hogFlowEditorTestLogicType>([
                             }
                         }
 
-                        const event = response.results[resultIndex][0]
-                        const person = response.results[resultIndex][1]
-
-                        return createGlobalsFromResponse(event, person, values.workflow.team_id, values.workflow.name)
+                        return createGlobalsFromQueryRow(
+                            response.results[resultIndex] as SampleEventResultRow,
+                            values.workflow.team_id,
+                            values.workflow.name
+                        )
                     } catch (e: any) {
                         if (!e.message?.includes('breakpoint')) {
                             actions.setSampleGlobalsError('Failed to load matching events. Please try again.')
@@ -351,7 +400,7 @@ export const hogFlowEditorTestLogic = kea<hogFlowEditorTestLogicType>([
                                     ],
                                 },
                             ],
-                            select: ['*', 'person'],
+                            select: [...SAMPLE_EVENT_SELECT],
                             after: timeRange,
                             limit: 1,
                             orderBy: ['timestamp DESC'],
@@ -383,12 +432,13 @@ export const hogFlowEditorTestLogic = kea<hogFlowEditorTestLogicType>([
                             return exampleGlobals
                         }
 
-                        const event = response.results[0][0]
-                        const person = response.results[0][1]
-
                         actions.setSampleGlobalsError(null)
                         actions.setCanTryExtendedSearch(false)
-                        return createGlobalsFromResponse(event, person, values.workflow.team_id, values.workflow.name)
+                        return createGlobalsFromQueryRow(
+                            response.results[0] as SampleEventResultRow,
+                            values.workflow.team_id,
+                            values.workflow.name
+                        )
                     } catch {
                         actions.setSampleGlobalsError('Failed to load event. Please try again.')
                         return null
