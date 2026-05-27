@@ -1,3 +1,6 @@
+import csv
+import json
+import tempfile
 from decimal import Decimal
 from pathlib import Path
 
@@ -31,7 +34,9 @@ from products.revenue_analytics.backend.hogql_queries.test.data.structure import
     STRIPE_INVOICE_COLUMNS,
     STRIPE_SUBSCRIPTION_COLUMNS,
 )
+from products.revenue_analytics.backend.views.core import view_prefix_for_source
 from products.revenue_analytics.backend.views.schemas.mrr import SCHEMA as MRR_SCHEMA
+from products.revenue_analytics.backend.views.schemas.revenue_item import SCHEMA as REVENUE_ITEM_SCHEMA
 from products.warehouse_sources.backend.models.external_data_schema import ExternalDataSchema
 
 INVOICES_TEST_BUCKET = "test_storage_bucket-posthog.revenue_analytics.mrr_views.stripe_invoices"
@@ -212,6 +217,90 @@ class TestMRRViewsE2E(ClickhouseTestMixin, QueryMatchingTest, APIBaseTest):
                 ("stripe.posthog_test", "cus_6", "sub_6", Decimal("0")),
             ],
         )
+
+    def test_query_output_data_warehouse_tables_uses_invoice_level_discounts(self):
+        with self.invoices_csv_path.open() as invoice_file:
+            invoice_rows = list(csv.DictReader(invoice_file))
+            invoice_headers = list(invoice_rows[0].keys())
+
+        invoice_row = invoice_rows[1].copy()
+        invoice_row["id"] = "in_invoice_discount_only"
+        invoice_row["customer"] = "cus_invoice_discount_only"
+        invoice_row["subscription"] = "sub_invoice_discount_only"
+        invoice_row["currency"] = "usd"
+        invoice_row["discount"] = json.dumps({"coupon": {"id": "coupon_invoice", "name": "Invoice only discount"}})
+        invoice_row["total_discount_amounts"] = json.dumps([{"amount": 500}])
+        lines = json.loads(invoice_row["lines"])
+        line = lines["data"][0]
+        line["id"] = "il_invoice_discount_only"
+        line["invoice"] = invoice_row["id"]
+        line["amount"] = 1000
+        line["currency"] = invoice_row["currency"]
+        line["discount_amounts"] = []
+        line["subscription"] = invoice_row["subscription"]
+        line["parent"]["subscription_item_details"]["subscription"] = invoice_row["subscription"]
+        lines["data"] = [line]
+        lines["total_count"] = 1
+        invoice_row["lines"] = json.dumps(lines)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as temp_invoice_csv:
+            writer = csv.DictWriter(temp_invoice_csv, fieldnames=invoice_headers)
+            writer.writeheader()
+            writer.writerow(invoice_row)
+            temp_invoice_csv_path = Path(temp_invoice_csv.name)
+
+        temp_invoices_table, temp_source, _, _, temp_invoices_cleanup = create_data_warehouse_table_from_csv(
+            temp_invoice_csv_path,
+            "stripe_invoice",
+            STRIPE_INVOICE_COLUMNS,
+            INVOICES_TEST_BUCKET,
+            self.team,
+            source_prefix="posthog_invoice_discount_",
+        )
+
+        schema = None
+        try:
+            schema = ExternalDataSchema.objects.create(
+                team=self.team,
+                name=STRIPE_INVOICE_RESOURCE_NAME,
+                source=temp_source,
+                table=temp_invoices_table,
+                should_sync=True,
+                last_synced_at="2024-01-01",
+            )
+
+            query = ast.SelectQuery(
+                select=[
+                    ast.Field(chain=["invoice_id"]),
+                    ast.Field(chain=["coupon"]),
+                    ast.Field(chain=["original_amount"]),
+                    ast.Field(chain=["amount"]),
+                ],
+                select_from=ast.JoinExpr(
+                    table=ast.Field(chain=[f"{view_prefix_for_source(temp_source)}.{REVENUE_ITEM_SCHEMA.source_suffix}"])
+                ),
+            )
+
+            response = self._execute_query(query)
+
+            self.assertEqual(
+                response.results,
+                [
+                    (
+                        "in_invoice_discount_only",
+                        "Invoice only discount",
+                        Decimal("500"),
+                        Decimal("3.3269999999"),
+                    )
+                ],
+            )
+        finally:
+            temp_invoices_cleanup()
+            if schema is not None:
+                schema.delete()
+            temp_invoices_table.delete()
+            temp_source.delete()
+            temp_invoice_csv_path.unlink(missing_ok=True)
 
     def test_query_output_events(self):
         self.team.revenue_analytics_config.events = [
