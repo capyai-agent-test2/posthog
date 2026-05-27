@@ -433,3 +433,20 @@ class TestSubscription(BaseTest):
             )
             subscription.set_next_delivery_date()
             assert subscription.next_delivery_date == expected_next
+
+    def test_set_next_delivery_date_stays_at_local_wall_clock_across_dst(self):
+        self.team.timezone = "America/Chicago"
+        self.team.save(update_fields=["timezone"])
+
+        subscription = self._create_insight_subscription(
+            frequency="daily",
+            interval=1,
+            start_date=datetime(2025, 10, 31, 13, 0, tzinfo=ZoneInfo("UTC")),
+        )
+
+        subscription.set_next_delivery_date(from_dt=datetime(2025, 11, 3, 12, 0, tzinfo=ZoneInfo("UTC")))
+
+        assert subscription.next_delivery_date == datetime(2025, 11, 3, 14, 0, tzinfo=ZoneInfo("UTC"))
+        local_next_delivery = subscription.next_delivery_date.astimezone(ZoneInfo("America/Chicago"))
+        assert local_next_delivery.hour == 8
+        assert local_next_delivery.minute == 0

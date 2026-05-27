@@ -1,6 +1,7 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, Optional, cast
+from zoneinfo import ZoneInfo
 
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
@@ -174,7 +175,17 @@ class Subscription(models.Model):
     def _compute_next_delivery_date(*, from_dt: Optional[datetime] = None, **rrule_fields: Any) -> Optional[datetime]:
         # Buffer of 15 minutes since we might run a bit early — never schedule into the past.
         now = timezone.now() + timedelta(minutes=15)
-        return Subscription._build_rrule(**rrule_fields).after(dt=max(from_dt or now, now), inc=False)
+        team_timezone = rrule_fields.pop("team_timezone", "UTC") or "UTC"
+        tz = ZoneInfo(team_timezone)
+        localized_rrule_fields = {
+            **rrule_fields,
+            "start_date": rrule_fields["start_date"].astimezone(tz),
+            "until_date": rrule_fields["until_date"].astimezone(tz) if rrule_fields.get("until_date") else None,
+        }
+        next_delivery_date = Subscription._build_rrule(**localized_rrule_fields).after(
+            dt=max(from_dt or now, now).astimezone(tz), inc=False
+        )
+        return next_delivery_date.astimezone(UTC) if next_delivery_date else None
 
     @property
     def rrule(self) -> rrule:
@@ -184,7 +195,9 @@ class Subscription(models.Model):
         # Authoritative schedule — a client-side preview mirror lives in
         # frontend/src/lib/components/Subscriptions/utils.tsx (getNextDeliveryDate).
         self.next_delivery_date = self._compute_next_delivery_date(
-            from_dt=from_dt, **{f: getattr(self, f) for f in self.RRULE_FIELDS}
+            from_dt=from_dt,
+            team_timezone=self.team.timezone,
+            **{f: getattr(self, f) for f in self.RRULE_FIELDS},
         )
 
     @classmethod
@@ -198,7 +211,12 @@ class Subscription(models.Model):
         merged = {**base, **{k: v for k, v in overrides.items() if k in cls.RRULE_FIELDS}}
         if "frequency" not in merged or "start_date" not in merged:
             return None  # DRF field validation should reject before we get here.
-        return cls._compute_next_delivery_date(**merged)
+        team_timezone = (
+            overrides.get("team_timezone")
+            or getattr(overrides.get("team"), "timezone", None)
+            or (instance.team.timezone if instance is not None else "UTC")
+        )
+        return cls._compute_next_delivery_date(team_timezone=team_timezone, **merged)
 
     @property
     def url(self):
