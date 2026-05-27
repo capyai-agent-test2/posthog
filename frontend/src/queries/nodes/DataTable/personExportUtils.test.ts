@@ -4,7 +4,7 @@ import { ApiConfig } from 'lib/api'
 
 import { ActorsQuery, NodeKind } from '~/queries/schema/schema-general'
 
-import { getPersonActorsExportPath, isPersonActorsQuery } from './personExportUtils'
+import { getPersonActorsExportPath, isPersonActorsQuery, shouldUsePersonActorsExportPath } from './personExportUtils'
 
 describe('personExportUtils', () => {
     beforeEach(() => {
@@ -25,6 +25,11 @@ describe('personExportUtils', () => {
         ).toBe(false)
     })
 
+    it('only uses the persons endpoint for export-all', () => {
+        expect(shouldUsePersonActorsExportPath(personActorsQuery, false)).toBe(true)
+        expect(shouldUsePersonActorsExportPath(personActorsQuery, true)).toBe(false)
+    })
+
     it('builds a persons endpoint path for top-level person actors queries', () => {
         const exportPath = getPersonActorsExportPath(personActorsQuery)
         expect(exportPath).toContain(`api/environments/${MOCK_TEAM_ID}/persons?`)
@@ -39,5 +44,14 @@ describe('personExportUtils', () => {
                 fixedProperties: [{ type: 'cohort', key: 'id', value: 7 }],
             })
         ).toContain('/api/cohort/7/persons?')
+    })
+
+    it('keeps cohort exclusion filters on the persons endpoint', () => {
+        const exportPath = getPersonActorsExportPath({
+            ...personActorsQuery,
+            fixedProperties: [{ type: 'cohort', key: 'id', value: 7, operator: 'not_in' }],
+        })
+        expect(exportPath).toContain(`api/environments/${MOCK_TEAM_ID}/persons?`)
+        expect(exportPath).toContain('not_in')
     })
 })

@@ -33,7 +33,7 @@ import {
 import { ExportContext, ExporterFormat } from '~/types'
 
 import { dataTableLogic } from './dataTableLogic'
-import { getPersonActorsExportPath, isPersonActorsQuery } from './personExportUtils'
+import { getPersonActorsExportPath, isPersonActorsQuery, shouldUsePersonActorsExportPath } from './personExportUtils'
 
 // Sync with posthog/hogql/constants.py
 export const MAX_SELECT_RETURNED_ROWS = 50000
@@ -49,7 +49,7 @@ export async function startDownload(
 ): Promise<void> {
     const shouldOptimize = shouldOptimizeForExport(query)
 
-    const isTopLevelPersonActorsQuery = isPersonActorsQuery(query.source)
+    const shouldUsePersonPath = shouldUsePersonActorsExportPath(query.source, onlySelectedColumns)
     let exportSource = query.source
 
     const team = teamLogic.findMounted()?.values?.currentTeam
@@ -62,7 +62,7 @@ export async function startDownload(
 
     const exportContext: ExportContext = isPersonsNode(query.source)
         ? { path: getPersonsEndpoint(query.source) }
-        : isTopLevelPersonActorsQuery
+        : shouldUsePersonPath
           ? { path: getPersonActorsExportPath(query.source) }
           : { source: exportSource }
 

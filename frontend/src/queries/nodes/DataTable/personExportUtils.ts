@@ -7,6 +7,10 @@ export function isPersonActorsQuery(source: DataNode): source is ActorsQuery {
     return source.kind === NodeKind.ActorsQuery && !source.source
 }
 
+export function shouldUsePersonActorsExportPath(source: DataNode, onlySelectedColumns: boolean): source is ActorsQuery {
+    return isPersonActorsQuery(source) && !onlySelectedColumns
+}
+
 function getCombinedProperties(source: ActorsQuery): AnyPropertyFilter[] {
     return [
         ...(Array.isArray(source.fixedProperties) ? source.fixedProperties : []),
@@ -17,7 +21,11 @@ function getCombinedProperties(source: ActorsQuery): AnyPropertyFilter[] {
 export function getPersonActorsExportPath(source: ActorsQuery): string {
     const properties = getCombinedProperties(source)
     const cohortFilter = properties.find(
-        (property) => property.type === 'cohort' && property.key === 'id' && typeof property.value === 'number'
+        (property) =>
+            property.type === 'cohort' &&
+            property.key === 'id' &&
+            typeof property.value === 'number' &&
+            property.operator !== 'not_in'
     )
     const remainingProperties = properties.filter((property) => property !== cohortFilter)
     const params = {
