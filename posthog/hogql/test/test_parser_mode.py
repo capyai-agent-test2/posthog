@@ -1,15 +1,23 @@
-from posthog.test.base import BaseTest
 from unittest.mock import patch
+
+from django.test import SimpleTestCase
 
 from parameterized import parameterized
 
 from posthog.schema import ParserMode
 
-from posthog.hogql import ast
+from posthog.hogql import (
+    ast,
+    parser as parser_module,
+)
 from posthog.hogql.parser import HogQLParserShadowMismatch, _resolve_parser_mode, parse_select
 
 
-class TestParserMode(BaseTest):
+class TestParserMode(SimpleTestCase):
+    def test_compiled_parser_probe_returns_false_when_subprocess_spawn_fails(self):
+        with patch("posthog.hogql.parser.subprocess.run", side_effect=OSError("blocked")):
+            self.assertFalse(parser_module._compiled_parser_probe("hogql_parser"))
+
     @parameterized.expand(
         [
             # An absent modifier in TEST defaults to CPP_WITH_RUST_SHADOW so
@@ -39,6 +47,47 @@ class TestParserMode(BaseTest):
         with patch("posthog.hogql.parser.settings") as mock_settings:
             mock_settings.TEST = False
             self.assertEqual(_resolve_parser_mode(None, "cpp-json"), ("cpp-json", None))
+
+    @parameterized.expand(
+        [
+            (ParserMode.CPP_ONLY, False, True, "python", ("python", None)),
+            (ParserMode.RUST_ONLY, True, False, "cpp-json", ("cpp-json", None)),
+            (ParserMode.RUST_PY_ONLY, True, False, "cpp-json", ("cpp-json", None)),
+            (ParserMode.CPP_ONLY, False, False, "python", ("python", None)),
+        ]
+    )
+    def test_resolve_parser_mode_falls_back_from_unavailable_compiled_backends(
+        self, parser_mode, cpp_available, rust_available, default_backend, expected
+    ):
+        with patch("posthog.hogql.parser._CPP_PARSER_AVAILABLE", cpp_available):
+            with patch("posthog.hogql.parser._RUST_PARSER_AVAILABLE", rust_available):
+                with patch("posthog.hogql.parser.DEFAULT_BACKEND", default_backend):
+                    with patch("posthog.hogql.parser.settings") as mock_settings:
+                        mock_settings.TEST = False
+                        self.assertEqual(_resolve_parser_mode(parser_mode, "cpp-json"), expected)
+
+    def test_resolve_parser_mode_drops_unavailable_shadow_backend(self):
+        with patch("posthog.hogql.parser._RUST_PARSER_AVAILABLE", False):
+            with patch("posthog.hogql.parser.settings") as mock_settings:
+                mock_settings.TEST = True
+                self.assertEqual(_resolve_parser_mode(ParserMode.CPP_WITH_RUST_SHADOW, "cpp-json"), ("cpp-json", None))
+
+    @parameterized.expand(
+        [
+            ("rust-json", True, False),
+            ("rust-py", True, False),
+            ("cpp-json", False, True),
+        ]
+    )
+    def test_resolve_parser_mode_preserves_explicit_backend_override_when_unavailable(
+        self, backend, cpp_available, rust_available
+    ):
+        with patch("posthog.hogql.parser._CPP_PARSER_AVAILABLE", cpp_available):
+            with patch("posthog.hogql.parser._RUST_PARSER_AVAILABLE", rust_available):
+                with patch("posthog.hogql.parser.DEFAULT_BACKEND", "cpp-json" if cpp_available else "python"):
+                    with patch("posthog.hogql.parser.settings") as mock_settings:
+                        mock_settings.TEST = False
+                        self.assertEqual(_resolve_parser_mode(None, backend), (backend, None))
 
     def test_shadow_silent_when_backends_agree(self):
         # A `*_shadow` mode parses with the shadow backend on every sampled
