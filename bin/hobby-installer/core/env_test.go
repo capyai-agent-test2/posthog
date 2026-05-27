@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -69,5 +70,45 @@ func TestUpdateEnvForUpgradeAddsMissingNodeTag(t *testing.T) {
 
 	if got := ReadEnvValue("POSTHOG_NODE_TAG"); got != "sha-new123" {
 		t.Fatalf("expected missing node tag to be backfilled from version, got %q", got)
+	}
+}
+
+func TestUpdateEnvForUpgradeReplacesEmptyNodeTagWithoutDuplicates(t *testing.T) {
+	tempDir := t.TempDir()
+	envPath := filepath.Join(tempDir, ".env")
+	originalWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd returned error: %v", err)
+	}
+	t.Cleanup(func() {
+		if chdirErr := os.Chdir(originalWD); chdirErr != nil {
+			t.Fatalf("failed to restore working directory: %v", chdirErr)
+		}
+	})
+
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("Chdir returned error: %v", err)
+	}
+
+	envContents := "POSTHOG_SECRET=test\nDOMAIN=example.com\nENCRYPTION_SALT_KEYS=0123456789abcdef0123456789abcdef\nPOSTHOG_APP_TAG=old-tag\nPOSTHOG_NODE_TAG=\n"
+	if err := os.WriteFile(envPath, []byte(envContents), 0600); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+
+	if err := UpdateEnvForUpgrade("sha-new123"); err != nil {
+		t.Fatalf("UpdateEnvForUpgrade returned error: %v", err)
+	}
+
+	updatedEnv, err := os.ReadFile(envPath)
+	if err != nil {
+		t.Fatalf("ReadFile returned error: %v", err)
+	}
+
+	if got := ReadEnvValue("POSTHOG_NODE_TAG"); got != "sha-new123" {
+		t.Fatalf("expected empty node tag to be replaced from version, got %q", got)
+	}
+
+	if count := strings.Count(string(updatedEnv), "POSTHOG_NODE_TAG="); count != 1 {
+		t.Fatalf("expected exactly one node tag entry after backfill, got %d", count)
 	}
 }

@@ -162,7 +162,7 @@ func UpdateEnvForUpgrade(version string) error {
 		if nodeTag == "" {
 			nodeTag = "latest"
 		}
-		if err := AppendToEnv("POSTHOG_NODE_TAG", nodeTag); err != nil {
+		if err := UpdateEnvValue("POSTHOG_NODE_TAG", nodeTag); err != nil {
 			return err
 		}
 	}
