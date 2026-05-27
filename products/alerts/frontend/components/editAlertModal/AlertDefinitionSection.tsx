@@ -29,7 +29,7 @@ export interface AlertDefinitionSectionProps {
     alertMode: 'detector' | 'threshold'
     isBreakdownValid: boolean
     isNonTimeSeriesDisplay: boolean
-    alertSeries: Array<{ custom_name?: string | null; name?: string | null; event?: string | null }> | null
+    alertSeries: Array<{ label: string }> | null
     formulaNodes: Array<{ formula: string; custom_name?: string | null }> | undefined
     anomalyDetectionEnabled: boolean
     investigationAgentEnabled: boolean
@@ -83,10 +83,10 @@ export function AlertDefinitionSection({
                                           label: `${custom_name ? custom_name : 'Formula'} (${formula})`,
                                           value: index,
                                       }))
-                                    : (alertSeries?.map(({ custom_name, name, event }, index) => ({
+                                    : (alertSeries?.map(({ label }, index) => ({
                                           label: isBreakdownValid
                                               ? 'any breakdown value'
-                                              : `${alphabet[index]} - ${custom_name ?? name ?? event}`,
+                                              : `${alphabet[index]} - ${label}`,
                                           value: isBreakdownValid ? 0 : index,
                                       })) ?? [])
                             }
