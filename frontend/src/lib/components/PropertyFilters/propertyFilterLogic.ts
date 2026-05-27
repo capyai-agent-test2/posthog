@@ -3,7 +3,6 @@ import { actions, kea, key, listeners, path, props, reducers, selectors } from '
 
 import { PropertyFilterLogicProps } from 'lib/components/PropertyFilters/types'
 import {
-    isValidPropertyFilter,
     parseProperties,
     PROPERTY_FILTER_TYPE_TO_TAXONOMIC_FILTER_GROUP_TYPE,
 } from 'lib/components/PropertyFilters/utils'
@@ -53,6 +52,26 @@ function initFiltersState(filters: AnyPropertyFilter[]): FiltersState {
         nextId: filters.length,
         items: filters.map((filter, i) => ({ _id: i, filter })),
     }
+}
+
+function isCompletePropertyFilter(filter: AnyPropertyFilter | Record<string, any> | null | undefined): boolean {
+    if (!filter || !('key' in filter) || !filter.key) {
+        return false
+    }
+
+    if (filter.type === 'hogql') {
+        return true
+    }
+
+    const hasValue =
+        'value' in filter &&
+        filter.value !== undefined &&
+        filter.value !== null &&
+        (!Array.isArray(filter.value) || filter.value.length > 0)
+
+    const hasFlagOperator = 'operator' in filter && !!filter.operator && isOperatorFlag(filter.operator)
+
+    return hasValue || hasFlagOperator
 }
 
 export const propertyFilterLogic = kea<propertyFilterLogicType>([
@@ -143,7 +162,7 @@ export const propertyFilterLogic = kea<propertyFilterLogicType>([
         },
         remove: () => actions.update(),
         update: () => {
-            const cleanedFilters = [...values.filters].filter(isValidPropertyFilter)
+            const cleanedFilters = [...values.filters].filter(isCompletePropertyFilter)
             props.onChange(cleanedFilters)
         },
     })),
@@ -154,11 +173,11 @@ export const propertyFilterLogic = kea<propertyFilterLogicType>([
             (state: FiltersState): AnyPropertyFilter[] => state.items.map((i) => i.filter),
         ],
         filterIds: [(s) => [s._filtersState], (state: FiltersState): number[] => state.items.map((i) => i._id)],
-        filledFilters: [(s) => [s.filters], (filters) => filters.filter(isValidPropertyFilter)],
+        filledFilters: [(s) => [s.filters], (filters) => filters.filter(isCompletePropertyFilter)],
         filtersWithNew: [
             (s) => [s.filters],
             (filters) => {
-                if (filters.length === 0 || isValidPropertyFilter(filters[filters.length - 1])) {
+                if (filters.length === 0 || isCompletePropertyFilter(filters[filters.length - 1])) {
                     return [...filters, {} as AnyPropertyFilter]
                 }
                 return filters
