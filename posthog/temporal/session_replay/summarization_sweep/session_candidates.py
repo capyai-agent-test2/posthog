@@ -8,6 +8,7 @@ from posthog.schema import HogQLQuery, PropertyOperator, RecordingPropertyFilter
 
 from posthog.hogql import ast
 from posthog.hogql.constants import HogQLGlobalSettings
+from posthog.hogql.property import property_to_expr
 
 from posthog.clickhouse.query_tagging import Feature, Product, tags_context
 from posthog.exceptions_capture import capture_exception
@@ -96,6 +97,10 @@ def _sampling_having_predicate(sample_rate: float) -> ast.Expr | None:
     )
 
 
+def _baseline_having_predicate(team: Team) -> ast.Expr:
+    return property_to_expr(_BASELINE_HAVING_PREDICATES, team=team, scope="replay")
+
+
 def fetch_recent_session_ids(
     team: Team,
     lookback_minutes: int,
@@ -115,7 +120,7 @@ def fetch_recent_session_ids(
             else _DEFAULT_FILTER_TEST_ACCOUNTS,
             date_from=f"-{lookback_minutes}m",
             limit=limit,
-            having_predicates=_BASELINE_HAVING_PREDICATES + (user_defined_query.having_predicates or []),
+            having_predicates=user_defined_query.having_predicates,
             properties=user_defined_query.properties,
             events=user_defined_query.events,
             actions=user_defined_query.actions,
@@ -127,16 +132,19 @@ def fetch_recent_session_ids(
             filter_test_accounts=_DEFAULT_FILTER_TEST_ACCOUNTS,
             date_from=f"-{lookback_minutes}m",
             limit=limit,
-            having_predicates=_BASELINE_HAVING_PREDICATES,
         )
 
     sampling_predicate = _sampling_having_predicate(sample_rate)
+    extra_having_predicates: list[ast.Expr] = [_baseline_having_predicate(team)]
+    if sampling_predicate is not None:
+        extra_having_predicates.append(sampling_predicate)
+
     with tags_context(product=Product.SESSION_SUMMARY, feature=Feature.ENRICHMENT):
         result = SessionRecordingListFromQuery(
             team=team,
             query=query,
             max_execution_time=max_execution_time_seconds,
-            extra_having_predicates=[sampling_predicate] if sampling_predicate is not None else None,
+            extra_having_predicates=extra_having_predicates,
         ).run()
 
     return [recording["session_id"] for recording in result.results]

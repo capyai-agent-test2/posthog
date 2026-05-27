@@ -222,17 +222,7 @@ class SessionRecordingListFromQuery(SessionRecordingsListingBaseQuery):
             {
                 # Check if the most recent _timestamp is within five minutes of the current time
                 # proxy for a live session
-                "ongoing_selection": ast.Alias(
-                    alias="ongoing",
-                    expr=ast.CompareOperation(
-                        left=ast.Call(name="max", args=[ast.Field(chain=["s", "_timestamp"])]),
-                        right=ast.Constant(
-                            # provided in a placeholder, so we can pass now from python to make tests easier 🙈
-                            value=datetime.now(UTC) - timedelta(minutes=5),
-                        ),
-                        op=ast.CompareOperationOp.GtEq,
-                    ),
-                ),
+                "ongoing_selection": self._ongoing_selection(),
                 "where_predicates": self._where_predicates(),
                 "having_predicates": self._having_predicates() or ast.Constant(value=True),
                 "python_now": ast.Constant(value=datetime.now(UTC)),
@@ -258,6 +248,54 @@ class SessionRecordingListFromQuery(SessionRecordingsListingBaseQuery):
         direction = cast(Literal["ASC", "DESC"], self._query.order_direction or "DESC")
 
         return ast.OrderExpr(expr=ast.Field(chain=[order_by]), order=direction)
+
+    def _ongoing_selection(self) -> ast.Alias:
+        return ast.Alias(
+            alias="ongoing",
+            expr=ast.CompareOperation(
+                left=ast.Call(name="max", args=[ast.Field(chain=["s", "_timestamp"])]),
+                right=ast.Constant(
+                    # provided in a placeholder, so we can pass now from python to make tests easier 🙈
+                    value=datetime.now(UTC) - timedelta(minutes=5),
+                ),
+                op=ast.CompareOperationOp.GtEq,
+            ),
+        )
+
+    def _user_having_predicates_expr(self) -> ast.Expr | None:
+        if not self._query.having_predicates:
+            return None
+
+        return property_to_expr(
+            PropertyGroupFilterValue(
+                type=FilterLogicalOperator.AND_ if self.property_operand == "AND" else FilterLogicalOperator.OR_,
+                values=self._query.having_predicates,
+            ),
+            team=self._team,
+            scope="replay",
+        )
+
+    def _session_ids_matching_having_predicates_query(self) -> ast.SelectQuery | None:
+        user_having_predicates = self._user_having_predicates_expr()
+        if user_having_predicates is None or self._query.operand != "OR":
+            return None
+
+        matching_recordings_query = parse_select(
+            self.BASE_QUERY,
+            {
+                "ongoing_selection": self._ongoing_selection(),
+                "where_predicates": ast.Constant(value=True),
+                "having_predicates": user_having_predicates,
+                "python_now": ast.Constant(value=datetime.now(UTC)),
+            },
+        )
+        if isinstance(matching_recordings_query, ast.SelectSetQuery):
+            raise Exception("replay does not support SelectSetQuery")
+
+        return ast.SelectQuery(
+            select=[ast.Field(chain=["session_id"])],
+            select_from=ast.JoinExpr(table=matching_recordings_query),
+        )
 
     @tracer.start_as_current_span("SessionRecordingListFromQuery._where_predicates")
     def _where_predicates(self) -> Union[ast.And, ast.Or]:
@@ -410,6 +448,16 @@ class SessionRecordingListFromQuery(SessionRecordingsListingBaseQuery):
                 )
             )
 
+        having_subquery = self._session_ids_matching_having_predicates_query()
+        if having_subquery:
+            optional_exprs.append(
+                ast.CompareOperation(
+                    op=ast.CompareOperationOp.GlobalIn,
+                    left=ast.Field(chain=["s", "session_id"]),
+                    right=having_subquery,
+                )
+            )
+
         if optional_exprs:
             exprs.append(self.wrapped_with_query_operand(exprs=optional_exprs))
 
@@ -485,8 +533,9 @@ class SessionRecordingListFromQuery(SessionRecordingsListingBaseQuery):
             ),
         ]
 
-        if self._query.having_predicates:
-            exprs.append(property_to_expr(self._query.having_predicates, team=self._team, scope="replay"))
+        user_having_predicates = self._user_having_predicates_expr()
+        if user_having_predicates is not None and self._query.operand != "OR":
+            exprs.append(user_having_predicates)
 
         exprs.extend(self._extra_having_predicates)
 

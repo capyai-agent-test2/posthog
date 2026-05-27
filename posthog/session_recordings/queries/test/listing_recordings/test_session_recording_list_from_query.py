@@ -1523,6 +1523,125 @@ class TestSessionRecordingsListFromQuery(ClickhouseTestMixin, APIBaseTest):
         )
 
     @snapshot_clickhouse_queries
+    def test_operand_or_event_and_duration_filters(self):
+        user = "test_operand_or_event_and_duration-user"
+        Person.objects.create(team=self.team, distinct_ids=[user], properties={"email": "bla"})
+
+        short_session_without_event = "short_session_without_event"
+        produce_replay_summary(
+            distinct_id=user,
+            session_id=short_session_without_event,
+            first_timestamp=self.an_hour_ago,
+            last_timestamp=(self.an_hour_ago + relativedelta(seconds=30)),
+            team_id=self.team.id,
+        )
+
+        short_session_with_event = "short_session_with_event"
+        produce_replay_summary(
+            distinct_id=user,
+            session_id=short_session_with_event,
+            first_timestamp=self.an_hour_ago,
+            last_timestamp=(self.an_hour_ago + relativedelta(seconds=30)),
+            team_id=self.team.id,
+        )
+        create_event(
+            team=self.team,
+            distinct_id=user,
+            event_name="custom_event",
+            timestamp=self.an_hour_ago + relativedelta(seconds=10),
+            properties={"$session_id": short_session_with_event},
+        )
+
+        long_session_with_event = "long_session_with_event"
+        produce_replay_summary(
+            distinct_id=user,
+            session_id=long_session_with_event,
+            first_timestamp=self.an_hour_ago,
+            last_timestamp=(self.an_hour_ago + relativedelta(seconds=90)),
+            team_id=self.team.id,
+        )
+        create_event(
+            team=self.team,
+            distinct_id=user,
+            event_name="custom_event",
+            timestamp=self.an_hour_ago + relativedelta(seconds=10),
+            properties={"$session_id": long_session_with_event},
+        )
+
+        long_session_without_event = "long_session_without_event"
+        produce_replay_summary(
+            distinct_id=user,
+            session_id=long_session_without_event,
+            first_timestamp=self.an_hour_ago,
+            last_timestamp=(self.an_hour_ago + relativedelta(seconds=90)),
+            team_id=self.team.id,
+        )
+
+        self._assert_query_matches_session_ids(
+            {
+                "events": [{"id": "custom_event", "type": "events", "order": 0, "name": "custom_event"}],
+                "having_predicates": '[{"type":"recording","key":"duration","value":45,"operator":"lt"}]',
+                "operand": "AND",
+            },
+            [short_session_with_event],
+        )
+
+        self._assert_query_matches_session_ids(
+            {
+                "events": [{"id": "custom_event", "type": "events", "order": 0, "name": "custom_event"}],
+                "having_predicates": '[{"type":"recording","key":"duration","value":45,"operator":"lt"}]',
+                "operand": "OR",
+            },
+            [short_session_without_event, short_session_with_event, long_session_with_event],
+        )
+
+    @snapshot_clickhouse_queries
+    def test_operand_or_multiple_recording_filters(self):
+        user = "test_operand_or_multiple_recording_filters-user"
+        Person.objects.create(team=self.team, distinct_ids=[user], properties={"email": "bla"})
+
+        short_web_session = "short_web_session"
+        produce_replay_summary(
+            distinct_id=user,
+            session_id=short_web_session,
+            first_timestamp=self.an_hour_ago,
+            last_timestamp=(self.an_hour_ago + relativedelta(seconds=30)),
+            team_id=self.team.id,
+            snapshot_source="web",
+        )
+
+        long_mobile_session = "long_mobile_session"
+        produce_replay_summary(
+            distinct_id=user,
+            session_id=long_mobile_session,
+            first_timestamp=self.an_hour_ago,
+            last_timestamp=(self.an_hour_ago + relativedelta(seconds=90)),
+            team_id=self.team.id,
+            snapshot_source="mobile",
+        )
+
+        long_web_session = "long_web_session"
+        produce_replay_summary(
+            distinct_id=user,
+            session_id=long_web_session,
+            first_timestamp=self.an_hour_ago,
+            last_timestamp=(self.an_hour_ago + relativedelta(seconds=90)),
+            team_id=self.team.id,
+            snapshot_source="web",
+        )
+
+        self._assert_query_matches_session_ids(
+            {
+                "having_predicates": """[
+                    {"type":"recording","key":"duration","value":45,"operator":"lt"},
+                    {"type":"recording","key":"snapshot_source","value":["mobile"],"operator":"exact"}
+                ]""",
+                "operand": "OR",
+            },
+            [short_web_session, long_mobile_session],
+        )
+
+    @snapshot_clickhouse_queries
     def test_operand_or_person_filters(self):
         user = "test_operand_or_filter-user"
         Person.objects.create(team=self.team, distinct_ids=[user], properties={"email": "test@posthog.com"})
