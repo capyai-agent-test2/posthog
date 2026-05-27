@@ -633,7 +633,6 @@ function splitSelector(selector: string): string[] {
     const parts: string[] = []
     let current = ''
     let bracketDepth = 0
-    let parenDepth = 0
     let inQuotes: '"' | "'" | undefined
     let escapeNext = false
 
@@ -668,13 +667,9 @@ function splitSelector(selector: string): string[] {
             bracketDepth += 1
         } else if (char === ']' && bracketDepth > 0) {
             bracketDepth -= 1
-        } else if (char === '(') {
-            parenDepth += 1
-        } else if (char === ')' && parenDepth > 0) {
-            parenDepth -= 1
         }
 
-        if (char === ' ' && bracketDepth === 0 && parenDepth === 0) {
+        if (char === ' ' && bracketDepth === 0) {
             parts.push(current)
             current = ''
             continue
