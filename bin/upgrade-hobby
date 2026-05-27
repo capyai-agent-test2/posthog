@@ -10,7 +10,7 @@ resolve_node_tag() {
         return
     fi
 
-    if [ -n "$app_tag" ] && curl -sf "https://hub.docker.com/v2/repositories/posthog/posthog-node/tags/$app_tag" > /dev/null 2>&1; then
+    if [ -n "$app_tag" ] && curl --connect-timeout 5 --max-time 10 -sf "https://hub.docker.com/v2/repositories/posthog/posthog-node/tags/$app_tag" > /dev/null 2>&1; then
         echo "$app_tag"
         return
     fi

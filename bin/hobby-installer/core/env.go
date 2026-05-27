@@ -10,12 +10,19 @@ import (
 	"time"
 )
 
+var nodeTagHTTPClient = &http.Client{Timeout: 10 * time.Second}
+
 var nodeTagExists = func(tag string) bool {
 	if tag == "" {
 		return false
 	}
 
-	resp, err := http.Get(fmt.Sprintf("https://hub.docker.com/v2/repositories/posthog/posthog-node/tags/%s", tag))
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://hub.docker.com/v2/repositories/posthog/posthog-node/tags/%s", tag), nil)
+	if err != nil {
+		return false
+	}
+
+	resp, err := nodeTagHTTPClient.Do(req)
 	if err != nil {
 		return false
 	}
