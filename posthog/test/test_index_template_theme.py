@@ -5,7 +5,7 @@ from django.test import SimpleTestCase
 
 class TestIndexTemplateTheme(SimpleTestCase):
     def template_source(self) -> str:
-        return Path("/home/posthog/frontend/src/index.html").read_text()
+        return (Path(__file__).resolve().parents[2] / "frontend" / "src" / "index.html").read_text()
 
     def test_dark_theme_is_applied_to_body_before_app_mount(self):
         rendered = self.template_source()
