@@ -23,6 +23,7 @@ import { isSingleEmoji } from 'scenes/session-recordings/utils'
 
 import { primaryEventPropertiesModel } from '~/models/primaryEventPropertiesModel'
 
+import { getCommentStackIndexes } from './seekbarCommentStacking'
 import { UserActivity } from './UserActivity'
 
 function isEventItem(x: InspectorListItem): x is InspectorListItemEvent {
@@ -57,12 +58,14 @@ function PlayerSeekbarTick({
     zIndex,
     onClick,
     primaryProperties,
+    stackIndex,
 }: {
     item: InspectorListItemComment | InspectorListItemNotebookComment | InspectorListItemEvent
     endTimeMs: number
     zIndex: number
     onClick: (e: React.MouseEvent) => void
     primaryProperties: Record<string, string>
+    stackIndex: number
 }): JSX.Element | null {
     const position = (item.timeInRecording / endTimeMs) * 100
 
@@ -80,6 +83,7 @@ function PlayerSeekbarTick({
             style={{
                 left: `${position}%`,
                 zIndex: zIndex,
+                ['--stack-offset' as string]: `${stackIndex * 14}px`,
             }}
             onClick={onClick}
         >
@@ -156,6 +160,8 @@ const MemoisedPlayerSeekbarTicks = memo(
         hoverRef: MutableRefObject<HTMLDivElement | null>
         primaryProperties: Record<string, string>
     }): JSX.Element {
+        const commentStackIndexes = getCommentStackIndexes(seekbarItems)
+
         return (
             <div className="PlayerSeekbarTicks">
                 <UserActivity hoverRef={hoverRef} />
@@ -171,6 +177,7 @@ const MemoisedPlayerSeekbarTicks = memo(
                                 seekToTime(item.timeInRecording)
                             }}
                             primaryProperties={primaryProperties}
+                            stackIndex={commentStackIndexes[String(item.data.id)] ?? 0}
                         />
                     )
                 })}
