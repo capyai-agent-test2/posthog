@@ -939,6 +939,15 @@ class TestProperty(BaseTest):
             ),
         )
 
+        self.assertEqual(
+            self._selector_to_expr(".w-1.2xl\\:flex"),
+            clear_locations(
+                elements_chain_match(
+                    '(^|;).*?\\.2xl:flex\\..*?w\\-1([-_a-zA-Z0-9\\.:"= \\[\\]\\(\\),]*?)?($|;|:([^;^\\s]*(;|$|\\s)))'
+                )
+            ),
+        )
+
     def test_cohort_filter_static(self):
         cohort = Cohort.objects.create(
             team=self.team,

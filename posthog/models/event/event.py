@@ -139,7 +139,14 @@ class SelectorPart:
         previous_is_digit = previous_index >= 0 and tag[previous_index].isdigit()
         next_is_digit = tag[next_index].isdigit()
 
-        return not (previous_is_digit and next_is_digit)
+        if not (previous_is_digit and next_is_digit):
+            return True
+
+        next_next_index = next_index + 1
+        if next_next_index >= len(tag):
+            return False
+
+        return tag[next_next_index].isalpha() or tag[next_next_index] == "\\"
 
 
 class Selector:

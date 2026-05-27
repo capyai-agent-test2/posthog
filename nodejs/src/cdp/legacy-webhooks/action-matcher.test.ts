@@ -1117,6 +1117,10 @@ describe('ActionMatcher', () => {
                     tag_name: 'section',
                     attr_class: ['2xl:flex'],
                 },
+                {
+                    tag_name: 'article',
+                    attr_class: ['w-1', '2xl:flex'],
+                },
             ]
 
             expect(checkElementsAgainstSelector(elements, '.rounded-sm')).toBeTruthy()
@@ -1128,6 +1132,7 @@ describe('ActionMatcher', () => {
             expect(checkElementsAgainstSelector(elements, 'section.2xl\\:flex')).toBeTruthy()
             expect(checkElementsAgainstSelector(elements, '.text-sm.text-center')).toBeTruthy()
             expect(checkElementsAgainstSelector(elements, '.text-sm .text-center')).toBeTruthy()
+            expect(checkElementsAgainstSelector(elements, '.w-1.2xl\\:flex')).toBeTruthy()
         })
 
         it('handles any descendant selector', () => {

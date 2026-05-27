@@ -759,5 +759,14 @@ function startsNewClass(tag: string, dotIndex: number, parts: string[]): boolean
         return false
     }
 
-    return !/\d/.test(previousChar ?? '') || !/\d/.test(nextChar)
+    if (!/\d/.test(previousChar ?? '') || !/\d/.test(nextChar)) {
+        return true
+    }
+
+    const nextNextChar = tag[dotIndex + 2]
+    if (!nextNextChar) {
+        return false
+    }
+
+    return /[A-Za-z\\]/.test(nextNextChar)
 }
