@@ -292,9 +292,9 @@ def build(handle: SourceHandle) -> BuiltQuery:
                             ),
                         ),
                         ast.Alias(
-                            alias="invoice_line_items_total_amount_before_discount",
+                            alias="invoice_discountable_line_items_total_amount_before_discount",
                             expr=parse_expr(
-                                "coalesce(arraySum(arrayMap(x -> JSONExtractUInt(x, 'amount'), JSONExtractArrayRaw(assumeNotNull(lines.data)))), 0)"
+                                "coalesce(arraySum(arrayMap(line -> if(JSONExtractBool(line, 'discountable'), JSONExtractUInt(line, 'amount'), 0), JSONExtractArrayRaw(assumeNotNull(lines.data)))), 0)"
                             ),
                         ),
                         ast.Alias(
@@ -321,6 +321,7 @@ def build(handle: SourceHandle) -> BuiltQuery:
                         ast.Alias(alias="invoice_item_id", expr=extract_json_string("data", "id")),
                         # Make sure we're considering discounts here
                         ast.Alias(alias="amount_before_discount", expr=extract_json_uint("data", "amount")),
+                        ast.Alias(alias="line_discountable", expr=parse_expr("JSONExtractBool(data, 'discountable')")),
                         ast.Alias(
                             alias="line_discount_amount",
                             expr=parse_expr(
@@ -335,12 +336,12 @@ def build(handle: SourceHandle) -> BuiltQuery:
                                 "line_discount_amount > 0, "
                                 "toDecimal(line_discount_amount, 10), "
                                 "if("
-                                "invoice_line_items_total_discount_amount = 0 AND invoice_total_discount_amount > 0 AND invoice_line_items_total_amount_before_discount > 0, "
+                                "line_discountable AND invoice_line_items_total_discount_amount = 0 AND invoice_total_discount_amount > 0 AND invoice_discountable_line_items_total_amount_before_discount > 0, "
                                 "multiplyDecimal("
                                 "toDecimal(amount_before_discount, 10), "
                                 "divideDecimal("
                                 "toDecimal(invoice_total_discount_amount, 10), "
-                                "toDecimal(invoice_line_items_total_amount_before_discount, 10)"
+                                "toDecimal(invoice_discountable_line_items_total_amount_before_discount, 10)"
                                 ")"
                                 "), "
                                 "toDecimal(0, 10)"

@@ -304,6 +304,101 @@ class TestMRRViewsE2E(ClickhouseTestMixin, QueryMatchingTest, APIBaseTest):
             temp_source.delete()
             temp_invoice_csv_path.unlink(missing_ok=True)
 
+    def test_query_output_data_warehouse_tables_only_prorates_discountable_lines(self):
+        with self.invoices_csv_path.open() as invoice_file:
+            invoice_rows = list(csv.DictReader(invoice_file))
+            invoice_headers = list(invoice_rows[0].keys())
+
+        invoice_row = invoice_rows[1].copy()
+        invoice_row["id"] = "in_invoice_discountable_only"
+        invoice_row["customer"] = "cus_invoice_discountable_only"
+        invoice_row["subscription"] = "sub_invoice_discountable_only"
+        invoice_row["currency"] = "usd"
+        invoice_row["discount"] = json.dumps({"coupon": {"id": "coupon_discountable", "name": "Discountable only"}})
+        invoice_row["total_discount_amounts"] = json.dumps([{"amount": 500}])
+        lines = json.loads(invoice_row["lines"])
+        first_line = lines["data"][0]
+        second_line = json.loads(json.dumps(lines["data"][0]))
+
+        first_line["id"] = "il_discountable"
+        first_line["invoice"] = invoice_row["id"]
+        first_line["amount"] = 1000
+        first_line["currency"] = invoice_row["currency"]
+        first_line["discountable"] = True
+        first_line["discount_amounts"] = []
+        first_line["subscription"] = invoice_row["subscription"]
+        first_line["parent"]["subscription_item_details"]["subscription"] = invoice_row["subscription"]
+        first_line["period"]["end"] = first_line["period"]["start"] + (31 * 24 * 60 * 60)
+
+        second_line["id"] = "il_not_discountable"
+        second_line["invoice"] = invoice_row["id"]
+        second_line["amount"] = 900
+        second_line["currency"] = invoice_row["currency"]
+        second_line["discountable"] = False
+        second_line["discount_amounts"] = []
+        second_line["subscription"] = invoice_row["subscription"]
+        second_line["parent"]["subscription_item_details"]["subscription"] = invoice_row["subscription"]
+        second_line["period"]["end"] = second_line["period"]["start"] + (31 * 24 * 60 * 60)
+
+        lines["data"] = [first_line, second_line]
+        lines["total_count"] = 2
+        invoice_row["lines"] = json.dumps(lines)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as temp_invoice_csv:
+            writer = csv.DictWriter(temp_invoice_csv, fieldnames=invoice_headers)
+            writer.writeheader()
+            writer.writerow(invoice_row)
+            temp_invoice_csv_path = Path(temp_invoice_csv.name)
+
+        temp_invoices_table, temp_source, _, _, temp_invoices_cleanup = create_data_warehouse_table_from_csv(
+            temp_invoice_csv_path,
+            "stripe_invoice",
+            STRIPE_INVOICE_COLUMNS,
+            INVOICES_TEST_BUCKET,
+            self.team,
+            source_prefix="posthog_discountable_invoice_",
+        )
+
+        schema = None
+        try:
+            schema = ExternalDataSchema.objects.create(
+                team=self.team,
+                name=STRIPE_INVOICE_RESOURCE_NAME,
+                source=temp_source,
+                table=temp_invoices_table,
+                should_sync=True,
+                last_synced_at="2024-01-01",
+            )
+
+            query = ast.SelectQuery(
+                select=[
+                    ast.Field(chain=["invoice_item_id"]),
+                    ast.Field(chain=["original_amount"]),
+                    ast.Field(chain=["amount"]),
+                ],
+                select_from=ast.JoinExpr(
+                    table=ast.Field(chain=[f"{view_prefix_for_source(temp_source)}.{REVENUE_ITEM_SCHEMA.source_suffix}"])
+                ),
+                order_by=[ast.OrderExpr(expr=ast.Field(chain=["invoice_item_id"]), order="ASC")],
+            )
+
+            response = self._execute_query(query)
+
+            self.assertEqual(
+                response.results,
+                [
+                    ("il_discountable", Decimal("500"), Decimal("3.3269999999")),
+                    ("il_not_discountable", Decimal("900"), Decimal("5.9885999999")),
+                ],
+            )
+        finally:
+            temp_invoices_cleanup()
+            if schema is not None:
+                schema.delete()
+            temp_invoices_table.delete()
+            temp_source.delete()
+            temp_invoice_csv_path.unlink(missing_ok=True)
+
     def test_query_output_events(self):
         self.team.revenue_analytics_config.events = [
             REVENUE_ANALYTICS_CONFIG_SAMPLE_EVENT.model_copy(
