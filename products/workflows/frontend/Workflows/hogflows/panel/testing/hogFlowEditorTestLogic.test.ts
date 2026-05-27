@@ -213,5 +213,37 @@ describe('hogFlowEditorTestLogic', () => {
                 })
             )
         })
+
+        it('rotates to a different matching event when the current one is already loaded', async () => {
+            ;(performQuery as jest.Mock).mockResolvedValueOnce({
+                results: [
+                    ['event-1', 'distinct-id-1', '2024-01-01T00:00:00Z', '', '$pageview', {}, 'person-1', {}],
+                    ['event-2', 'distinct-id-2', '2024-01-02T00:00:00Z', '', '$pageview', {}, 'person-2', {}],
+                ],
+            })
+
+            logic.actions.setSampleGlobals(
+                JSON.stringify({
+                    event: {
+                        uuid: 'event-1',
+                        distinct_id: 'distinct-id-1',
+                        timestamp: '2024-01-01T00:00:00Z',
+                        elements_chain: '',
+                        event: '$pageview',
+                        properties: {},
+                    },
+                })
+            )
+
+            await expectLogic(logic, () => {
+                logic.actions.loadSampleGlobals()
+            }).toMatchValues({
+                sampleGlobals: expect.objectContaining({
+                    event: expect.objectContaining({
+                        uuid: 'event-2',
+                    }),
+                }),
+            })
+        })
     })
 })

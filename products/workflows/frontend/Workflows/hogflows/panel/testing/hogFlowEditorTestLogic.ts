@@ -359,7 +359,7 @@ export const hogFlowEditorTestLogic = kea<hogFlowEditorTestLogicType>([
                         if (values.sampleGlobals?.event?.uuid && response.results.length > 1) {
                             // Find the index of the current event
                             const currentIndex = response.results.findIndex(
-                                (result) => result[0].uuid === values.sampleGlobals?.event?.uuid
+                                (result) => result[0] === values.sampleGlobals?.event?.uuid
                             )
                             // Pick the next event in the list, cycling back to the start if needed
                             if (currentIndex !== -1) {
