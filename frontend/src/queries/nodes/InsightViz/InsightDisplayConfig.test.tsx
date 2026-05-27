@@ -10,7 +10,7 @@ import { insightLogic } from 'scenes/insights/insightLogic'
 import { insightVizDataLogic } from 'scenes/insights/insightVizDataLogic'
 
 import { useMocks } from '~/mocks/jest'
-import { LifecycleQuery, NodeKind, TrendsQuery } from '~/queries/schema/schema-general'
+import { NodeKind, TrendsQuery } from '~/queries/schema/schema-general'
 import { initKeaTests } from '~/test/init'
 import { BaseMathType, ChartDisplayType, InsightShortId } from '~/types'
 
@@ -31,22 +31,6 @@ function makeTrendsQuery(display?: ChartDisplayType): TrendsQuery {
             },
         ],
         trendsFilter: {
-            display,
-        },
-    }
-}
-
-function makeLifecycleQuery(display?: ChartDisplayType): LifecycleQuery {
-    return {
-        kind: NodeKind.LifecycleQuery,
-        series: [
-            {
-                kind: NodeKind.EventsNode,
-                name: '$pageview',
-                event: '$pageview',
-            },
-        ],
-        lifecycleFilter: {
             display,
         },
     }
@@ -79,7 +63,7 @@ describe('InsightDisplayConfig', () => {
         cleanup()
     })
 
-    function setupAndRender(query: TrendsQuery | LifecycleQuery): void {
+    function setupAndRender(query: TrendsQuery): void {
         insightLogic(insightProps).mount()
         insightDataLogic(insightProps).mount()
         const vizDataLogic = insightVizDataLogic(insightProps)
@@ -130,18 +114,6 @@ describe('InsightDisplayConfig', () => {
             await openOptionsMenu()
 
             expect(screen.getByText('Y-axis scale')).toBeInTheDocument()
-        })
-    })
-
-    describe('lifecycle display options', () => {
-        it('shows lifecycle options in the Display section', async () => {
-            setupAndRender(makeLifecycleQuery(ChartDisplayType.ActionsBar))
-            await openOptionsMenu()
-
-            const items = getDisplaySectionItems()
-            expect(items).toContain('Stack bars')
-            expect(items).toContain('Show values on series')
-            expect(items).toContain('Show legend')
         })
     })
 })

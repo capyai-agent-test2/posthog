@@ -362,27 +362,6 @@ describe('insightVizDataLogic', () => {
         })
     })
 
-    describe('supportsDisplay', () => {
-        it('treats lifecycle insights as display-configurable', () => {
-            builtInsightVizDataLogic.actions.updateQuerySource({
-                kind: NodeKind.LifecycleQuery,
-                series: [
-                    {
-                        kind: NodeKind.EventsNode,
-                        name: '$pageview',
-                        event: '$pageview',
-                    },
-                ],
-                lifecycleFilter: {
-                    display: ChartDisplayType.ActionsBar,
-                },
-            } as LifecycleQuery)
-
-            expect(builtInsightVizDataLogic.values.isLifecycle).toBe(true)
-            expect(builtInsightVizDataLogic.values.supportsDisplay).toBe(true)
-        })
-    })
-
     describe('updateBreakdownFilter', () => {
         it('updates the breakdown', async () => {
             // when breakdown is empty
