@@ -98,7 +98,7 @@ pub fn inject_impl(
                 &path,
                 &relevant_sources,
                 public_path_prefix.as_deref(),
-                search_boundary.as_deref(),
+                Some(search_boundary.as_path()),
             )
         })
         .collect::<BTreeSet<_>>()
@@ -153,9 +153,18 @@ fn normalize_integrity_root(
     }
 }
 
-fn integrity_search_boundary(path: &Path) -> Option<PathBuf> {
-    let cwd = std::env::current_dir().ok()?.canonicalize().ok()?;
-    path.starts_with(&cwd).then_some(cwd)
+fn integrity_search_boundary(path: &Path) -> PathBuf {
+    if let Ok(cwd) = std::env::current_dir().and_then(|path| path.canonicalize()) {
+        if path.starts_with(&cwd) {
+            return cwd;
+        }
+    }
+
+    if path.is_dir() {
+        path.to_path_buf()
+    } else {
+        path.parent().unwrap_or(path).to_path_buf()
+    }
 }
 
 enum HtmlReferenceStatus {
@@ -268,7 +277,7 @@ pub fn get_release_for_maps<'a>(
 
 #[cfg(test)]
 mod tests {
-    use super::normalize_integrity_root;
+    use super::{integrity_search_boundary, normalize_integrity_root};
 
     #[test]
     fn normalize_integrity_root_expands_file_inputs_to_html_root() {
@@ -363,5 +372,17 @@ mod tests {
             Some(&project),
         );
         assert_eq!(normalized, assets);
+    }
+
+    #[test]
+    fn integrity_search_boundary_falls_back_to_input_scope_outside_cwd() {
+        let tempdir = tempfile::tempdir().expect("Failed to create tempdir");
+        let dir = tempdir.path().join("external/dist/assets");
+        std::fs::create_dir_all(&dir).expect("Failed to create directory");
+        let file = dir.join("app.js");
+        std::fs::write(&file, "console.log('x');").expect("Failed to write JS");
+
+        assert_eq!(integrity_search_boundary(&dir), dir);
+        assert_eq!(integrity_search_boundary(&file), dir);
     }
 }
