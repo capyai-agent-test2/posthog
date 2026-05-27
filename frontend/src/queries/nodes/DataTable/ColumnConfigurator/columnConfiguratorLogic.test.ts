@@ -1,6 +1,11 @@
+import { MOCK_DEFAULT_USER } from 'lib/api.mock'
+
 import { expectLogic } from 'kea-test-utils'
 
+import { userLogic } from 'scenes/userLogic'
+
 import { initKeaTests } from '~/test/init'
+import { AvailableFeature } from '~/types'
 
 import { columnConfiguratorLogic } from './columnConfiguratorLogic'
 
@@ -10,7 +15,12 @@ describe('columnConfiguratorLogic', () => {
     const startingColumns = ['a', 'b', 'ant', 'aardvark']
 
     beforeEach(() => {
+        window.POSTHOG_APP_CONTEXT = {
+            ...window.POSTHOG_APP_CONTEXT,
+            current_user: MOCK_DEFAULT_USER,
+        } as any
         initKeaTests()
+        userLogic.mount()
         logic = columnConfiguratorLogic({ key: 'uniqueKey', columns: startingColumns, setColumns: () => {} })
         logic.mount()
     })
@@ -50,6 +60,49 @@ describe('columnConfiguratorLogic', () => {
             logic.actions.selectColumn('added')
         }).toMatchValues({
             columns: ['a', 'b', 'ant', 'aardvark', 'added'],
+        })
+    })
+
+    describe('saveAsDefaultDisabledReason', () => {
+        it('blocks event definition default columns without the add-on', async () => {
+            const eventDefinitionLogic = columnConfiguratorLogic({
+                key: 'eventDefinitionUniqueKey',
+                columns: startingColumns,
+                setColumns: () => {},
+                context: { type: 'event_definition', eventDefinitionId: 'abc' },
+            })
+            eventDefinitionLogic.mount()
+
+            await expectLogic(eventDefinitionLogic).toMatchValues({
+                saveAsDefaultDisabledReason:
+                    'Saving default columns for event types requires the Data management add-on.',
+            })
+
+            eventDefinitionLogic.unmount()
+        })
+
+        it('allows event definition default columns with the add-on', async () => {
+            userLogic.actions.loadUserSuccess({
+                ...MOCK_DEFAULT_USER,
+                organization: {
+                    ...MOCK_DEFAULT_USER.organization,
+                    available_product_features: [{ key: AvailableFeature.INGESTION_TAXONOMY, name: 'Data management' }],
+                },
+            } as any)
+
+            const eventDefinitionLogic = columnConfiguratorLogic({
+                key: 'eventDefinitionFeatureUniqueKey',
+                columns: startingColumns,
+                setColumns: () => {},
+                context: { type: 'event_definition', eventDefinitionId: 'abc' },
+            })
+            eventDefinitionLogic.mount()
+
+            await expectLogic(eventDefinitionLogic).toMatchValues({
+                saveAsDefaultDisabledReason: null,
+            })
+
+            eventDefinitionLogic.unmount()
         })
     })
 })

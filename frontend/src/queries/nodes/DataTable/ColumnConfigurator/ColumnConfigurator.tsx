@@ -124,7 +124,7 @@ function ColumnConfiguratorModal({ query }: ColumnConfiguratorProps): JSX.Elemen
         minimumAccessLevel: TeamMembershipLevel.Admin,
         scope: RestrictionScope.Project,
     })
-    const { modalVisible, columns, saveAsDefault } = useValues(columnConfiguratorLogic)
+    const { modalVisible, columns, saveAsDefault, saveAsDefaultDisabledReason } = useValues(columnConfiguratorLogic)
     const { hideModal, moveColumn, setColumns, selectColumn, unselectColumn, save, toggleSaveAsDefault } =
         useActions(columnConfiguratorLogic)
     const { context } = useValues(columnConfiguratorLogic)
@@ -166,6 +166,7 @@ function ColumnConfiguratorModal({ query }: ColumnConfiguratorProps): JSX.Elemen
         isGroupsQuery(query.source) ||
         isSessionsQuery(query.source) ||
         isActorsQuery(query.source)
+    const disabledReason = restrictionReason || saveAsDefaultDisabledReason
 
     return (
         <LemonModal
@@ -269,7 +270,7 @@ function ColumnConfiguratorModal({ query }: ColumnConfiguratorProps): JSX.Elemen
                         bordered
                         checked={saveAsDefault}
                         onChange={toggleSaveAsDefault}
-                        disabledReason={restrictionReason}
+                        disabledReason={disabledReason}
                     />
                 )}
             </div>

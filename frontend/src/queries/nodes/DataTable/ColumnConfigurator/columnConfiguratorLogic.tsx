@@ -5,9 +5,11 @@ import api from 'lib/api'
 import { lemonToast } from 'lib/lemon-ui/LemonToast/LemonToast'
 import { eventUsageLogic } from 'lib/utils/eventUsageLogic'
 import { teamLogic } from 'scenes/teamLogic'
+import { userLogic } from 'scenes/userLogic'
 
 import { groupsModel } from '~/models/groupsModel'
 import { HOGQL_COLUMNS_KEY } from '~/queries/nodes/DataTable/defaultEventsQuery'
+import { AvailableFeature } from '~/types'
 import { GroupTypeIndex } from '~/types'
 
 import type { columnConfiguratorLogicType } from './columnConfiguratorLogicType'
@@ -32,6 +34,7 @@ export const columnConfiguratorLogic = kea<columnConfiguratorLogicType>([
     key((props) => props.key),
     connect(() => ({
         actions: [eventUsageLogic, ['reportDataTableColumnsUpdated'], groupsModel, ['setDefaultColumns']],
+        values: [userLogic, ['hasAvailableFeature']],
     })),
     actions({
         showModal: true,
@@ -47,6 +50,13 @@ export const columnConfiguratorLogic = kea<columnConfiguratorLogicType>([
         context: [
             () => [(_, props) => props.context],
             (context: NonNullable<ColumnConfiguratorLogicProps['context']>) => context,
+        ],
+        saveAsDefaultDisabledReason: [
+            (s) => [s.context, s.hasAvailableFeature],
+            (context, hasAvailableFeature): string | null =>
+                context?.type === 'event_definition' && !hasAvailableFeature(AvailableFeature.INGESTION_TAXONOMY)
+                    ? 'Saving default columns for event types requires the Data management add-on.'
+                    : null,
         ],
     })),
     loaders(({ props }) => ({
