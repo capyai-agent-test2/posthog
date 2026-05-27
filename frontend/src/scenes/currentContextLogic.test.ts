@@ -2,7 +2,7 @@ import { api, MOCK_DEFAULT_ORGANIZATION, MOCK_DEFAULT_PROJECT } from 'lib/api.mo
 
 import { expectLogic } from 'kea-test-utils'
 
-import { ApiError } from 'lib/api'
+import { ApiConfig, ApiError } from 'lib/api'
 
 import { initKeaTests } from '~/test/init'
 import { AppContext } from '~/types'
@@ -79,6 +79,7 @@ describe('current context loaders', () => {
             }).toDispatchActions(['loadCurrentProject', 'loadCurrentProjectSuccess'])
 
             expect(logic.values.currentProject).toBeNull()
+            expect(() => ApiConfig.getCurrentProjectId()).toThrow('Project ID is not known.')
         })
 
         it('falls back to @current before the project is known', async () => {

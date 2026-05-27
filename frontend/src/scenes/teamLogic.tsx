@@ -351,9 +351,7 @@ export const teamLogic = kea<teamLogicType>([
     })),
     listeners(({ actions }) => ({
         loadCurrentTeamSuccess: ({ currentTeam }) => {
-            if (currentTeam) {
-                ApiConfig.setCurrentTeamId(currentTeam.id)
-            }
+            ApiConfig.setCurrentTeamId(currentTeam?.id ?? null)
 
             // Detect managed viewsets to mark them as completed in the product setup
             if (currentTeam?.managed_viewsets?.['revenue_analytics']) {

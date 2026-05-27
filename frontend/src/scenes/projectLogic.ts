@@ -127,9 +127,7 @@ export const projectLogic = kea<projectLogicType>([
     }),
     listeners(({ actions }) => ({
         loadCurrentProjectSuccess: ({ currentProject }) => {
-            if (currentProject) {
-                ApiConfig.setCurrentProjectId(currentProject.id)
-            }
+            ApiConfig.setCurrentProjectId(currentProject?.id ?? null)
         },
         deleteProject: async ({ project }) => {
             try {

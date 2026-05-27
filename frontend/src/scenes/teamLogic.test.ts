@@ -2,7 +2,7 @@ import { api, MOCK_DEFAULT_TEAM, MOCK_TEAM_ID } from 'lib/api.mock'
 
 import { expectLogic } from 'kea-test-utils'
 
-import { ApiError } from 'lib/api'
+import { ApiConfig, ApiError } from 'lib/api'
 
 import { initKeaTests } from '~/test/init'
 import { AppContext } from '~/types'
@@ -53,6 +53,8 @@ describe('teamLogic', () => {
             }).toDispatchActions(['loadCurrentTeam', 'loadCurrentTeamSuccess'])
 
             expect(logic.values.currentTeam).toBeNull()
+            expect(ApiConfig.hasCurrentTeamId()).toBe(false)
+            expect(() => ApiConfig.getCurrentTeamId()).toThrow('Team ID is not known.')
         })
     })
 

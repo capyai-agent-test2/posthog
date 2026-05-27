@@ -1,4 +1,4 @@
-import { MOCK_DEFAULT_ORGANIZATION } from 'lib/api.mock'
+import { api, MOCK_DEFAULT_ORGANIZATION, MOCK_DEFAULT_USER } from 'lib/api.mock'
 
 import { expectLogic } from 'kea-test-utils'
 
@@ -6,6 +6,7 @@ import { initKeaTests } from '~/test/init'
 
 import { AppContext } from '../types'
 import { organizationLogic } from './organizationLogic'
+import { userLogic } from './userLogic'
 
 describe('organizationLogic', () => {
     let logic: ReturnType<typeof organizationLogic.build>
@@ -76,6 +77,32 @@ describe('organizationLogic', () => {
             await expectLogic(logic).toMatchValues({
                 currentOrganization: { ...MOCK_DEFAULT_ORGANIZATION },
             })
+        })
+    })
+
+    describe('updateOrganization', () => {
+        beforeEach(() => {
+            initKeaTests(false)
+            logic = organizationLogic()
+            logic.mount()
+            userLogic.mount()
+            logic.actions.loadCurrentOrganizationSuccess(MOCK_DEFAULT_ORGANIZATION)
+            userLogic.actions.loadUserSuccess(MOCK_DEFAULT_USER)
+        })
+
+        it('keeps user organization fields in sync after updating the organization', async () => {
+            const updatedOrganization = { ...MOCK_DEFAULT_ORGANIZATION, name: 'Renamed org' }
+            jest.spyOn(api, 'update').mockResolvedValue(updatedOrganization)
+
+            await expectLogic(logic, () => {
+                logic.actions.updateOrganization({ name: 'Renamed org' })
+            }).toDispatchActions(['updateOrganization', 'loadUserSuccess', 'updateOrganizationSuccess'])
+
+            expect(userLogic.values.user?.organization?.name).toBe('Renamed org')
+            expect(
+                userLogic.values.user?.organizations?.find((organization) => organization.id === updatedOrganization.id)
+                    ?.name
+            ).toBe('Renamed org')
         })
     })
 })

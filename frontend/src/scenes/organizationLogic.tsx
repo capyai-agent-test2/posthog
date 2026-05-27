@@ -46,8 +46,8 @@ export const organizationLogic = kea<organizationLogicType>([
         deleteOrganizationFailure: (error: string) => ({ error }),
     }),
     connect(() => ({
-        values: [userLogic, ['hasAvailableFeature']],
-        actions: [router, ['locationChanged']],
+        values: [userLogic, ['hasAvailableFeature', 'user']],
+        actions: [userLogic, ['loadUserSuccess'], router, ['locationChanged']],
     })),
     reducers({
         organizationBeingDeleted: [
@@ -67,7 +67,7 @@ export const organizationLogic = kea<organizationLogicType>([
             },
         ],
     }),
-    loaders(({ values }) => ({
+    loaders(({ values, actions }) => ({
         currentOrganization: [
             null as OrganizationType | null,
             {
@@ -97,6 +97,16 @@ export const organizationLogic = kea<organizationLogicType>([
                         `api/organizations/${values.currentOrganization.id}`,
                         payload
                     )
+                    if (values.user) {
+                        actions.loadUserSuccess({
+                            ...values.user,
+                            organization: updatedOrganization,
+                            organizations:
+                                values.user.organizations?.map((organization) =>
+                                    organization.id === updatedOrganization.id ? updatedOrganization : organization
+                                ) ?? values.user.organizations,
+                        })
+                    }
                     return updatedOrganization
                 },
                 completeOnboarding: async () =>
