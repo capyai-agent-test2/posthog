@@ -56,10 +56,11 @@ class TestMRRViewsE2E(ClickhouseTestMixin, QueryMatchingTest, APIBaseTest):
 
     def _setup_stripe_data(self):
         data_dir = Path(__file__).parent.parent.parent / "hogql_queries" / "test" / "data"
+        self.invoices_csv_path = data_dir / "stripe_invoices.csv"
 
         self.invoices_table, self.source, self.credential, _, self.invoices_cleanup = (
             create_data_warehouse_table_from_csv(
-                data_dir / "stripe_invoices.csv",
+                self.invoices_csv_path,
                 "stripe_invoice",
                 STRIPE_INVOICE_COLUMNS,
                 INVOICES_TEST_BUCKET,
