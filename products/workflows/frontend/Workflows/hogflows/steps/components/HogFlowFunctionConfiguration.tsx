@@ -1,15 +1,18 @@
-import { useValues } from 'kea'
+import { useActions, useValues } from 'kea'
 import { useEffect } from 'react'
 
 import { Spinner } from '@posthog/lemon-ui'
 
+import api from 'lib/api'
 import { CyclotronJobInputs } from 'lib/components/CyclotronJob/CyclotronJobInputs'
 import { templateToConfiguration } from 'scenes/hog-functions/configuration/hogFunctionConfigurationLogic'
 
 import { CyclotronJobInputType, HogFunctionMappingType } from '~/types'
 
 import { workflowLogic } from '../../../workflowLogic'
+import { workflowSceneLogic } from '../../../workflowSceneLogic'
 import { HogFlowFunctionMappings } from './HogFlowFunctionMappings'
+import { persistWorkflowForIntegrationRedirect } from './persistWorkflowForIntegrationRedirect'
 
 export function HogFlowFunctionConfiguration({
     templateId,
@@ -26,7 +29,15 @@ export function HogFlowFunctionConfiguration({
     setMappings?: (mappings: HogFunctionMappingType[]) => void
     errors?: Record<string, string>
 }): JSX.Element {
-    const { workflow, hogFunctionTemplatesById, hogFunctionTemplatesByIdLoading } = useValues(workflowLogic)
+    const {
+        workflow,
+        hogFunctionTemplatesById,
+        hogFunctionTemplatesByIdLoading,
+        logicProps,
+        pendingSchedule,
+        currentSchedule,
+    } = useValues(workflowLogic)
+    const { setWorkflowValues } = useActions(workflowLogic)
 
     const template = hogFunctionTemplatesById[templateId]
     useEffect(() => {
@@ -108,6 +119,32 @@ export function HogFlowFunctionConfiguration({
         }
     }
 
+    const persistForUnload = async (redirectUrl?: string): Promise<string | undefined> =>
+        persistWorkflowForIntegrationRedirect({
+            workflow,
+            hogFunctionTemplatesById,
+            redirectUrl,
+            currentTab: workflowSceneLogic.findMounted()?.values.currentTab,
+            shouldSaveDraft: !logicProps.editTemplateId,
+            pendingSchedule,
+            currentSchedule,
+            setWorkflowValues,
+            saveDraftWorkflow: (savedWorkflow) =>
+                savedWorkflow.id && savedWorkflow.id !== 'new'
+                    ? api.hogFlows.updateHogFlow(savedWorkflow.id, savedWorkflow)
+                    : api.hogFlows.createHogFlow(savedWorkflow),
+            savePendingSchedule: async (workflowId, currentPendingSchedule, savedCurrentSchedule) => {
+                const existingScheduleId = savedCurrentSchedule?.id
+                if (currentPendingSchedule === null && existingScheduleId) {
+                    await api.hogFlows.deleteHogFlowSchedule(workflowId, existingScheduleId)
+                } else if (currentPendingSchedule !== null && existingScheduleId) {
+                    await api.hogFlows.updateHogFlowSchedule(workflowId, existingScheduleId, currentPendingSchedule)
+                } else if (currentPendingSchedule !== null) {
+                    await api.hogFlows.createHogFlowSchedule(workflowId, currentPendingSchedule)
+                }
+            },
+        })
+
     return (
         <>
             <CyclotronJobInputs
@@ -118,6 +155,7 @@ export function HogFlowFunctionConfiguration({
                 }}
                 showSource={false}
                 sampleGlobalsWithInputs={sampleGlobals}
+                persistForUnload={persistForUnload}
                 onInputChange={(key, value) => setInputs({ ...inputs, [key]: value })}
             />
             <HogFlowFunctionMappings

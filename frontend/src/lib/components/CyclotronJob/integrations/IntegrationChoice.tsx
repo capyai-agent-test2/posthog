@@ -1,5 +1,5 @@
 import { useActions, useValues } from 'kea'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 import { IconExternal, IconTrash, IconX } from '@posthog/icons'
 import { LemonButton, LemonMenu, LemonSkeleton } from '@posthog/lemon-ui'
@@ -8,6 +8,7 @@ import api from 'lib/api'
 import { integrationsLogic } from 'lib/integrations/integrationsLogic'
 import { IntegrationView } from 'lib/integrations/IntegrationView'
 import { getIntegrationNameFromKind } from 'lib/integrations/utils'
+import { lemonToast } from 'lib/lemon-ui/LemonToast'
 import { urls } from 'scenes/urls'
 
 import { getAllRegisteredIntegrationSetups, getIntegrationSetup } from './integrationSetupRegistry'
@@ -21,7 +22,7 @@ export type IntegrationConfigureProps = {
     redirectUrl?: string
     schema?: { requiredScopes?: string }
     integration?: string
-    beforeRedirect?: () => void
+    beforeRedirect?: (redirectUrl?: string) => void | string | Promise<void | string>
 }
 
 export function IntegrationChoice({
@@ -36,6 +37,7 @@ export function IntegrationChoice({
     const { newGoogleCloudKey, openNewIntegrationModal, closeNewIntegrationModal, deleteIntegration } =
         useActions(integrationsLogic)
     const kind = integration
+    const [isRedirecting, setIsRedirecting] = useState(false)
 
     const integrationsOfKind = integrations?.filter((x) => x.kind === kind)
     const integrationKind = integrationsOfKind?.find((integration) => integration.id === value)
@@ -93,6 +95,7 @@ export function IntegrationChoice({
     // When the instance doesn't have OAuth credentials for this kind, /integrations/authorize
     // 400s with "Kind not configured". Send users to the settings page instead.
     const oauthUnavailable = kind === 'slack' && !slackAvailable
+    const authorizeUrl = api.integrations.authorizeUrl({ kind, next: redirectUrl, is_sandbox: isSandbox || undefined })
     const setupMenuItem = setupDef
         ? setupDef.menuItem({ kind, openModal: openNewIntegrationModal, uploadKey })
         : oauthUnavailable
@@ -102,9 +105,29 @@ export function IntegrationChoice({
                 label: `${kindName} is not configured on this instance`,
             }
           : {
-                to: api.integrations.authorizeUrl({ kind, next: redirectUrl, is_sandbox: isSandbox || undefined }),
+                to: authorizeUrl,
                 disableClientSideRouting: true,
-                onClick: beforeRedirect,
+                disabledReason: isRedirecting ? 'Connecting…' : undefined,
+                onClick: async (e) => {
+                    e.preventDefault()
+                    if (isRedirecting) {
+                        return
+                    }
+
+                    setIsRedirecting(true)
+
+                    try {
+                        const next = (await beforeRedirect?.(redirectUrl)) ?? redirectUrl
+                        window.location.href = api.integrations.authorizeUrl({
+                            kind,
+                            next,
+                            is_sandbox: isSandbox || undefined,
+                        })
+                    } catch {
+                        setIsRedirecting(false)
+                        lemonToast.error(`Could not save changes before connecting ${kindName.toLowerCase()}`)
+                    }
+                },
                 label: integrationsOfKind?.length
                     ? `Connect to a different integration for ${kindName}`
                     : `Connect to ${kindName}`,
@@ -161,9 +184,21 @@ export function IntegrationChoice({
             ]}
         >
             {integrationKind ? (
-                <LemonButton type="secondary">Change</LemonButton>
+                <LemonButton
+                    type="secondary"
+                    loading={isRedirecting}
+                    disabledReason={isRedirecting ? 'Connecting…' : undefined}
+                >
+                    Change
+                </LemonButton>
             ) : (
-                <LemonButton type="secondary">Choose {kindName} connection</LemonButton>
+                <LemonButton
+                    type="secondary"
+                    loading={isRedirecting}
+                    disabledReason={isRedirecting ? 'Connecting…' : undefined}
+                >
+                    Choose {kindName} connection
+                </LemonButton>
             )}
         </LemonMenu>
     )

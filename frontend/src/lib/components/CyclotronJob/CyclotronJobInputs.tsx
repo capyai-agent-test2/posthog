@@ -60,6 +60,7 @@ export type CyclotronJobInputsProps = {
     onInputSchemaChange?: (schema: CyclotronJobInputSchemaType[]) => void
     showSource: boolean
     sampleGlobalsWithInputs: CyclotronJobInvocationGlobalsWithInputs | null
+    persistForUnload?: (redirectUrl?: string) => void | string | Promise<void | string>
 }
 
 export function CyclotronJobInputs({
@@ -70,6 +71,7 @@ export function CyclotronJobInputs({
     errors,
     showSource,
     sampleGlobalsWithInputs,
+    persistForUnload,
 }: CyclotronJobInputsProps): JSX.Element | null {
     if (!configuration.inputs_schema?.length) {
         return <span className="italic text-secondary">This function does not require any input variables.</span>
@@ -106,6 +108,7 @@ export function CyclotronJobInputs({
                                     showSource={showSource}
                                     sampleGlobalsWithInputs={sampleGlobalsWithInputs}
                                     errors={errors}
+                                    persistForUnload={persistForUnload}
                                 />
                             )
                         })}
@@ -471,6 +474,7 @@ type CyclotronJobInputProps = {
     configuration: CyclotronJobInputConfiguration
     parentConfiguration?: CyclotronJobInputConfiguration
     sampleGlobalsWithInputs: CyclotronJobInvocationGlobalsWithInputs | null
+    persistForUnload?: (redirectUrl?: string) => void | string | Promise<void | string>
 }
 
 function CyclotronJobInputRenderer({
@@ -482,6 +486,7 @@ function CyclotronJobInputRenderer({
     configuration,
     parentConfiguration,
     sampleGlobalsWithInputs,
+    persistForUnload,
 }: CyclotronJobInputProps): JSX.Element {
     const templating = schema.templating ?? true
 
@@ -554,6 +559,7 @@ function CyclotronJobInputRenderer({
                 <CyclotronJobInputIntegration
                     schema={schema}
                     value={input.value}
+                    persistForUnload={persistForUnload}
                     onChange={(newValue) => {
                         // Clear all integration_field inputs when the integration changes
                         if (configuration.inputs_schema && onInputChange) {
@@ -755,6 +761,7 @@ function CyclotronJobInputWithSchema({
     showSource,
     sampleGlobalsWithInputs,
     errors,
+    persistForUnload,
 }: CyclotronJobInputWithSchemaProps): JSX.Element | null {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: schema.key })
     const [editing, setEditing] = useState(false)
@@ -893,6 +900,7 @@ function CyclotronJobInputWithSchema({
                                 configuration={configuration}
                                 parentConfiguration={parentConfiguration}
                                 sampleGlobalsWithInputs={sampleGlobalsWithInputs}
+                                persistForUnload={persistForUnload}
                             />
                         )}
                     </>

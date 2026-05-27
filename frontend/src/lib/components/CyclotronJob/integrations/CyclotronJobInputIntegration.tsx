@@ -10,7 +10,7 @@ function buildRedirectUrl(integrationTarget: string): string {
 
 export type CyclotronJobInputIntegrationProps = IntegrationConfigureProps & {
     schema: CyclotronJobInputSchemaType
-    persistForUnload?: () => void
+    persistForUnload?: (redirectUrl?: string) => void | string | Promise<void | string>
 }
 
 export function CyclotronJobInputIntegration({
@@ -24,7 +24,7 @@ export function CyclotronJobInputIntegration({
             schema={schema}
             integration={schema.integration}
             redirectUrl={buildRedirectUrl(schema.key)}
-            beforeRedirect={() => persistForUnload?.()}
+            beforeRedirect={persistForUnload}
         />
     )
 }
