@@ -79,6 +79,8 @@ class ActivityLogSerializer(serializers.ModelSerializer):
 
 
 class ActivityLogPagination(BasePagination):
+    export_page_size_query_param = "export_page_size"
+
     def __init__(self):
         self.page_number_pagination = PageNumberPagination()
         self.cursor_pagination = CursorPagination()
@@ -93,9 +95,14 @@ class ActivityLogPagination(BasePagination):
         if request.query_params.get("page"):
             return self.page_number_pagination.paginate_queryset(queryset, request, view)
         else:
-            export_page_size = request.query_params.get("export_page_size")
+            export_page_size = request.query_params.get(self.export_page_size_query_param)
             if export_page_size:
-                self.cursor_pagination.page_size = int(export_page_size)
+                try:
+                    self.cursor_pagination.page_size = min(
+                        max(int(export_page_size), 1), self.page_number_pagination.max_page_size
+                    )
+                except ValueError:
+                    pass
             return self.cursor_pagination.paginate_queryset(queryset, request, view)
 
     def get_paginated_response(self, data):
@@ -446,7 +453,7 @@ class AdvancedActivityLogsViewSet(TeamAndOrgViewSetMixin, viewsets.GenericViewSe
                 else:
                     query_params[key] = str(value)
 
-        query_params["export_page_size"] = self.export_page_size
+        query_params[ActivityLogPagination.export_page_size_query_param] = self.export_page_size
         return query_params
 
     @extend_schema(parameters=[AdvancedActivityLogFiltersSerializer])
