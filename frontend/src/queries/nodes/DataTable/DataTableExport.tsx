@@ -21,7 +21,6 @@ import { defaultDataTableColumns, removeExpressionComment } from '~/queries/node
 import { getPersonsEndpoint } from '~/queries/query'
 import { DataNode, DataTableNode } from '~/queries/schema/schema-general'
 import {
-    isActorsQuery,
     isEventsQuery,
     isGroupsQuery,
     isHogQLQuery,
@@ -33,6 +32,7 @@ import {
 import { ExportContext, ExporterFormat } from '~/types'
 
 import { dataTableLogic } from './dataTableLogic'
+import { getExportSourceForActorsQuery, isPersonActorsQuery } from './personExportUtils'
 
 // Sync with posthog/hogql/constants.py
 export const MAX_SELECT_RETURNED_ROWS = 50000
@@ -49,6 +49,10 @@ export async function startDownload(
     const shouldOptimize = shouldOptimizeForExport(query)
 
     let exportSource = query.source
+
+    if (isPersonActorsQuery(query.source)) {
+        exportSource = getExportSourceForActorsQuery(query.source, onlySelectedColumns)
+    }
 
     const team = teamLogic.findMounted()?.values?.currentTeam
     const personDisplayNameProperties = team?.person_display_name_properties ?? PERSON_DEFAULT_DISPLAY_NAME_PROPERTIES
@@ -116,7 +120,7 @@ export function DataTableExport({ query, fileNameForExport }: DataTableExportPro
         (isEventsQuery(source) || isPersonsNode(source) ? source.properties?.length || 0 : 0) +
         (isEventsQuery(source) && source.event ? 1 : 0) +
         (isPersonsNode(source) && source.search ? 1 : 0)
-    const canExportAllColumns = isEventsQuery(source) && source.select.includes('*')
+    const canExportAllColumns = (isEventsQuery(source) && source.select.includes('*')) || isPersonActorsQuery(source)
     const showExportClipboardButtons =
         isPersonsNode(source) ||
         isEventsQuery(source) ||
