@@ -277,6 +277,8 @@ def _resolve_parser_mode(
     hash is unaffected. The explicitly-passed `backend` is honoured
     (default `cpp-json`).
     """
+    explicit_backend_override = parser_mode is None and backend != DEFAULT_BACKEND
+
     if parser_mode is None:
         if settings.TEST and backend == DEFAULT_BACKEND and DEFAULT_BACKEND == "cpp-json" and _RUST_PARSER_AVAILABLE:
             return _PARSER_MODE_BACKENDS[ParserMode.CPP_WITH_RUST_SHADOW]
@@ -285,9 +287,9 @@ def _resolve_parser_mode(
     else:
         primary_backend, shadow_backend = _PARSER_MODE_BACKENDS[parser_mode]
 
-    if primary_backend == "cpp-json" and not _CPP_PARSER_AVAILABLE:
+    if primary_backend == "cpp-json" and not _CPP_PARSER_AVAILABLE and not explicit_backend_override:
         primary_backend = DEFAULT_BACKEND
-    elif primary_backend in {"rust-json", "rust-py"} and not _RUST_PARSER_AVAILABLE:
+    elif primary_backend in {"rust-json", "rust-py"} and not _RUST_PARSER_AVAILABLE and not explicit_backend_override:
         primary_backend = DEFAULT_BACKEND
 
     if shadow_backend == "cpp-json" and not _CPP_PARSER_AVAILABLE:
