@@ -1,6 +1,7 @@
-import type { z } from 'zod'
+import { z } from 'zod'
 
 import { withUiApp } from '@/resources/ui-apps'
+import { DataVisualizationNodeSchema, HogQLQuerySchema, InsightVizNodeSchema } from '@/schema/query'
 import { QueryRunInputSchema } from '@/schema/tool-inputs'
 import { withPostHogUrl, type WithPostHogUrl } from '@/tools/tool-utils'
 import type { Context, ToolBase } from '@/tools/types'
@@ -9,13 +10,29 @@ import { analyzeQuery } from '../shared'
 import { extractHogQLMetadata, formatHogQLMetadataForAgent } from './hogql-error-format'
 
 const schema = QueryRunInputSchema
+const runtimeQuerySchema = z.discriminatedUnion('kind', [
+    InsightVizNodeSchema,
+    DataVisualizationNodeSchema,
+    HogQLQuerySchema,
+])
 
 type Params = z.infer<typeof schema>
 
 type Result = WithPostHogUrl<{ query: unknown; results: unknown }>
 
 export const queryRunHandler: ToolBase<typeof schema, Result>['handler'] = async (context: Context, params: Params) => {
-    const { query } = params
+    const parsedQuery = runtimeQuerySchema.safeParse(params.query)
+    if (!parsedQuery.success) {
+        throw new Error(
+            [
+                'Invalid query-run input.',
+                'Expected a query object with kind "HogQLQuery", "InsightVizNode", or "DataVisualizationNode".',
+                parsedQuery.error.issues.map((issue) => issue.message).join('; '),
+            ].join(' ')
+        )
+    }
+
+    const query = parsedQuery.data
 
     const projectId = await context.stateManager.getProjectId()
 

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { DataVisualizationNodeSchema, HogQLQuerySchema, InsightVizNodeSchema, PropertyFilter } from './query'
+import { PropertyFilter } from './query'
 
 export const ExternalDataJobsAfterSchema = z
     .string()
@@ -529,11 +529,18 @@ export const ProjectSetActiveSchema = z.object({
 
 export const SurveyResponseCountsSchema = z.object({})
 
-const QueryRunQuerySchema = z.discriminatedUnion('kind', [
-    InsightVizNodeSchema,
-    DataVisualizationNodeSchema,
-    HogQLQuerySchema,
-])
+const QueryRunQuerySchema = z
+    .record(z.string(), z.unknown())
+    .describe(
+        [
+            'PostHog query node to run.',
+            'Accepted shapes:',
+            '- {"kind":"HogQLQuery","query":"SELECT ..."} for arbitrary HogQL.',
+            '- {"kind":"InsightVizNode","source":{...}} for product analytics insight queries like TrendsQuery, FunnelsQuery, or PathsQuery.',
+            '- {"kind":"DataVisualizationNode","source":{...},"display":"ActionsTable"|...} for HogQL-backed visualizations.',
+            'Pass the full query object, including its `kind` discriminator and nested query config.',
+        ].join('\n')
+    )
 
 export const QueryRunInputSchema = z.object({
     query: QueryRunQuerySchema,
