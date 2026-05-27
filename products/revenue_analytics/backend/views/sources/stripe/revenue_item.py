@@ -285,6 +285,24 @@ def build(handle: SourceHandle) -> BuiltQuery:
                         ast.Field(chain=["customer_id"]),
                         ast.Field(chain=["subscription_id"]),
                         ast.Field(chain=["discount"]),
+                        ast.Alias(
+                            alias="invoice_total_discount_amount",
+                            expr=parse_expr(
+                                "coalesce(arraySum(arrayMap(x -> JSONExtractInt(x, 'amount'), JSONExtractArrayRaw(total_discount_amounts))), 0)"
+                            ),
+                        ),
+                        ast.Alias(
+                            alias="invoice_discountable_line_items_total_amount_before_discount",
+                            expr=parse_expr(
+                                "coalesce(arraySum(arrayMap(line -> if(JSONExtractBool(line, 'discountable'), JSONExtractUInt(line, 'amount'), 0), JSONExtractArrayRaw(assumeNotNull(lines.data)))), 0)"
+                            ),
+                        ),
+                        ast.Alias(
+                            alias="invoice_line_items_total_discount_amount",
+                            expr=parse_expr(
+                                "coalesce(arraySum(arrayMap(line -> coalesce(arraySum(arrayMap(x -> JSONExtractInt(x, 'amount'), JSONExtractArrayRaw(line, 'discount_amounts'))), 0), JSONExtractArrayRaw(assumeNotNull(lines.data)))), 0)"
+                            ),
+                        ),
                         # Explode the `lines.data` field into an individual row per item
                         ast.Alias(
                             alias="data",
@@ -303,25 +321,41 @@ def build(handle: SourceHandle) -> BuiltQuery:
                         ast.Alias(alias="invoice_item_id", expr=extract_json_string("data", "id")),
                         # Make sure we're considering discounts here
                         ast.Alias(alias="amount_before_discount", expr=extract_json_uint("data", "amount")),
+                        ast.Alias(alias="line_discountable", expr=parse_expr("JSONExtractBool(data, 'discountable')")),
                         ast.Alias(
-                            alias="discount_amount",
+                            alias="line_discount_amount",
                             expr=parse_expr(
                                 # `data.discount_amounts` looks like `[{"amount": 100, ...}, {"amount": 200, ...}, ...]`, sum all amounts
                                 "coalesce(arraySum(arrayMap(x -> JSONExtractInt(x, 'amount'), JSONExtractArrayRaw(data, 'discount_amounts'))), 0)"
                             ),
                         ),
                         ast.Alias(
+                            alias="discount_amount",
+                            expr=parse_expr(
+                                "if("
+                                "line_discount_amount > 0, "
+                                "toDecimal(line_discount_amount, 10), "
+                                "if("
+                                "line_discountable AND invoice_line_items_total_discount_amount = 0 AND invoice_total_discount_amount > 0 AND invoice_discountable_line_items_total_amount_before_discount > 0, "
+                                "multiplyDecimal("
+                                "toDecimal(amount_before_discount, 10), "
+                                "divideDecimal("
+                                "toDecimal(invoice_total_discount_amount, 10), "
+                                "toDecimal(invoice_discountable_line_items_total_amount_before_discount, 10)"
+                                ")"
+                                "), "
+                                "toDecimal(0, 10)"
+                                ")"
+                                ")"
+                            ),
+                        ),
+                        ast.Alias(
                             alias="amount_captured",
-                            expr=ast.Call(
-                                name="greatest",
-                                args=[
-                                    ast.ArithmeticOperation(
-                                        op=ast.ArithmeticOperationOp.Sub,
-                                        left=ast.Field(chain=["amount_before_discount"]),
-                                        right=ast.Field(chain=["discount_amount"]),
-                                    ),
-                                    ast.Constant(value=0),
-                                ],
+                            expr=parse_expr(
+                                "greatest("
+                                "toDecimal(amount_before_discount, 10) - discount_amount, "
+                                "toDecimal(0, 10)"
+                                ")"
                             ),
                         ),
                         ast.Alias(alias="currency", expr=extract_json_string("data", "currency")),
