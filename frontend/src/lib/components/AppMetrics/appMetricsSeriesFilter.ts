@@ -16,10 +16,11 @@ export function mergeNewSeriesIntoVisibleSeriesNames(
     everSeenSeriesNames: string[],
     allSeriesNames: string[]
 ): string[] {
-    const existingSeries = previousVisibleSeriesNames.filter((name) => allSeriesNames.includes(name))
-    const addedSeries = allSeriesNames.filter((name) => !everSeenSeriesNames.includes(name))
+    const addedSeries = allSeriesNames.filter(
+        (name) => !previousVisibleSeriesNames.includes(name) && !everSeenSeriesNames.includes(name)
+    )
 
-    return [...existingSeries, ...addedSeries]
+    return [...previousVisibleSeriesNames, ...addedSeries]
 }
 
 export function reconcileVisibleSeriesNames(

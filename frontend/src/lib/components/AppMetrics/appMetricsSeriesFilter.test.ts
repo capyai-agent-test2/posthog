@@ -51,6 +51,12 @@ describe('appMetricsSeriesFilter', () => {
         ])
     })
 
+    it('keeps previously visible series selected when they are temporarily absent', () => {
+        expect(
+            mergeNewSeriesIntoVisibleSeriesNames(['failed', 'succeeded'], ['failed', 'succeeded'], ['failed'])
+        ).toEqual(['failed', 'succeeded'])
+    })
+
     it('filters the trends response to the selected series', () => {
         expect(filterAppMetricSeries(appMetricsTrends, ['succeeded', 'failed'])).toEqual({
             labels: ['2026-01-01', '2026-01-02'],
