@@ -83,6 +83,9 @@ class PropertyValuesQueryRunner(AnalyticsQueryRunner[PropertyValuesQueryResponse
         key = self.query.property_key
         is_virtual = key.startswith("$virt_")
         chain: list[str | int] = [key] if (self.query.is_column or is_virtual) else ["properties", key]
+        field_expr = ast.Field(chain=chain)
+        value_expr = self._event_value_expr(field_expr)
+        search_value = self._event_search_value()
 
         date_from = relative_date_parse("-7d", self.team.timezone_info).strftime("%Y-%m-%d 00:00:00")
         date_to = timezone.now().astimezone(self.team.timezone_info).strftime("%Y-%m-%d 23:59:59")
@@ -100,7 +103,7 @@ class PropertyValuesQueryRunner(AnalyticsQueryRunner[PropertyValuesQueryResponse
             ),
             ast.CompareOperation(
                 op=ast.CompareOperationOp.NotEq,
-                left=ast.Field(chain=chain),
+                left=field_expr,
                 right=ast.Constant(value=None),
             ),
         ]
@@ -116,12 +119,12 @@ class PropertyValuesQueryRunner(AnalyticsQueryRunner[PropertyValuesQueryResponse
             ]
             conditions.append(ast.Or(exprs=event_conditions) if len(event_conditions) > 1 else event_conditions[0])
 
-        if self.query.search_value:
-            escaped = self.query.search_value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        if search_value:
+            escaped = search_value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
             conditions.append(
                 ast.CompareOperation(
                     op=ast.CompareOperationOp.ILike,
-                    left=ast.Call(name="toString", args=[ast.Field(chain=chain)]),
+                    left=ast.Call(name="toString", args=[value_expr]),
                     right=ast.Constant(value=f"%{escaped}%"),
                 )
             )
@@ -129,21 +132,52 @@ class PropertyValuesQueryRunner(AnalyticsQueryRunner[PropertyValuesQueryResponse
         order_by: list[ast.OrderExpr] = (
             [
                 ast.OrderExpr(
-                    expr=ast.Call(name="length", args=[ast.Call(name="toString", args=[ast.Field(chain=chain)])]),
+                    expr=ast.Call(name="length", args=[ast.Call(name="toString", args=[value_expr])]),
                     order="ASC",
                 )
             ]
-            if self.query.search_value
+            if search_value
             else []
         )
 
         return ast.SelectQuery(
-            select=[ast.Field(chain=chain)],
+            select=[value_expr],
             distinct=True,
             select_from=ast.JoinExpr(table=ast.Field(chain=["events"])),
             where=ast.And(exprs=conditions),
             order_by=order_by,
             limit=ast.Constant(value=10),
+        )
+
+    def _event_value_expr(self, field_expr: ast.Expr) -> ast.Expr:
+        if not self._should_normalize_pageview_current_urls():
+            return field_expr
+
+        return ast.Call(
+            name="replaceRegexpAll",
+            args=[
+                ast.Call(name="ifNull", args=[field_expr, ast.Constant(value="")]),
+                ast.Constant(value="(.)/$"),
+                ast.Constant(value="\\1"),
+            ],
+        )
+
+    def _event_search_value(self) -> str | None:
+        search_value = self.query.search_value
+        if (
+            search_value
+            and self._should_normalize_pageview_current_urls()
+            and len(search_value) > 1
+            and search_value.endswith("/")
+        ):
+            return search_value[:-1]
+        return search_value
+
+    def _should_normalize_pageview_current_urls(self) -> bool:
+        return (
+            self.query.property_key == "$current_url"
+            and bool(self.query.event_names)
+            and all(event_name == "$pageview" for event_name in self.query.event_names)
         )
 
     def _format_event_results(self, rows: list) -> list[PropertyValueItem]:

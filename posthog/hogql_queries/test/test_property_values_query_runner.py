@@ -1,7 +1,13 @@
+from types import SimpleNamespace
+from zoneinfo import ZoneInfo
+
 from posthog.test.base import APIBaseTest, ClickhouseTestMixin, _create_event, _create_person, flush_persons_and_events
+from unittest import TestCase
 from unittest.mock import patch
 
 from parameterized import parameterized
+
+from posthog.hogql import ast
 
 from posthog.hogql_queries.property_values_query_runner import (
     CachedPropertyValuesQueryResponse,
@@ -11,6 +17,48 @@ from posthog.hogql_queries.property_values_query_runner import (
     PropertyValuesQueryRunner,
 )
 from posthog.hogql_queries.query_runner import ExecutionMode
+
+
+class TestPropertyValuesQueryRunnerUnit(TestCase):
+    def _runner(self, query: PropertyValuesQuery) -> PropertyValuesQueryRunner:
+        runner = PropertyValuesQueryRunner.__new__(PropertyValuesQueryRunner)
+        runner.query = query
+        runner.team = SimpleNamespace(timezone_info=ZoneInfo("UTC"))
+        return runner
+
+    def test_event_query_normalizes_pageview_current_urls(self) -> None:
+        runner = self._runner(
+            PropertyValuesQuery(
+                property_type=PropertyType.EVENT, property_key="$current_url", event_names=["$pageview"]
+            )
+        )
+
+        query = runner._event_query()
+
+        assert "replaceRegexpAll(ifNull(properties.$current_url, ''), '(.)/$', '\\\\1')" in query.to_hogql()
+
+    def test_event_query_normalizes_pageview_current_url_search_value(self) -> None:
+        runner = self._runner(
+            PropertyValuesQuery(
+                property_type=PropertyType.EVENT,
+                property_key="$current_url",
+                event_names=["$pageview"],
+                search_value="https://app.test/pricing/",
+            )
+        )
+
+        assert runner._event_search_value() == "https://app.test/pricing"
+
+    def test_event_value_expr_leaves_non_pageview_current_urls_unchanged(self) -> None:
+        runner = self._runner(
+            PropertyValuesQuery(
+                property_type=PropertyType.EVENT, property_key="$current_url", event_names=["$autocapture"]
+            )
+        )
+
+        field_expr = ast.Field(chain=["properties", "$current_url"])
+
+        assert runner._event_value_expr(field_expr).to_hogql() == "properties.$current_url"
 
 
 class TestPropertyValuesQueryRunner(ClickhouseTestMixin, APIBaseTest):
@@ -195,6 +243,77 @@ class TestPropertyValuesQueryRunner(ClickhouseTestMixin, APIBaseTest):
 
         results = self._run(PropertyValuesQuery(property_type=PropertyType.EVENT, property_key="tags"))
         assert {r.name for r in results} == {"python", "django"}
+
+    def test_event_property_values_normalize_trailing_slashes_for_pageview_current_urls(self):
+        _create_event(
+            event="$pageview", distinct_id="u1", team=self.team, properties={"$current_url": "https://app.test/pricing"}
+        )
+        _create_event(
+            event="$pageview",
+            distinct_id="u2",
+            team=self.team,
+            properties={"$current_url": "https://app.test/pricing/"},
+        )
+        _create_event(event="$pageview", distinct_id="u3", team=self.team, properties={"$current_url": "/"})
+        flush_persons_and_events()
+
+        results = self._run(
+            PropertyValuesQuery(
+                property_type=PropertyType.EVENT,
+                property_key="$current_url",
+                event_names=["$pageview"],
+            )
+        )
+
+        assert [r.name for r in results] == ["https://app.test/pricing", "/"]
+
+    @parameterized.expand(
+        [
+            ("no_trailing_slash", "https://app.test/pricing", {"https://app.test/pricing"}),
+            ("with_trailing_slash", "https://app.test/pricing/", {"https://app.test/pricing"}),
+        ]
+    )
+    def test_event_property_values_normalize_search_value_for_pageview_current_urls(
+        self, _name: str, search_value: str, expected_names: set[str]
+    ) -> None:
+        _create_event(
+            event="$pageview",
+            distinct_id="u1",
+            team=self.team,
+            properties={"$current_url": "https://app.test/pricing/"},
+        )
+        _create_event(
+            event="$pageview",
+            distinct_id="u2",
+            team=self.team,
+            properties={"$current_url": "https://app.test/checkout/"},
+        )
+        flush_persons_and_events()
+
+        results = self._run(
+            PropertyValuesQuery(
+                property_type=PropertyType.EVENT,
+                property_key="$current_url",
+                event_names=["$pageview"],
+                search_value=search_value,
+            )
+        )
+
+        assert {r.name for r in results} == expected_names
+
+    def test_event_property_values_do_not_normalize_non_pageview_current_urls(self):
+        _create_event(event="$autocapture", distinct_id="u1", team=self.team, properties={"$current_url": "/pricing/"})
+        flush_persons_and_events()
+
+        results = self._run(
+            PropertyValuesQuery(
+                property_type=PropertyType.EVENT,
+                property_key="$current_url",
+                event_names=["$autocapture"],
+            )
+        )
+
+        assert [r.name for r in results] == ["/pricing/"]
 
     @parameterized.expand(
         [
