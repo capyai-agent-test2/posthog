@@ -2,7 +2,7 @@ import './PersonsModal.scss'
 
 import { useActions, useValues } from 'kea'
 import React, { useCallback, useState } from 'react'
-import { createRoot } from 'react-dom/client'
+import { createRoot, type Root } from 'react-dom/client'
 
 import { IconCollapse, IconExpand } from '@posthog/icons'
 import {
@@ -586,16 +586,26 @@ export function MissingPersonsAlert({
 
 export type OpenPersonsModalProps = Omit<PersonsModalProps, 'onClose' | 'onAfterClose'>
 
-export const openPersonsModal = (props: OpenPersonsModalProps): void => {
+export function createAndInsertPersonsModalRoot(): { root: Root; onDestroy: () => void } {
     const div = document.createElement('div')
     const root = createRoot(div)
+
     function destroy(): void {
-        root.unmount()
-        if (div.parentNode) {
-            div.parentNode.removeChild(div)
-        }
+        // Defer the unmount to avoid colliding with the current rendering cycle.
+        setTimeout(() => {
+            root.unmount()
+            if (div.parentNode) {
+                div.parentNode.removeChild(div)
+            }
+        }, 0)
     }
 
     document.body.appendChild(div)
-    root.render(<PersonsModal {...props} onAfterClose={destroy} />)
+
+    return { root, onDestroy: destroy }
+}
+
+export const openPersonsModal = (props: OpenPersonsModalProps): void => {
+    const { root, onDestroy } = createAndInsertPersonsModalRoot()
+    root.render(<PersonsModal {...props} onAfterClose={onDestroy} />)
 }
