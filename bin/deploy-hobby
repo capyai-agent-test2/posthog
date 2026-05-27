@@ -9,6 +9,67 @@ export DEBIAN_FRONTEND=noninteractive
 export RESTART_MODE=l
 export POSTHOG_APP_TAG="${POSTHOG_APP_TAG:-latest}"
 
+detect_package_manager() {
+    if command -v apt-get &> /dev/null; then
+        echo "apt-get"
+    elif command -v apt &> /dev/null; then
+        echo "apt"
+    elif command -v dnf &> /dev/null; then
+        echo "dnf"
+    elif command -v yum &> /dev/null; then
+        echo "yum"
+    elif command -v pacman &> /dev/null; then
+        echo "pacman"
+    elif command -v zypper &> /dev/null; then
+        echo "zypper"
+    else
+        echo "Unsupported package manager. Please install git, curl, ca-certificates, brotli, and Docker manually." >&2
+        exit 1
+    fi
+}
+
+PACKAGE_MANAGER="$(detect_package_manager)"
+
+update_package_cache() {
+    case "$PACKAGE_MANAGER" in
+        apt|apt-get)
+            sudo apt-get update
+            ;;
+        dnf)
+            sudo dnf makecache
+            ;;
+        yum)
+            sudo yum makecache
+            ;;
+        pacman)
+            sudo pacman -Sy --noconfirm
+            ;;
+        zypper)
+            sudo zypper --gpg-auto-import-keys refresh
+            ;;
+    esac
+}
+
+install_packages() {
+    case "$PACKAGE_MANAGER" in
+        apt|apt-get)
+            sudo apt-get install -y --no-install-recommends "$@"
+            ;;
+        dnf)
+            sudo dnf install -y "$@"
+            ;;
+        yum)
+            sudo yum install -y "$@"
+            ;;
+        pacman)
+            sudo pacman -S --noconfirm --needed "$@"
+            ;;
+        zypper)
+            sudo zypper install -y "$@"
+            ;;
+    esac
+}
+
 # Talk to the user
 echo "Welcome to the single instance PostHog installer 🦔"
 echo ""
@@ -70,12 +131,12 @@ curl -o /dev/null -L --header "Content-Type: application/json" -d "{
 }" https://us.i.posthog.com/batch/ &> /dev/null
 
 # update apt cache
-echo "Grabbing latest apt caches"
-sudo apt update
+echo "Refreshing package metadata with $PACKAGE_MANAGER"
+update_package_cache
 
 # clone posthog
 echo "Installing PostHog 🦔 from Github"
-sudo apt install -y git
+install_packages git
 
 # try to clone - if folder is already there pull latest for that branch
 git clone --filter=blob:none https://github.com/PostHog/posthog.git &> /dev/null || true
@@ -148,8 +209,8 @@ fi
 
 # Download GeoLite2-City.mmdb if it doesn't exist
 echo "Downloading GeoIP database file"
-sudo apt-get update &&
-sudo apt-get install -y --no-install-recommends curl ca-certificates brotli &&
+update_package_cache &&
+install_packages curl ca-certificates brotli &&
 sudo mkdir -p ./share &&
 if [ ! -f ./share/GeoLite2-City.mmdb ]; then
     curl -L 'https://mmdbcdn.posthog.net/' --http1.1 | brotli --decompress | sudo tee ./share/GeoLite2-City.mmdb > /dev/null &&
@@ -204,12 +265,8 @@ chmod +x compose/wait
 # setup docker
 if ! command -v docker &> /dev/null; then
     echo "Docker is not installed. Setting up Docker."
-    sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo -E apt-key add -
-    sudo add-apt-repository -y "deb [arch=amd64] https://download.docker.com/linux/ubuntu jammy stable"
-    sudo apt update
-    sudo apt-cache policy docker-ce
-    sudo apt install -y docker-ce containerd.io=2.2.0-2~ubuntu.22.04~jammy
+    install_packages ca-certificates curl
+    curl -fsSL https://get.docker.com | sudo sh
 else
     echo "Docker is already installed. Skipping installation."
 fi
