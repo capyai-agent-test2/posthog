@@ -761,6 +761,16 @@ class TestSelectors(BaseTest):
         self.assertEqual(selector1.parts[1].direct_descendant, True)
         self.assertEqual(selector1.parts[1].unique_order, 0)
 
+    def test_class_with_non_alphanumeric_characters(self):
+        selector1 = Selector(".py-2.5")
+        self.assertEqual(selector1.parts[0].data, {"attr_class__contains": ["py-2.5"]})
+
+        selector2 = Selector(".border-[1.5px]")
+        self.assertEqual(selector2.parts[0].data, {"attr_class__contains": ["border-[1.5px]"]})
+
+        selector3 = Selector(".!ml-auto")
+        self.assertEqual(selector3.parts[0].data, {"attr_class__contains": ["!ml-auto"]})
+
     def test_nth_child(self):
         selector1 = Selector("div > span:nth-child(3)")
         self.assertEqual(selector1.parts[0].data, {"tag_name": "span", "nth_child": "3"})

@@ -898,6 +898,24 @@ class TestProperty(BaseTest):
             ),
         )
 
+        self.assertEqual(
+            self._selector_to_expr(".py-2.5"),
+            clear_locations(
+                elements_chain_match(
+                    '(^|;).*?\\.py\\-2\\.5([-_a-zA-Z0-9\\.:"= \\[\\]\\(\\),]*?)?($|;|:([^;^\\s]*(;|$|\\s)))'
+                )
+            ),
+        )
+
+        self.assertEqual(
+            self._selector_to_expr(".!ml-auto"),
+            clear_locations(
+                elements_chain_match(
+                    '(^|;).*?\\.!ml\\-auto([-_a-zA-Z0-9\\.:"= \\[\\]\\(\\),]*?)?($|;|:([^;^\\s]*(;|$|\\s)))'
+                )
+            ),
+        )
+
     def test_cohort_filter_static(self):
         cohort = Cohort.objects.create(
             team=self.team,

@@ -456,7 +456,7 @@ export class ActionMatcher {
             .replace(/> \* > /g, '')
             .replace(/> \*/g, '')
             .trim()
-        const tags = selector.split(' ')
+        const tags = splitSelector(selector)
         // Detecting selector parts
         for (let partIndex = 0; partIndex < tags.length; partIndex++) {
             const tag = tags[partIndex]
@@ -606,7 +606,7 @@ class SelectorPart {
             colonSelector = tag.match(COLON_SELECTOR_REGEX)
         }
         if (tag.includes('.')) {
-            const classParts = tag.split('.')
+            const classParts = splitClasses(tag)
             // Strip all slashes that are not followed by another slash
             this.requirements.attr_class = classParts.slice(1)
             if (escapeSlashes) {
@@ -627,4 +627,127 @@ class SelectorPart {
             .map((p) => p.replace(/\\/g, ''))
             .join('\\')
     }
+}
+
+function splitSelector(selector: string): string[] {
+    const parts: string[] = []
+    let current = ''
+    let bracketDepth = 0
+    let parenDepth = 0
+    let inQuotes: '"' | "'" | undefined
+    let escapeNext = false
+
+    for (const char of selector) {
+        if (escapeNext) {
+            current += char
+            escapeNext = false
+            continue
+        }
+
+        if (char === '\\') {
+            current += char
+            escapeNext = true
+            continue
+        }
+
+        if (inQuotes) {
+            current += char
+            if (char === inQuotes) {
+                inQuotes = undefined
+            }
+            continue
+        }
+
+        if (char === '"' || char === "'") {
+            inQuotes = char
+            current += char
+            continue
+        }
+
+        if (char === '[') {
+            bracketDepth += 1
+        } else if (char === ']' && bracketDepth > 0) {
+            bracketDepth -= 1
+        } else if (char === '(') {
+            parenDepth += 1
+        } else if (char === ')' && parenDepth > 0) {
+            parenDepth -= 1
+        }
+
+        if (char === ' ' && bracketDepth === 0 && parenDepth === 0) {
+            parts.push(current)
+            current = ''
+            continue
+        }
+
+        current += char
+    }
+
+    parts.push(current)
+    return parts
+}
+
+function splitClasses(tag: string): string[] {
+    const parts: string[] = []
+    let current = ''
+    let bracketDepth = 0
+    let parenDepth = 0
+    let inQuotes: '"' | "'" | undefined
+    let escapeNext = false
+
+    for (let index = 0; index < tag.length; index++) {
+        const char = tag[index]
+
+        if (escapeNext) {
+            current += char
+            escapeNext = false
+            continue
+        }
+
+        if (char === '\\') {
+            current += char
+            escapeNext = true
+            continue
+        }
+
+        if (inQuotes) {
+            current += char
+            if (char === inQuotes) {
+                inQuotes = undefined
+            }
+            continue
+        }
+
+        if (char === '"' || char === "'") {
+            inQuotes = char
+            current += char
+            continue
+        }
+
+        if (char === '[') {
+            bracketDepth += 1
+        } else if (char === ']' && bracketDepth > 0) {
+            bracketDepth -= 1
+        } else if (char === '(') {
+            parenDepth += 1
+        } else if (char === ')' && parenDepth > 0) {
+            parenDepth -= 1
+        }
+
+        if (char === '.' && bracketDepth === 0 && parenDepth === 0 && startsNewClass(tag, index)) {
+            parts.push(current)
+            current = ''
+            continue
+        }
+
+        current += char
+    }
+
+    parts.push(current)
+    return parts
+}
+
+function startsNewClass(tag: string, dotIndex: number): boolean {
+    const nextChar = tag[dotIndex + 1]
+    return !!nextChar && !/\d/.test(nextChar)
 }
