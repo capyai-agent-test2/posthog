@@ -29,6 +29,24 @@ import { VariableCalendar } from './VariableCalendar'
 import { variableModalLogic } from './variableModalLogic'
 import { variablesLogic } from './variablesLogic'
 
+const getLocalInputValue = (variable: Variable): string => {
+    const val = variable.value ?? variable.default_value
+
+    if (variable.type === 'Number' && !val) {
+        return '0'
+    }
+
+    if (variable.type === 'Boolean') {
+        return val === true || val === 'true' ? 'true' : 'false'
+    }
+
+    if (variable.type === 'Date' && !val) {
+        return dayjs().format('YYYY-MM-DD HH:mm:00')
+    }
+
+    return String(val ?? '')
+}
+
 export const VariablesForDashboard = (): JSX.Element => {
     const { effectiveVariablesAndAssociatedInsights } = useValues(dashboardLogic)
     const { overrideVariableValue } = useActions(dashboardLogic)
@@ -105,23 +123,7 @@ export const VariableInput = ({
     variableSettingsOnClick,
     onInsertAtCursor,
 }: VariableInputProps): JSX.Element => {
-    const [localInputValue, setLocalInputValue] = useState<string>(() => {
-        const val = variable.value ?? variable.default_value
-
-        if (variable.type === 'Number' && !val) {
-            return '0'
-        }
-
-        if (variable.type === 'Boolean') {
-            return val === true || val === 'true' ? 'true' : 'false'
-        }
-
-        if (variable.type === 'Date' && !val) {
-            return dayjs().format('YYYY-MM-DD HH:mm:00')
-        }
-
-        return String(val ?? '')
-    })
+    const [localInputValue, setLocalInputValue] = useState<string>(() => getLocalInputValue(variable))
     const [isNull, setIsNull] = useState<boolean>(variable.isNull ?? false)
 
     const inputRef = useRef<HTMLInputElement>(null)
@@ -130,6 +132,11 @@ export const VariableInput = ({
     useEffect(() => {
         inputRef.current?.focus()
     }, [inputRef.current])
+
+    useEffect(() => {
+        setLocalInputValue(getLocalInputValue(variable))
+        setIsNull(variable.isNull ?? false)
+    }, [variable.default_value, variable.isNull, variable.type, variable.value])
 
     const variableAsHogQL = `{variables.${variable.code_name}}`
 
