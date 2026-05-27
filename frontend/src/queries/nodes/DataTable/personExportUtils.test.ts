@@ -1,8 +1,16 @@
+import { MOCK_TEAM_ID } from 'lib/api.mock'
+
+import { ApiConfig } from 'lib/api'
+
 import { ActorsQuery, NodeKind } from '~/queries/schema/schema-general'
 
-import { getExportSourceForActorsQuery, isPersonActorsQuery } from './personExportUtils'
+import { getPersonActorsExportPath, isPersonActorsQuery } from './personExportUtils'
 
 describe('personExportUtils', () => {
+    beforeEach(() => {
+        ApiConfig.setCurrentTeamId(MOCK_TEAM_ID)
+    })
+
     const personActorsQuery: ActorsQuery = {
         kind: NodeKind.ActorsQuery,
         search: 'alice',
@@ -17,28 +25,19 @@ describe('personExportUtils', () => {
         ).toBe(false)
     })
 
-    it('switches export-all actor queries to star selection', () => {
-        expect(getExportSourceForActorsQuery(personActorsQuery, false)).toEqual({
-            ...personActorsQuery,
-            orderBy: ['id ASC'],
-            select: ['*'],
-        })
+    it('builds a persons endpoint path for top-level person actors queries', () => {
+        const exportPath = getPersonActorsExportPath(personActorsQuery)
+        expect(exportPath).toContain(`api/environments/${MOCK_TEAM_ID}/persons?`)
+        expect(exportPath).toContain('search=alice')
+        expect(exportPath).toContain('properties=')
     })
 
-    it('keeps selected columns for current-column exports', () => {
-        expect(getExportSourceForActorsQuery(personActorsQuery, true)).toEqual(personActorsQuery)
-    })
-
-    it('preserves created_at ordering when that column is visible', () => {
+    it('uses the cohort persons endpoint when the query is scoped to a cohort', () => {
         expect(
-            getExportSourceForActorsQuery(
-                { ...personActorsQuery, select: ['person_display_name -- Person', 'created_at'] },
-                false
-            )
-        ).toEqual({
-            ...personActorsQuery,
-            orderBy: ['created_at DESC'],
-            select: ['*'],
-        })
+            getPersonActorsExportPath({
+                ...personActorsQuery,
+                fixedProperties: [{ type: 'cohort', key: 'id', value: 7 }],
+            })
+        ).toContain('/api/cohort/7/persons?')
     })
 })
