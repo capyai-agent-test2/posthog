@@ -1,7 +1,7 @@
 import { actions, afterMount, connect, kea, listeners, path, reducers, selectors } from 'kea'
 import { loaders } from 'kea-loaders'
 
-import api, { ApiConfig } from 'lib/api'
+import api, { ApiConfig, ApiError } from 'lib/api'
 import { lemonToast } from 'lib/lemon-ui/LemonToast'
 import { identifierToHuman, isUserLoggedIn } from 'lib/utils'
 import { eventUsageLogic } from 'lib/utils/eventUsageLogic'
@@ -53,7 +53,10 @@ export const projectLogic = kea<projectLogicType>([
                     try {
                         const projectId = values.currentProject?.id ?? '@current'
                         return await api.get(`api/projects/${projectId}`)
-                    } catch {
+                    } catch (error) {
+                        if (error instanceof ApiError && [403, 404].includes(error.status ?? 0)) {
+                            return null
+                        }
                         return values.currentProject
                     }
                 },

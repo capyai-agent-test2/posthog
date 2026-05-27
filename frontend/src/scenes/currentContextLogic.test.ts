@@ -2,6 +2,8 @@ import { api, MOCK_DEFAULT_ORGANIZATION, MOCK_DEFAULT_PROJECT } from 'lib/api.mo
 
 import { expectLogic } from 'kea-test-utils'
 
+import { ApiError } from 'lib/api'
+
 import { initKeaTests } from '~/test/init'
 import { AppContext } from '~/types'
 
@@ -61,6 +63,22 @@ describe('current context loaders', () => {
 
             await expectLogic(logic).toDispatchActions(['loadCurrentProject', 'loadCurrentProjectSuccess'])
             expect(api.get).toHaveBeenCalledWith(`api/projects/${MOCK_DEFAULT_PROJECT.id}`)
+        })
+
+        it.each([403, 404])('clears stale project context on %s responses', async (statusCode) => {
+            initKeaTests(false)
+            jest.spyOn(api, 'get').mockResolvedValue(MOCK_DEFAULT_PROJECT)
+            const logic = projectLogic()
+            logic.mount()
+
+            await expectLogic(logic).toDispatchActions(['loadCurrentProjectSuccess'])
+            api.get.mockRejectedValueOnce(new ApiError('nope', statusCode))
+
+            await expectLogic(logic, () => {
+                logic.actions.loadCurrentProject()
+            }).toDispatchActions(['loadCurrentProject', 'loadCurrentProjectSuccess'])
+
+            expect(logic.values.currentProject).toBeNull()
         })
 
         it('falls back to @current before the project is known', async () => {

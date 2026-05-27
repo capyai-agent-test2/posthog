@@ -2,7 +2,7 @@ import { actions, afterMount, connect, kea, listeners, path, reducers, selectors
 import { loaders } from 'kea-loaders'
 import posthog from 'posthog-js'
 
-import api, { ApiConfig } from 'lib/api'
+import api, { ApiConfig, ApiError } from 'lib/api'
 import { SetupTaskId, globalSetupLogic } from 'lib/components/ProductSetup'
 import { OrganizationMembershipLevel } from 'lib/constants'
 import { IconSwapHoriz } from 'lib/lemon-ui/icons'
@@ -96,7 +96,10 @@ export const teamLogic = kea<teamLogicType>([
                     try {
                         const teamId = values.currentTeam?.id ?? '@current'
                         return await api.get(`api/environments/${teamId}`)
-                    } catch {
+                    } catch (error) {
+                        if (error instanceof ApiError && [403, 404].includes(error.status ?? 0)) {
+                            return null
+                        }
                         return values.currentTeam
                     }
                 },

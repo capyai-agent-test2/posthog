@@ -2,6 +2,8 @@ import { api, MOCK_DEFAULT_TEAM, MOCK_TEAM_ID } from 'lib/api.mock'
 
 import { expectLogic } from 'kea-test-utils'
 
+import { ApiError } from 'lib/api'
+
 import { initKeaTests } from '~/test/init'
 import { AppContext } from '~/types'
 
@@ -40,6 +42,17 @@ describe('teamLogic', () => {
 
             await expectLogic(logic).toDispatchActions(['loadCurrentTeam', 'loadCurrentTeamSuccess'])
             expect(api.get).toHaveBeenCalledWith(`api/environments/${MOCK_TEAM_ID}`)
+        })
+
+        it.each([403, 404])('clears stale team context on %s responses', async (statusCode) => {
+            await expectLogic(logic).toDispatchActions(['loadCurrentTeamSuccess'])
+            api.get.mockRejectedValueOnce(new ApiError('nope', statusCode))
+
+            await expectLogic(logic, () => {
+                logic.actions.loadCurrentTeam()
+            }).toDispatchActions(['loadCurrentTeam', 'loadCurrentTeamSuccess'])
+
+            expect(logic.values.currentTeam).toBeNull()
         })
     })
 
