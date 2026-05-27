@@ -71,6 +71,18 @@ export const WORKFLOW_SUMMARY_METRICS: Record<
     },
 }
 
+export const workflowSummarySeriesMetadata: Record<string, { label: string; description: string; color: string }> =
+    Object.fromEntries(
+        Object.values(WORKFLOW_SUMMARY_METRICS).map(({ name, description, color }) => [
+            name,
+            { label: name, description, color },
+        ])
+    )
+
+export const workflowSummaryMetricLabels = Object.fromEntries(
+    Object.entries(workflowSummarySeriesMetadata).map(([metricName, { label }]) => [metricName, label])
+)
+
 export const WORKFLOW_EMAIL_METRICS: Record<
     EmailMetric,
     { name: string; description: string; color: string; metricNames: string[] }
