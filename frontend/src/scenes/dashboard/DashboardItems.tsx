@@ -7,6 +7,7 @@ import { RefObject, useCallback, useEffect, useMemo, useRef, useState } from 're
 import { Layout, Responsive as ReactGridLayout, useContainerWidth } from 'react-grid-layout'
 import { GridBackground } from 'react-grid-layout/extras'
 
+import { ApiError } from 'lib/api-error'
 import { InsightCard } from 'lib/components/Cards/InsightCard'
 import { LemonBanner } from 'lib/lemon-ui/LemonBanner'
 import { DashboardEventSource, eventUsageLogic } from 'lib/utils/eventUsageLogic'
@@ -381,12 +382,21 @@ export function DashboardItems(): JSX.Element {
                             }
 
                             if (insight) {
-                                // Check if this insight has an error from the server
+                                const queryStatusError = insight.query_status?.error_message
+                                const insightApiError = queryStatusError
+                                    ? new ApiError(queryStatusError, 400, undefined, { detail: queryStatusError })
+                                    : undefined
                                 const isErrorTile = !!tile.error
-                                const apiErrored = isErrorTile || refreshStatus[insight.short_id]?.errored || false
+                                const apiErrored =
+                                    isErrorTile ||
+                                    !!insightApiError ||
+                                    refreshStatus[insight.short_id]?.errored ||
+                                    false
                                 const apiError = isErrorTile
-                                    ? ({ status: 400, detail: `${tile.error!.type}: ${tile.error!.message}` } as any)
-                                    : refreshStatus[insight.short_id]?.error
+                                    ? new ApiError(`${tile.error!.type}: ${tile.error!.message}`, 400, undefined, {
+                                          detail: `${tile.error!.type}: ${tile.error!.message}`,
+                                      })
+                                    : insightApiError || refreshStatus[insight.short_id]?.error
                                 const loadingQueued = isErrorTile ? false : isRefreshingQueued(insight.short_id)
                                 const loading = isErrorTile ? false : isRefreshing(insight.short_id)
 
