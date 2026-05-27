@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { PostHogValidationError } from '@/lib/errors'
 import { withUiApp } from '@/resources/ui-apps'
 import { DataVisualizationNodeSchema, HogQLQuerySchema, InsightVizNodeSchema } from '@/schema/query'
 import { QueryRunInputSchema } from '@/schema/tool-inputs'
@@ -23,13 +24,17 @@ type Result = WithPostHogUrl<{ query: unknown; results: unknown }>
 export const queryRunHandler: ToolBase<typeof schema, Result>['handler'] = async (context: Context, params: Params) => {
     const parsedQuery = runtimeQuerySchema.safeParse(params.query)
     if (!parsedQuery.success) {
-        throw new Error(
-            [
-                'Invalid query-run input.',
+        throw new PostHogValidationError({
+            detail: [
                 'Expected a query object with kind "HogQLQuery", "InsightVizNode", or "DataVisualizationNode".',
                 parsedQuery.error.issues.map((issue) => issue.message).join('; '),
-            ].join(' ')
-        )
+            ].join(' '),
+            attr: 'query',
+            code: 'invalid',
+            extra: undefined,
+            url: 'mcp://tools/query-run',
+            method: 'CALL',
+        })
     }
 
     const query = parsedQuery.data

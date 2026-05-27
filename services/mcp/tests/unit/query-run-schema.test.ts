@@ -1,7 +1,9 @@
 import { toJsonSchemaCompat } from '@modelcontextprotocol/sdk/server/zod-json-schema-compat.js'
 import { describe, expect, it } from 'vitest'
 
+import { PostHogValidationError } from '@/lib/errors'
 import { QueryRunInputSchema } from '@/schema/tool-inputs'
+import { queryRunHandler } from '@/tools/query/run'
 
 describe('QueryRunInputSchema', () => {
     it('accepts a bare HogQLQuery node', () => {
@@ -23,5 +25,15 @@ describe('QueryRunInputSchema', () => {
         expect(schema.properties?.query).toMatchObject({ type: 'object' })
         expect(schema.properties?.query).not.toHaveProperty('oneOf')
         expect(schema.properties?.query?.description).toContain('HogQLQuery')
+    })
+
+    it('reports malformed query objects as validation errors', async () => {
+        await expect(queryRunHandler({} as never, { query: { kind: 'nope' } })).rejects.toMatchObject<
+            Partial<PostHogValidationError>
+        >({
+            detail: expect.stringContaining('Expected a query object'),
+            attr: 'query',
+            code: 'invalid',
+        })
     })
 })
