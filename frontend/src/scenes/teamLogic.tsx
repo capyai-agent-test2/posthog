@@ -58,10 +58,10 @@ export interface FrequentMistakeAdvice {
 export const teamLogic = kea<teamLogicType>([
     path(['scenes', 'teamLogic']),
     connect(() => ({
-        values: [projectLogic, ['currentProject'], featureFlagLogic, ['featureFlags']],
+        values: [projectLogic, ['currentProject'], featureFlagLogic, ['featureFlags'], userLogic, ['user']],
         actions: [
             userLogic,
-            ['switchTeam'],
+            ['loadUserSuccess', 'switchTeam'],
             organizationLogic,
             ['loadCurrentOrganization'],
             customProductsLogic,
@@ -349,7 +349,7 @@ export const teamLogic = kea<teamLogicType>([
                 currentTeam?.customer_analytics_config ?? ({} as CustomerAnalyticsConfig),
         ],
     })),
-    listeners(({ actions }) => ({
+    listeners(({ actions, values }) => ({
         loadCurrentTeamSuccess: ({ currentTeam }) => {
             ApiConfig.setCurrentTeamId(currentTeam?.id ?? null)
 
@@ -358,9 +358,13 @@ export const teamLogic = kea<teamLogicType>([
                 globalSetupLogic.findMounted()?.actions.markTaskAsCompleted(SetupTaskId.EnableRevenueAnalyticsViewset)
             }
         },
-        updateCurrentTeamSuccess: () => {
-            // currentTeam/currentOrganization are already updated locally, so avoid reloading
-            // the user via @me where another browser tab may have changed the server-side "current" context.
+        updateCurrentTeamSuccess: ({ currentTeam }) => {
+            if (values.user) {
+                actions.loadUserSuccess({
+                    ...values.user,
+                    team: currentTeam,
+                })
+            }
         },
         createTeamSuccess: ({ currentTeam }) => {
             if (currentTeam) {

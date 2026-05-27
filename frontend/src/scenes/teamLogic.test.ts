@@ -1,4 +1,4 @@
-import { api, MOCK_DEFAULT_TEAM, MOCK_TEAM_ID } from 'lib/api.mock'
+import { api, MOCK_DEFAULT_TEAM, MOCK_DEFAULT_USER, MOCK_TEAM_ID } from 'lib/api.mock'
 
 import { expectLogic } from 'kea-test-utils'
 
@@ -8,6 +8,7 @@ import { initKeaTests } from '~/test/init'
 import { AppContext } from '~/types'
 
 import { teamLogic } from './teamLogic'
+import { userLogic } from './userLogic'
 
 describe('teamLogic', () => {
     let logic: ReturnType<typeof teamLogic.build>
@@ -55,6 +56,19 @@ describe('teamLogic', () => {
             expect(logic.values.currentTeam).toBeNull()
             expect(ApiConfig.hasCurrentTeamId()).toBe(false)
             expect(() => ApiConfig.getCurrentTeamId()).toThrow('Team ID is not known.')
+        })
+
+        it('patches user team locally after a team update', async () => {
+            await expectLogic(logic).toDispatchActions(['loadCurrentTeamSuccess'])
+            userLogic.mount()
+            userLogic.actions.loadUserSuccess(MOCK_DEFAULT_USER)
+            jest.spyOn(api, 'update').mockResolvedValue({ ...MOCK_DEFAULT_TEAM, name: 'Renamed team' })
+
+            await expectLogic(logic, () => {
+                logic.actions.updateCurrentTeam({ name: 'Renamed team' })
+            }).toDispatchActions(['updateCurrentTeam', 'updateCurrentTeamSuccess', 'loadUserSuccess'])
+
+            expect(userLogic.values.user?.team?.name).toBe('Renamed team')
         })
     })
 
