@@ -16,7 +16,7 @@ from posthog.models.team import Team
 def fetch_trace(team: Team, trace_id: str, window_start: str, window_end: str) -> LLMTrace | None:
     """Fetch a single trace by ID via the migrated `TraceQueryRunner`.
 
-    The runner's `TraceQueryDateRange` widens the input window by ±10 minutes
+    The runner's `TraceQueryDateRange` widens the input window by ±30 minutes
     internally, so callers should pass the raw window — no pre-widening here.
 
     Returns the LLMTrace produced by the runner (with heavy columns re-merged

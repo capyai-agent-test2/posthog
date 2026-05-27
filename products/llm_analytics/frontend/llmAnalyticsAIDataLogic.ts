@@ -50,7 +50,7 @@ async function loadAIDataAsync(params: LoadAIDataParams): Promise<AIData> {
     // Post-strip events have NULL heavy props on the shared `events` table. Reuse the
     // existing TraceQuery pipeline (ai_events first, shared `events` on zero rows) to
     // fetch the event's heavy columns by (trace_id, event uuid). TraceQueryDateRange
-    // auto-widens the window by ±10 minutes, so a single timestamp is sufficient.
+    // auto-widens the window by ±30 minutes, so a single timestamp is sufficient.
     try {
         const traceQuery: TraceQuery = {
             kind: NodeKind.TraceQuery,

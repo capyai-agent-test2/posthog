@@ -449,7 +449,7 @@ class TestTraceQueryRunner(ClickhouseTestMixin, BaseTest):
         self.assertEqual(len(response.results), 0)
 
     def test_capture_range(self):
-        """Test the 10-minute capture range window."""
+        """Test the 30-minute capture range window."""
         _create_person(distinct_ids=["person1"], team=self.team)
         _create_ai_generation_event(
             distinct_id="person1",
@@ -464,7 +464,7 @@ class TestTraceQueryRunner(ClickhouseTestMixin, BaseTest):
             timestamp=datetime(2024, 12, 1, 0, 10),
         )
 
-        # Events within 10 minutes should be included
+        # Events within 30 minutes should be included
         response = TraceQueryRunner(
             team=self.team,
             query=TraceQuery(
@@ -472,6 +472,35 @@ class TestTraceQueryRunner(ClickhouseTestMixin, BaseTest):
                 dateRange=DateRange(date_from="2024-12-01T00:00:00Z", date_to="2024-12-01T00:00:00Z"),
             ),
         ).calculate()
+        self.assertEqual(len(response.results), 1)
+        self.assertEqual(len(response.results[0].events), 2)
+
+    def test_capture_range_includes_long_running_trace_view_window(self):
+        _create_person(distinct_ids=["person1"], team=self.team)
+        _create_ai_generation_event(
+            distinct_id="person1",
+            trace_id="trace1",
+            team=self.team,
+            timestamp=datetime(2024, 12, 1, 0, 0),
+        )
+        _create_ai_generation_event(
+            distinct_id="person1",
+            trace_id="trace1",
+            team=self.team,
+            timestamp=datetime(2024, 12, 1, 0, 31),
+        )
+
+        response = TraceQueryRunner(
+            team=self.team,
+            query=TraceQuery(
+                traceId="trace1",
+                # The trace view links use the first event timestamp minus 5 minutes and
+                # default date_to to 10 minutes after that. With a 30-minute capture buffer
+                # on each side, traces spanning a bit over 30 minutes still load fully.
+                dateRange=DateRange(date_from="2024-11-30T23:55:00Z", date_to="2024-12-01T00:05:00Z"),
+            ),
+        ).calculate()
+
         self.assertEqual(len(response.results), 1)
         self.assertEqual(len(response.results[0].events), 2)
 

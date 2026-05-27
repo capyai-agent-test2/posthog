@@ -43,11 +43,11 @@ TRACE_FIELDS_MAPPING: dict[str, str] = {
 
 class TraceQueryDateRange(QueryDateRange):
     """
-    Extends the QueryDateRange to include a capture range of 10 minutes before and after the date range.
-    It's a naive assumption that a trace finishes generating within 10 minutes of the first event so we can apply the date filters.
+    Extends the QueryDateRange to include a capture range of 30 minutes before and after the date range.
+    It's a naive assumption that a trace finishes generating within 30 minutes of the first event so we can apply the date filters.
     """
 
-    CAPTURE_RANGE_MINUTES = 10
+    CAPTURE_RANGE_MINUTES = 30
 
     def date_from_for_filtering(self) -> datetime:
         return super().date_from()
@@ -189,7 +189,7 @@ class TraceQueryRunner(AnalyticsQueryRunner[TraceQueryResponse]):
 
     @cached_property
     def _date_range(self):
-        # Minute-level precision for 10m capture range
+        # Minute-level precision for 30m capture range
         return TraceQueryDateRange(self.query.dateRange, self.team, IntervalType.MINUTE, datetime.now())
 
     def cache_target_age(self, last_refresh: Optional[datetime], lazy: bool = False) -> Optional[datetime]:
