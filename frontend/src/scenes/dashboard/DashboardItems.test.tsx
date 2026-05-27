@@ -99,32 +99,33 @@ jest.mock('react-grid-layout', () => {
             containerRef: { current: null },
             mounted: true,
         }),
-        Responsive: ({
-            className,
-            rowHeight,
-            margin,
-            resizeConfig,
-            dragConfig,
-            children,
-        }: {
+        Responsive: (props: {
             className: string
             rowHeight: number
             margin: [number, number]
             resizeConfig: { enabled: boolean }
             dragConfig: { enabled: boolean }
             children: any
-        }) => (
-            <div
-                data-attr="react-grid-layout"
-                data-class-name={className}
-                data-row-height={String(rowHeight)}
-                data-margin={margin.join(',')}
-                data-resize-enabled={String(resizeConfig.enabled)}
-                data-drag-enabled={String(dragConfig.enabled)}
-            >
-                {children}
-            </div>
-        ),
+            onLayoutChange?: (...args: any[]) => void
+            onDragStart?: (...args: any[]) => void
+            onResize?: (...args: any[]) => void
+        }) => {
+            lastResponsiveProps = props
+            const { className, rowHeight, margin, resizeConfig, dragConfig, children } = props
+
+            return (
+                <div
+                    data-attr="react-grid-layout"
+                    data-class-name={className}
+                    data-row-height={String(rowHeight)}
+                    data-margin={margin.join(',')}
+                    data-resize-enabled={String(resizeConfig.enabled)}
+                    data-drag-enabled={String(dragConfig.enabled)}
+                >
+                    {children}
+                </div>
+            )
+        },
     }
 })
 
@@ -134,12 +135,36 @@ jest.mock('react-grid-layout/extras', () => ({
     ),
 }))
 
+jest.mock(
+    '@posthog/quill',
+    () => {
+        const fallback = ({ children }: { children?: any }): JSX.Element => <>{children ?? null}</>
+
+        return new Proxy(
+            {},
+            {
+                get: (_target, prop) => {
+                    if (prop === '__esModule') {
+                        return true
+                    }
+                    return fallback
+                },
+            }
+        )
+    },
+    { virtual: true }
+)
+
 const mockedUseValues = useValues as jest.Mock
 const mockedUseActions = useActions as jest.Mock
+let lastResponsiveProps: Record<string, any> | null = null
+let updateLayoutsMock: jest.Mock
 
 describe('DashboardItems', () => {
     beforeEach(() => {
         jest.clearAllMocks()
+        lastResponsiveProps = null
+        updateLayoutsMock = jest.fn()
 
         mockedUseValues.mockImplementation((logic) => {
             if (logic === dashboardLogic) {
@@ -183,7 +208,7 @@ describe('DashboardItems', () => {
         mockedUseActions.mockImplementation((logic) => {
             if (logic === dashboardLogic) {
                 return {
-                    updateLayouts: jest.fn(),
+                    updateLayouts: updateLayoutsMock,
                     updateContainerWidth: jest.fn(),
                     updateTileColor: jest.fn(),
                     toggleTileDescription: jest.fn(),
@@ -222,5 +247,43 @@ describe('DashboardItems', () => {
     it('matches snapshot in edit mode with layout zoom enabled', () => {
         const { container } = render(<DashboardItems />)
         expect(container.firstChild).toMatchSnapshot()
+    })
+
+    it('does not persist layout changes caused only by container resizing', () => {
+        render(<DashboardItems />)
+
+        const nextLayouts = {
+            sm: [{ i: '1', x: 6, y: 0, w: 6, h: 5 }],
+        }
+
+        lastResponsiveProps?.onLayoutChange?.([], nextLayouts)
+
+        expect(updateLayoutsMock).not.toHaveBeenCalled()
+    })
+
+    it('persists layout changes during drag interactions', () => {
+        render(<DashboardItems />)
+
+        const nextLayouts = {
+            sm: [{ i: '1', x: 6, y: 0, w: 6, h: 5 }],
+        }
+
+        lastResponsiveProps?.onDragStart?.()
+        lastResponsiveProps?.onLayoutChange?.([], nextLayouts)
+
+        expect(updateLayoutsMock).toHaveBeenCalledWith(nextLayouts)
+    })
+
+    it('persists layout changes during resize interactions', () => {
+        render(<DashboardItems />)
+
+        const nextLayouts = {
+            sm: [{ i: '1', x: 0, y: 0, w: 12, h: 5 }],
+        }
+
+        lastResponsiveProps?.onResize?.([], null, { i: '1', x: 0, y: 0, w: 12, h: 5 })
+        lastResponsiveProps?.onLayoutChange?.([], nextLayouts)
+
+        expect(updateLayoutsMock).toHaveBeenCalledWith(nextLayouts)
     })
 })

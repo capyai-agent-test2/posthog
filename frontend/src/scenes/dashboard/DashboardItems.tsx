@@ -73,6 +73,7 @@ export function DashboardItems(): JSX.Element {
         : getBestSurveyOpportunityFunnel(tiles || [], surveyLinkedInsights)
 
     const resizingItemRef = useRef<any>(null)
+    const shouldPersistNextLayoutChangeRef = useRef(false)
     const [containerHeight, setContainerHeight] = useState<number | undefined>(undefined)
 
     // cannot click links when dragging and 250ms after
@@ -224,7 +225,8 @@ export function DashboardItems(): JSX.Element {
 
     const handleLayoutChange = useCallback(
         (_: unknown, newLayouts: Partial<Record<DashboardLayoutSize, Layout>>) => {
-            if (dashboardMode === DashboardMode.Edit) {
+            if (dashboardMode === DashboardMode.Edit && shouldPersistNextLayoutChangeRef.current) {
+                shouldPersistNextLayoutChangeRef.current = false
                 updateLayouts(newLayouts)
             }
         },
@@ -239,17 +241,22 @@ export function DashboardItems(): JSX.Element {
     )
 
     const handleResize = useCallback((_layout: any, _oldItem: any, newItem: any) => {
+        shouldPersistNextLayoutChangeRef.current = true
         resizingItemRef.current = newItem
     }, [])
 
     const handleResizeStop = useCallback(() => {
         resizingItemRef.current = null
+        window.setTimeout(() => {
+            shouldPersistNextLayoutChangeRef.current = false
+        }, 0)
         if (dashboard?.id) {
             reportDashboardTileRepositioned(dashboard.id, 'resized', effectiveZoom)
         }
     }, [dashboard?.id, reportDashboardTileRepositioned, effectiveZoom])
 
     const handleDragStart = useCallback(() => {
+        shouldPersistNextLayoutChangeRef.current = true
         scrollContainerRef.current = document.getElementById('main-content')
         scrollContainerRectRef.current = scrollContainerRef.current?.getBoundingClientRect() ?? null
     }, [])
@@ -303,6 +310,9 @@ export function DashboardItems(): JSX.Element {
             cancelAnimationFrame(scrollAnimationRef.current)
             scrollAnimationRef.current = null
         }
+        window.setTimeout(() => {
+            shouldPersistNextLayoutChangeRef.current = false
+        }, 0)
         scrollContainerRef.current = null
         scrollContainerRectRef.current = null
         if (dragEndTimeout.current) {
