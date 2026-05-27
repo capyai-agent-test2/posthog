@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Optional, Union
 
 from django.db import models
@@ -98,6 +98,7 @@ class SessionRecording(UUIDTModel):
 
     def load_metadata(self) -> bool:
         if self._metadata:
+            self._set_ongoing_from_end_time()
             return True
 
         if self.full_recording_v2_path:
@@ -134,7 +135,15 @@ class SessionRecording(UUIDTModel):
             self.expiry_time = metadata["expiry_time"]
             self.recording_ttl = metadata["recording_ttl"]
 
+        self._set_ongoing_from_end_time()
         return True
+
+    def _set_ongoing_from_end_time(self) -> None:
+        if self.end_time is None:
+            self.ongoing = False
+            return
+
+        self.ongoing = self.end_time >= datetime.now(UTC) - timedelta(minutes=5)
 
     @property
     def snapshot_source(self) -> Optional[str]:

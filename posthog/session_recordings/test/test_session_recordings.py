@@ -772,12 +772,30 @@ class TestSessionRecordings(APIBaseTest, ClickhouseTestMixin, QueryMatchingTest)
             "recording_ttl": 29,
             "snapshot_source": "web",
             "snapshot_library": None,
-            "ongoing": None,
+            "ongoing": False,
             "activity_score": None,
             "has_summary": False,
             "summary_outcome": None,
             "external_references": [],
         }
+
+    @freeze_time("2023-01-01T12:00:00.000Z")
+    def test_get_single_session_recording_metadata_includes_ongoing_when_recent(self):
+        session_recording_id = str(uuid7())
+        base_time = (now() - relativedelta(minutes=4)).replace(microsecond=0)
+        produce_replay_summary(
+            session_id=session_recording_id,
+            team_id=self.team.pk,
+            first_timestamp=base_time.isoformat(),
+            last_timestamp=(base_time + relativedelta(seconds=30)).isoformat(),
+            distinct_id="d1",
+            retention_period_days=30,
+        )
+
+        response = self.client.get(f"/api/projects/{self.team.id}/session_recordings/{session_recording_id}")
+
+        assert response.status_code == status.HTTP_200_OK, response.json()
+        assert response.json()["ongoing"] is True
 
     @freeze_time("2023-01-01T12:00:00.000Z")
     def test_get_single_session_recording_metadata_has_summary_true(self):
