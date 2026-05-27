@@ -55,27 +55,30 @@ def _compiled_parser_probe(module_name: str) -> bool:
     return False
 
 
+def _cpp_parser_unavailable(*_args: Any, **_kwargs: Any) -> Any:
+    raise RuntimeError("hogql_parser is not importable on this machine")
+
+
+_parse_expr_json_cpp = _cpp_parser_unavailable
+_parse_full_template_string_json_cpp = _cpp_parser_unavailable
+_parse_order_expr_json_cpp = _cpp_parser_unavailable
+_parse_program_json_cpp = _cpp_parser_unavailable
+_parse_select_json_cpp = _cpp_parser_unavailable
+
 _CPP_PARSER_AVAILABLE = False
 if _compiled_parser_probe("hogql_parser"):
-    from hogql_parser import (
-        parse_expr_json as _parse_expr_json_cpp,
-        parse_full_template_string_json as _parse_full_template_string_json_cpp,
-        parse_order_expr_json as _parse_order_expr_json_cpp,
-        parse_program_json as _parse_program_json_cpp,
-        parse_select_json as _parse_select_json_cpp,
-    )
+    try:
+        from hogql_parser import (
+            parse_expr_json as _parse_expr_json_cpp,
+            parse_full_template_string_json as _parse_full_template_string_json_cpp,
+            parse_order_expr_json as _parse_order_expr_json_cpp,
+            parse_program_json as _parse_program_json_cpp,
+            parse_select_json as _parse_select_json_cpp,
+        )
 
-    _CPP_PARSER_AVAILABLE = True
-else:
-
-    def _cpp_parser_unavailable(*_args: Any, **_kwargs: Any) -> Any:
-        raise RuntimeError("hogql_parser is not importable on this machine")
-
-    _parse_expr_json_cpp = _cpp_parser_unavailable
-    _parse_full_template_string_json_cpp = _cpp_parser_unavailable
-    _parse_order_expr_json_cpp = _cpp_parser_unavailable
-    _parse_program_json_cpp = _cpp_parser_unavailable
-    _parse_select_json_cpp = _cpp_parser_unavailable
+        _CPP_PARSER_AVAILABLE = True
+    except ImportError as import_err:
+        logger.warning("hogql_parser symbol import failed; falling back to python parser", error=repr(import_err))
 
 # Defensive import of the rust parser wheel. A packaging error (bad ABI,
 # missing symbol, broken maturin build) shouldn't take the whole module
@@ -84,36 +87,45 @@ else:
 # leg until the wheel is repaired. Modes that explicitly select rust as
 # the PRIMARY backend (`rust-json` / `RUST_ONLY` / `RUST_WITH_CPP_SHADOW`)
 # will surface the RuntimeError below at parse time.
+def _rust_parser_unavailable(*_args: Any, **_kwargs: Any) -> Any:
+    raise RuntimeError("hogql_parser_rs is not importable on this machine")
+
+
+_parse_expr_json_rs = _rust_parser_unavailable
+_parse_full_template_string_json_rs = _rust_parser_unavailable
+_parse_order_expr_json_rs = _rust_parser_unavailable
+_parse_program_json_rs = _rust_parser_unavailable
+_parse_select_json_rs = _rust_parser_unavailable
+_parse_expr_py_rs = _rust_parser_unavailable
+_parse_full_template_string_py_rs = _rust_parser_unavailable
+_parse_order_expr_py_rs = _rust_parser_unavailable
+_parse_program_py_rs = _rust_parser_unavailable
+_parse_select_py_rs = _rust_parser_unavailable
+
 _RUST_PARSER_AVAILABLE = True
 if _compiled_parser_probe("hogql_parser_rs"):
-    from hogql_parser_rs import (
-        parse_expr_json as _parse_expr_json_rs,
-        parse_expr_py as _parse_expr_py_rs,
-        parse_full_template_string_json as _parse_full_template_string_json_rs,
-        parse_full_template_string_py as _parse_full_template_string_py_rs,
-        parse_order_expr_json as _parse_order_expr_json_rs,
-        parse_order_expr_py as _parse_order_expr_py_rs,
-        parse_program_json as _parse_program_json_rs,
-        parse_program_py as _parse_program_py_rs,
-        parse_select_json as _parse_select_json_rs,
-        parse_select_py as _parse_select_py_rs,
-    )
+    try:
+        from hogql_parser_rs import (
+            parse_expr_json as _parse_expr_json_rs,
+            parse_expr_py as _parse_expr_py_rs,
+            parse_full_template_string_json as _parse_full_template_string_json_rs,
+            parse_full_template_string_py as _parse_full_template_string_py_rs,
+            parse_order_expr_json as _parse_order_expr_json_rs,
+            parse_order_expr_py as _parse_order_expr_py_rs,
+            parse_program_json as _parse_program_json_rs,
+            parse_program_py as _parse_program_py_rs,
+            parse_select_json as _parse_select_json_rs,
+            parse_select_py as _parse_select_py_rs,
+        )
+    except ImportError as import_err:
+        _RUST_PARSER_AVAILABLE = False
+        logger.exception("hogql_parser_rs import failed; rust-json and rust-py backends disabled")
+        capture_exception(
+            import_err,
+            additional_properties={"hogql_parser_rs_import_error": repr(import_err)},
+        )
 else:
     _RUST_PARSER_AVAILABLE = False
-
-    def _rust_parser_unavailable(*_args: Any, **_kwargs: Any) -> Any:
-        raise RuntimeError("hogql_parser_rs is not importable on this machine")
-
-    _parse_expr_json_rs = _rust_parser_unavailable
-    _parse_full_template_string_json_rs = _rust_parser_unavailable
-    _parse_order_expr_json_rs = _rust_parser_unavailable
-    _parse_program_json_rs = _rust_parser_unavailable
-    _parse_select_json_rs = _rust_parser_unavailable
-    _parse_expr_py_rs = _rust_parser_unavailable
-    _parse_full_template_string_py_rs = _rust_parser_unavailable
-    _parse_order_expr_py_rs = _rust_parser_unavailable
-    _parse_program_py_rs = _rust_parser_unavailable
-    _parse_select_py_rs = _rust_parser_unavailable
 
 
 class CacheOrigin(StrEnum):
