@@ -175,8 +175,9 @@ class EnterpriseEventDefinitionSerializer(TaggedItemSerializerMixin, serializers
     def update(self, event_definition: EnterpriseEventDefinition, validated_data):
         """Track analytics for verification toggle."""
         user = self.context["request"].user
+        organization = self.context["get_organization"]()
 
-        if not user.organization.is_feature_available(AvailableFeature.INGESTION_TAXONOMY):
+        if not organization.is_feature_available(AvailableFeature.INGESTION_TAXONOMY):
             raise EnterpriseFeatureException(AvailableFeature.INGESTION_TAXONOMY)
 
         # Track verification status changes for analytics
