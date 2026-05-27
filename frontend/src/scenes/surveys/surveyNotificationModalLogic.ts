@@ -31,6 +31,7 @@ import { urls } from 'scenes/urls'
 import { performQuery } from '~/queries/query'
 import { EventsQuery, NodeKind } from '~/queries/schema/schema-general'
 import {
+    AnyPropertyFilter,
     CyclotronJobInvocationGlobals,
     CyclotronJobTestInvocationResult,
     EventPropertyFilter,
@@ -675,7 +676,7 @@ function createSurveyNotificationPayload({
     }
 }
 
-function mergeResponseFiltersIntoExistingFilters(
+export function mergeResponseFiltersIntoExistingFilters(
     existingFilters: HogFunctionType['filters'],
     fallbackFilters: HogFunctionType['filters'],
     responseFilters: SurveyResponseFilter[]
@@ -689,7 +690,7 @@ function mergeResponseFiltersIntoExistingFilters(
         if (event.id !== SurveyEventName.SENT) {
             return event
         }
-        const preservedProperties = stripResponseFiltersFromProperties(
+        const preservedEventProperties = stripResponseFiltersFromProperties(
             (event.properties ?? []).filter(
                 (property): property is EventPropertyFilter =>
                     typeof property === 'object' &&
@@ -698,9 +699,16 @@ function mergeResponseFiltersIntoExistingFilters(
                     (property as { type?: unknown }).type === PropertyFilterType.Event
             )
         )
+        const preservedHogqlProperties = (event.properties ?? []).filter(
+            (property): property is AnyPropertyFilter =>
+                typeof property === 'object' &&
+                property !== null &&
+                'type' in property &&
+                (property as { type?: unknown }).type === PropertyFilterType.HogQL
+        )
         return {
             ...event,
-            properties: [...preservedProperties, ...responseProperties],
+            properties: [...preservedEventProperties, ...preservedHogqlProperties, ...responseProperties],
         }
     })
     return { ...base, events }
