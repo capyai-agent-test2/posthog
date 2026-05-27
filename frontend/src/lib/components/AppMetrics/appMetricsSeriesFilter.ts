@@ -22,6 +22,22 @@ export function mergeNewSeriesIntoVisibleSeriesNames(
     return [...existingSeries, ...addedSeries]
 }
 
+export function reconcileVisibleSeriesNames(
+    previousVisibleSeriesNames: string[] | null,
+    everSeenSeriesNames: string[],
+    allSeriesNames: string[]
+): string[] {
+    if (previousVisibleSeriesNames === null) {
+        return syncVisibleSeriesNames(previousVisibleSeriesNames, allSeriesNames)
+    }
+
+    if (allSeriesNames.length === 0) {
+        return previousVisibleSeriesNames
+    }
+
+    return mergeNewSeriesIntoVisibleSeriesNames(previousVisibleSeriesNames, everSeenSeriesNames, allSeriesNames)
+}
+
 export function filterAppMetricSeries(
     appMetricsTrends: AppMetricsTimeSeriesResponse | null,
     visibleSeriesNames: string[]

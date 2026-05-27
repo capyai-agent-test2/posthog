@@ -2,6 +2,7 @@ import type { AppMetricsTimeSeriesResponse } from './appMetricsLogic'
 import {
     filterAppMetricSeries,
     mergeNewSeriesIntoVisibleSeriesNames,
+    reconcileVisibleSeriesNames,
     syncVisibleSeriesNames,
 } from './appMetricsSeriesFilter'
 
@@ -41,6 +42,13 @@ describe('appMetricsSeriesFilter', () => {
                 ['triggered', 'failed', 'succeeded']
             )
         ).toEqual(['failed'])
+    })
+
+    it('keeps the current selection intact across transient empty responses', () => {
+        expect(reconcileVisibleSeriesNames(['failed', 'succeeded'], ['failed', 'succeeded'], [])).toEqual([
+            'failed',
+            'succeeded',
+        ])
     })
 
     it('filters the trends response to the selected series', () => {

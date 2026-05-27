@@ -7,11 +7,7 @@ import { AxisSeries } from '~/queries/nodes/DataVisualization/dataVisualizationL
 import { ChartDisplayType } from '~/types'
 
 import type { AppMetricsTimeSeriesResponse } from './appMetricsLogic'
-import {
-    filterAppMetricSeries,
-    mergeNewSeriesIntoVisibleSeriesNames,
-    syncVisibleSeriesNames,
-} from './appMetricsSeriesFilter'
+import { filterAppMetricSeries, reconcileVisibleSeriesNames } from './appMetricsSeriesFilter'
 
 export type AppMetricsSeriesMetadata = Record<
     string,
@@ -46,13 +42,9 @@ export function AppMetricsTrends({
     useEffect(() => {
         const everSeenSeriesNames = everSeenSeriesNamesRef.current
 
-        setVisibleSeriesNames((currentVisibleSeriesNames) => {
-            if (currentVisibleSeriesNames === null) {
-                return syncVisibleSeriesNames(currentVisibleSeriesNames, allSeriesNames)
-            }
-
-            return mergeNewSeriesIntoVisibleSeriesNames(currentVisibleSeriesNames, everSeenSeriesNames, allSeriesNames)
-        })
+        setVisibleSeriesNames((currentVisibleSeriesNames) =>
+            reconcileVisibleSeriesNames(currentVisibleSeriesNames, everSeenSeriesNames, allSeriesNames)
+        )
         everSeenSeriesNamesRef.current = Array.from(new Set([...everSeenSeriesNames, ...allSeriesNames]))
     }, [allSeriesNames])
 
