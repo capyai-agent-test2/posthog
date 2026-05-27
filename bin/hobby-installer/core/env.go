@@ -40,7 +40,10 @@ func NewEnvConfig(domain, version string) (*EnvConfig, error) {
 
 	nodeTag := os.Getenv("POSTHOG_NODE_TAG")
 	if nodeTag == "" {
-		nodeTag = "latest"
+		nodeTag = version
+		if nodeTag == "" {
+			nodeTag = "latest"
+		}
 	}
 
 	return &EnvConfig{
@@ -147,6 +150,19 @@ func UpdateEnvForUpgrade(version string) error {
 
 	if version != "" {
 		if err := UpdateEnvValue("POSTHOG_APP_TAG", version); err != nil {
+			return err
+		}
+	}
+
+	if existing["POSTHOG_NODE_TAG"] == "" {
+		nodeTag := version
+		if nodeTag == "" {
+			nodeTag = existing["POSTHOG_APP_TAG"]
+		}
+		if nodeTag == "" {
+			nodeTag = "latest"
+		}
+		if err := AppendToEnv("POSTHOG_NODE_TAG", nodeTag); err != nil {
 			return err
 		}
 	}

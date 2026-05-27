@@ -123,6 +123,11 @@ then
     export REGISTRY_URL="posthog/posthog"
 fi
 
+if [ -z "$POSTHOG_NODE_TAG" ]
+then
+    export POSTHOG_NODE_TAG="$POSTHOG_APP_TAG"
+fi
+
 # Write .env only on a fresh install. On a re-run (e.g. after a partial
 # failure) preserve the existing file, so POSTHOG_SECRET and
 # ENCRYPTION_SALT_KEYS are not regenerated, as it would invalidate active
@@ -143,6 +148,7 @@ REGISTRY_URL=$REGISTRY_URL
 CADDY_TLS_BLOCK=$TLS_BLOCK
 CADDY_HOST="$DOMAIN, http://, https://"
 POSTHOG_APP_TAG=$POSTHOG_APP_TAG
+POSTHOG_NODE_TAG=$POSTHOG_NODE_TAG
 EOF
 fi
 

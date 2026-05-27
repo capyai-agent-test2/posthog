@@ -18,6 +18,11 @@ fi
 
 export POSTHOG_APP_TAG="${POSTHOG_APP_TAG:-latest}"
 
+if [ -z "$POSTHOG_NODE_TAG" ]
+then
+    export POSTHOG_NODE_TAG="$POSTHOG_APP_TAG"
+fi
+
 echo "Checking for named postgres and clickhouse volumes to avoid data loss when upgrading from < 1.39"
 if docker volume ls | grep -Pzoq 'clickhouse-data\n(.|\n)*postgres-data\n'
 then
@@ -173,6 +178,15 @@ if ! grep -q "SESSION_RECORDING_STORAGE_MIGRATED_TO_SEAWEEDFS" .env; then
 fi
 
 export POSTHOG_APP_TAG="${POSTHOG_APP_TAG:-latest-release}"
+
+if [ -z "$POSTHOG_NODE_TAG" ]; then
+    export POSTHOG_NODE_TAG="$POSTHOG_APP_TAG"
+    if grep -q '^POSTHOG_NODE_TAG=' .env; then
+        sed -i "s/^POSTHOG_NODE_TAG=.*/POSTHOG_NODE_TAG=$POSTHOG_NODE_TAG/" .env
+    else
+        echo "POSTHOG_NODE_TAG=$POSTHOG_NODE_TAG" >> .env
+    fi
+fi
 
 # Check if current compose file uses postgres:12-alpine (needs migration before upgrade)
 if grep -qE 'postgres:12-alpine|postgres:12' posthog/docker-compose.hobby.yml 2>/dev/null; then
