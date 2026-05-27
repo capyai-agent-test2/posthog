@@ -108,17 +108,18 @@ fn normalize_integrity_root(path: &Path, public_path_prefix: Option<&str>) -> Pa
     let asset_path = path;
     let mut current = asset_path.parent().unwrap_or(asset_path).to_path_buf();
     let fallback = current.clone();
+    let mut best_match = None;
 
     loop {
         match subtree_html_reference_status(&current, asset_path, public_path_prefix) {
-            HtmlReferenceStatus::ContainsReference => return current,
+            HtmlReferenceStatus::ContainsReference => best_match = Some(current.clone()),
             HtmlReferenceStatus::ContainsHtmlWithoutReference | HtmlReferenceStatus::NoHtml => {}
         }
         let Some(parent) = current.parent() else {
-            return fallback;
+            return best_match.unwrap_or(fallback);
         };
         if parent == current {
-            return fallback;
+            return best_match.unwrap_or(fallback);
         }
         current = parent.to_path_buf();
     }
@@ -241,6 +242,29 @@ mod tests {
             r#"<script src="/assets/app.js"></script>"#,
         )
         .expect("Failed to write HTML");
+        std::fs::write(assets.join("app.js"), "console.log('x');").expect("Failed to write JS");
+
+        let normalized = normalize_integrity_root(&assets.join("app.js"), None);
+        assert_eq!(normalized, dist);
+    }
+
+    #[test]
+    fn normalize_integrity_root_prefers_highest_matching_ancestor() {
+        let tempdir = tempfile::tempdir().expect("Failed to create tempdir");
+        let dist = tempdir.path().join("dist");
+        let nested = dist.join("nested");
+        let assets = nested.join("assets");
+        std::fs::create_dir_all(&assets).expect("Failed to create asset directory");
+        std::fs::write(
+            dist.join("index.html"),
+            r#"<script src="/nested/assets/app.js"></script>"#,
+        )
+        .expect("Failed to write parent HTML");
+        std::fs::write(
+            nested.join("index.html"),
+            r#"<script src="/assets/app.js"></script>"#,
+        )
+        .expect("Failed to write nested HTML");
         std::fs::write(assets.join("app.js"), "console.log('x');").expect("Failed to write JS");
 
         let normalized = normalize_integrity_root(&assets.join("app.js"), None);
