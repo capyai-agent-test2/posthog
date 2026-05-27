@@ -4,6 +4,26 @@ import { calculateDuplicateLayout, calculateLayouts } from 'scenes/dashboard/til
 
 import { DashboardLayoutSize, DashboardTile, QueryBasedInsightModel, TileLayout } from '~/types'
 
+jest.mock(
+    '@posthog/quill',
+    () => {
+        const fallback = ({ children }: { children?: any }): any => children ?? null
+
+        return new Proxy(
+            {},
+            {
+                get: (_target, prop) => {
+                    if (prop === '__esModule') {
+                        return true
+                    }
+                    return fallback
+                },
+            }
+        )
+    },
+    { virtual: true }
+)
+
 function textTileWithLayout(
     layouts: Record<DashboardLayoutSize, TileLayout>,
     tileId: number = 1
