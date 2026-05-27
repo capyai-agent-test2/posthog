@@ -118,7 +118,6 @@ fn normalize_integrity_root(path: &Path) -> PathBuf {
 
 fn subtree_contains_html(path: &Path) -> bool {
     WalkDir::new(path)
-        .max_depth(3)
         .into_iter()
         .filter_map(|entry| entry.ok())
         .any(|entry| {
