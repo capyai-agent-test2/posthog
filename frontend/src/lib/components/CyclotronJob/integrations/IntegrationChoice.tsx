@@ -21,7 +21,7 @@ export type IntegrationConfigureProps = {
     redirectUrl?: string
     schema?: { requiredScopes?: string }
     integration?: string
-    beforeRedirect?: () => void
+    beforeRedirect?: (redirectUrl?: string) => void | string | Promise<void | string>
 }
 
 export function IntegrationChoice({
@@ -93,6 +93,7 @@ export function IntegrationChoice({
     // When the instance doesn't have OAuth credentials for this kind, /integrations/authorize
     // 400s with "Kind not configured". Send users to the settings page instead.
     const oauthUnavailable = kind === 'slack' && !slackAvailable
+    const authorizeUrl = api.integrations.authorizeUrl({ kind, next: redirectUrl, is_sandbox: isSandbox || undefined })
     const setupMenuItem = setupDef
         ? setupDef.menuItem({ kind, openModal: openNewIntegrationModal, uploadKey })
         : oauthUnavailable
@@ -102,9 +103,17 @@ export function IntegrationChoice({
                 label: `${kindName} is not configured on this instance`,
             }
           : {
-                to: api.integrations.authorizeUrl({ kind, next: redirectUrl, is_sandbox: isSandbox || undefined }),
+                to: authorizeUrl,
                 disableClientSideRouting: true,
-                onClick: beforeRedirect,
+                onClick: async (e) => {
+                    e.preventDefault()
+                    const next = (await beforeRedirect?.(redirectUrl)) ?? redirectUrl
+                    window.location.href = api.integrations.authorizeUrl({
+                        kind,
+                        next,
+                        is_sandbox: isSandbox || undefined,
+                    })
+                },
                 label: integrationsOfKind?.length
                     ? `Connect to a different integration for ${kindName}`
                     : `Connect to ${kindName}`,
