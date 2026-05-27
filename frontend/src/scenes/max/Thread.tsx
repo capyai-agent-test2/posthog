@@ -91,6 +91,7 @@ import {
 } from './messages/UIPayloadAnswer'
 import { VisualizationArtifactAnswer } from './messages/VisualizationArtifactAnswer'
 import { MAX_SLASH_COMMANDS, SlashCommandName } from './slash-commands'
+import { getVisibleThreadItems } from './threadVisibility'
 import { TicketPrompt } from './TicketPrompt'
 import { getTicketPromptData, getTicketSummaryData, isTicketConfirmationMessage } from './ticketUtils'
 import { TraceIdProvider, useTraceId } from './TraceIdContext'
@@ -109,11 +110,6 @@ import {
 } from './utils'
 import { getThinkingMessageFromResponse } from './utils/thinkingMessages'
 
-// Helper function to check if a message is an error or failure
-function isErrorMessage(message: ThreadMessage): boolean {
-    return message.type !== 'human' && (message.status === 'error' || message.type === 'ai/failure')
-}
-
 export function Thread({ className }: { className?: string }): JSX.Element | null {
     const { conversationLoading, messagesLoading, conversationId } = useValues(maxLogic)
     const { threadGrouped, streamingActive, threadLoading, sandboxEntries } = useValues(maxThreadLogic)
@@ -128,6 +124,10 @@ export function Thread({ className }: { className?: string }): JSX.Element | nul
     const ticketSummaryData = useMemo(
         () => getTicketSummaryData(threadGrouped, streamingActive),
         [threadGrouped, streamingActive]
+    )
+    const visibleThreadItems = useMemo(
+        () => getVisibleThreadItems(threadGrouped, threadLoading),
+        [threadGrouped, threadLoading]
     )
 
     return (
@@ -150,60 +150,13 @@ export function Thread({ className }: { className?: string }): JSX.Element | nul
             ) : threadGrouped.length > 0 ? (
                 <>
                     {(() => {
-                        // Track the current trace_id as we iterate forward through messages
-                        let currentTraceId: string | undefined
-
-                        return threadGrouped.map((message, index) => {
-                            // Update trace_id when we encounter a human message
-                            if (message.type === 'human' && 'trace_id' in message && message.trace_id) {
-                                currentTraceId = message.trace_id
-                            }
-
-                            // Hide failed AI messages when retrying
-                            if (threadLoading && isErrorMessage(message)) {
-                                return null
-                            }
-
-                            // Hide old failed attempts - only show the most recent error
-                            if (isErrorMessage(message)) {
-                                const hasNewerError = threadGrouped.slice(index + 1).some(isErrorMessage)
-                                if (hasNewerError) {
-                                    return null
-                                }
-                            }
-
-                            // Hide duplicate human messages from retry pattern: Human → AI Error → Human (duplicate)
-                            // This specific pattern only occurs when "Try again" is clicked after a failure
-                            if (message.type === 'human' && 'content' in message && index >= 2) {
-                                const prevMessage = threadGrouped[index - 1]
-                                const prevPrevMessage = threadGrouped[index - 2]
-
-                                const isRetryPattern =
-                                    isErrorMessage(prevMessage) &&
-                                    prevPrevMessage.type === 'human' &&
-                                    'content' in prevPrevMessage &&
-                                    prevPrevMessage.content === message.content
-
-                                if (isRetryPattern) {
-                                    return null
-                                }
-                            }
-
-                            // Hide UI payload answers that are not renderable to prevent rendering an empty message component
-                            if (
-                                isAssistantToolCallMessage(message) &&
-                                (!message.ui_payload ||
-                                    !isRenderableUIPayloadTool(Object.keys(message.ui_payload)[0], message.ui_payload))
-                            ) {
-                                return null
-                            }
-
-                            const nextMessage = threadGrouped[index + 1]
+                        return visibleThreadItems.map(({ message, originalIndex, currentTraceId }, index) => {
+                            const nextMessage = visibleThreadItems[index + 1]?.message
                             const isLastInGroup =
                                 !nextMessage || (message.type === 'human') !== (nextMessage.type === 'human')
 
                             // Hiding rating buttons after /feedback and /ticket command outputs
-                            const prevMessage = threadGrouped[index - 1]
+                            const prevMessage = visibleThreadItems[index - 1]?.message
                             const isSlashCommandResponse =
                                 message.type !== 'human' &&
                                 prevMessage?.type === 'human' &&
@@ -215,19 +168,17 @@ export function Thread({ className }: { className?: string }): JSX.Element | nul
                             const isTicketConfirmation = isTicketConfirmationMessage(message)
 
                             // Check if this message is a ticket summary that needs the ticket creation button
-                            const isTicketSummaryMessage = ticketSummaryData && ticketSummaryData.messageIndex === index
-
-                            // For AI messages, use the current trace_id from the preceding human message
-                            const messageTraceId = message.type !== 'human' ? currentTraceId : undefined
+                            const isTicketSummaryMessage =
+                                ticketSummaryData && ticketSummaryData.messageIndex === originalIndex
 
                             return (
-                                <React.Fragment key={`${conversationId}-${index}`}>
-                                    <TraceIdProvider value={messageTraceId}>
+                                <React.Fragment key={`${conversationId}-${originalIndex}`}>
+                                    <TraceIdProvider value={currentTraceId}>
                                         <Message
                                             message={message}
                                             nextMessage={nextMessage}
                                             isLastInGroup={isLastInGroup}
-                                            isFinal={index === threadGrouped.length - 1}
+                                            isFinal={index === visibleThreadItems.length - 1}
                                             isSlashCommandResponse={isSlashCommandResponse || isTicketConfirmation}
                                         />
                                     </TraceIdProvider>
