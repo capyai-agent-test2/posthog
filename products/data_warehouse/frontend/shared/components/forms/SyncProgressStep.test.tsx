@@ -1,4 +1,4 @@
-import { getPreviewQueryUrl, getSourceAccessMethod } from './SyncProgressStep'
+import { getPreviewQueryUrl, getSourceAccessMethod, getSourceErrorMessage } from './SyncProgressStep.utils'
 
 describe('SyncProgressStep', () => {
     it('prefers the wizard access method before the source has loaded', () => {
@@ -7,6 +7,21 @@ describe('SyncProgressStep', () => {
 
     it('uses the loaded source access method when available', () => {
         expect(getSourceAccessMethod('warehouse', 'direct')).toEqual('direct')
+    })
+
+    it('returns the source latest error when present', () => {
+        expect(
+            getSourceErrorMessage({
+                latest_error: 'Stripe API key lacks permissions for Dispute',
+                status: 'Error',
+            })
+        ).toEqual('Stripe API key lacks permissions for Dispute')
+    })
+
+    it('falls back to a generic source error when only the error status is present', () => {
+        expect(getSourceErrorMessage({ latest_error: null, status: 'Error' })).toEqual(
+            'We hit an error while syncing this source.'
+        )
     })
 
     it('includes the direct connection id in SQL editor preview URLs', () => {

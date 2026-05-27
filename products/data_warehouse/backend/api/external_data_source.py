@@ -618,7 +618,16 @@ class ExternalDataSourceSerializers(UserAccessControlSerializerMixin, serializer
             )
         else:
             schema_with_error = instance.schemas.filter(latest_error__isnull=False).first()
-        return schema_with_error.latest_error if schema_with_error else None
+        if schema_with_error:
+            return schema_with_error.latest_error
+
+        latest_error_jobs = getattr(instance, "latest_error_jobs", None)
+        if latest_error_jobs is not None:
+            latest_error_job = next((job for job in latest_error_jobs if job.latest_error), None)
+        else:
+            latest_error_job = instance.jobs.filter(latest_error__isnull=False).order_by("-created_at").first()
+
+        return latest_error_job.latest_error if latest_error_job else None
 
     @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_schemas(self, instance: ExternalDataSource):
@@ -927,6 +936,13 @@ class ExternalDataSourceViewSet(TeamAndOrgViewSetMixin, AccessControlViewSetMixi
                         "-created_at"
                     )[:1],
                     to_attr="ordered_jobs",
+                ),
+                Prefetch(
+                    "jobs",
+                    queryset=ExternalDataJob.objects.filter(team_id=self.team_id, latest_error__isnull=False).order_by(
+                        "-created_at"
+                    )[:1],
+                    to_attr="latest_error_jobs",
                 ),
                 Prefetch(
                     "schemas",

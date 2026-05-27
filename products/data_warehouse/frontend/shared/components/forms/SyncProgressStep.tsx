@@ -16,25 +16,9 @@ import {
 import { SceneSection } from '~/layout/scenes/components/SceneSection'
 import { ExternalDataSourceSchema } from '~/types'
 
-import { buildTableQueryUrl } from 'products/data_warehouse/frontend/utils'
-
 import { sourceWizardLogic } from '../../../scenes/NewSourceScene/sourceWizardLogic'
 import { sourceManagementLogic } from '../../logics/sourceManagementLogic'
-
-export function getSourceAccessMethod(
-    wizardAccessMethod: 'warehouse' | 'direct',
-    sourceAccessMethod?: 'warehouse' | 'direct'
-): 'warehouse' | 'direct' {
-    return sourceAccessMethod ?? wizardAccessMethod
-}
-
-export function getPreviewQueryUrl(
-    tableName: string,
-    accessMethod: 'warehouse' | 'direct' | undefined,
-    sourceId?: string | null
-): string {
-    return buildTableQueryUrl(tableName, accessMethod === 'direct' ? (sourceId ?? undefined) : undefined)
-}
+import { getPreviewQueryUrl, getSourceAccessMethod, getSourceErrorMessage } from './SyncProgressStep.utils'
 
 export const SyncProgressStep = (): JSX.Element => {
     const { sourceId, isWrapped, source: wizardSource, nextButtonText } = useValues(sourceWizardLogic)
@@ -168,13 +152,17 @@ export const SyncProgressStep = (): JSX.Element => {
         (schema) =>
             schema.should_sync && schema.status !== 'Running' && schema.status !== 'Completed' && schema.latest_error
     )
+    const sourceErrorMessage = getSourceErrorMessage(source)
+    const showSourceError = !isDirectQuerySource && !!sourceErrorMessage
 
     return (
         <SceneSection
             title={
-                isDirectQuerySource
-                    ? "You're all set! Your enabled tables are now available in the SQL editor."
-                    : "You're all set! We'll import the data in the background, and after it's done, you will be able to query it in PostHog."
+                showSourceError
+                    ? 'We hit an error while setting up this source.'
+                    : isDirectQuerySource
+                      ? "You're all set! Your enabled tables are now available in the SQL editor."
+                      : "You're all set! We'll import the data in the background, and after it's done, you will be able to query it in PostHog."
             }
             actions={
                 !isWrapped && (
@@ -184,6 +172,12 @@ export const SyncProgressStep = (): JSX.Element => {
                 )
             }
         >
+            {showSourceError && (
+                <LemonBanner type="danger" className="mb-4">
+                    <p className="font-semibold mb-1">Sync setup failed</p>
+                    <p className="text-sm">{sourceErrorMessage}</p>
+                </LemonBanner>
+            )}
             {schemasWithErrors.length > 0 && (
                 <LemonBanner type="warning" className="mb-4">
                     <p className="font-semibold mb-1">
