@@ -36,3 +36,17 @@ def test_build_selector_regex_keeps_direct_descendants_strict():
     assert regex
     assert selector.parts[1].direct_descendant is True
     assert re.search(regex, elements_chain) is None
+
+
+def test_build_selector_regex_descendants_resume_at_element_boundaries():
+    selector = Selector(".main-column .tabs li a", escape_slashes=False)
+    regex = build_selector_regex(selector)
+    elements_chain = (
+        'a:text="Docs";'
+        'li:attr__data-id="nav-docs";'
+        'div.wrapper:attr__class="wrapper tabs-holder";'
+        'div.main-column:attr__class="main-column"'
+    )
+
+    assert regex
+    assert re.search(regex, elements_chain) is None
