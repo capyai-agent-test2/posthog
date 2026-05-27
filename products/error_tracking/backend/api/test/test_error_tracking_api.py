@@ -18,6 +18,7 @@ from posthog.settings import (
     OBJECT_STORAGE_SECRET_ACCESS_KEY,
 )
 
+from products.error_tracking.backend.api.symbol_sets import create_symbol_set
 from products.error_tracking.backend.models import (
     ErrorTrackingIssue,
     ErrorTrackingIssueAssignment,
@@ -880,6 +881,53 @@ class TestErrorTracking(APIBaseTest):
         assert symbol_set.storage_ptr != initial_storage_ptr
         assert id_map[str(chunk_id)]["symbol_set_id"] == str(symbol_set.id)
 
+    @patch("products.error_tracking.backend.api.symbol_sets.delete_symbol_set_contents")
+    def test_bulk_start_upload_restarts_pending_upload_cleans_up_old_storage_ptr(self, mock_delete) -> None:
+        chunk_id = str(uuid7())
+        symbol_set = ErrorTrackingSymbolSet.objects.create(
+            team=self.team,
+            ref=chunk_id,
+            storage_ptr="old-pending-storage",
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                f"/api/environments/{self.team.id}/error_tracking/symbol_sets/bulk_start_upload",
+                data={"chunk_ids": [chunk_id]},
+                format="json",
+            )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        symbol_set.refresh_from_db()
+        assert symbol_set.storage_ptr != "old-pending-storage"
+        mock_delete.assert_called_once_with("old-pending-storage")
+
+    @patch("products.error_tracking.backend.api.symbol_sets.delete_symbol_set_contents")
+    def test_bulk_start_upload_force_cleans_up_replaced_storage_ptr(self, mock_delete) -> None:
+        chunk_id = str(uuid7())
+        symbol_set = ErrorTrackingSymbolSet.objects.create(
+            team=self.team,
+            ref=chunk_id,
+            storage_ptr="old-uploaded-storage",
+            content_hash="old-hash",
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                f"/api/environments/{self.team.id}/error_tracking/symbol_sets/bulk_start_upload",
+                data={
+                    "symbol_sets": [{"chunk_id": chunk_id, "content_hash": "new-hash"}],
+                    "force": True,
+                },
+                format="json",
+            )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        symbol_set.refresh_from_db()
+        assert symbol_set.storage_ptr != "old-uploaded-storage"
+        assert symbol_set.content_hash is None
+        mock_delete.assert_called_once_with("old-uploaded-storage")
+
     def test_bulk_start_upload_rejects_release_change(self) -> None:
         chunk_id = str(uuid7())
 
@@ -941,6 +989,31 @@ class TestErrorTracking(APIBaseTest):
 
         assert ErrorTrackingSymbolSet.objects.get(id=symbol_set_one.id).content_hash == "hash_one"
         assert ErrorTrackingSymbolSet.objects.get(id=symbol_set_two.id).content_hash == "hash_two"
+
+    @patch("products.error_tracking.backend.api.symbol_sets.delete_symbol_set_contents")
+    def test_create_symbol_set_cleans_up_replaced_storage_ptr(self, mock_delete: Mock) -> None:
+        chunk_id = str(uuid7())
+        existing_symbol_set = ErrorTrackingSymbolSet.objects.create(
+            team=self.team,
+            ref=chunk_id,
+            storage_ptr="old-storage",
+            content_hash="old-hash",
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            updated_symbol_set = create_symbol_set(
+                chunk_id=chunk_id,
+                team=self.team,
+                release_id=None,
+                storage_ptr="new-storage",
+                content_hash="new-hash",
+            )
+
+        existing_symbol_set.refresh_from_db()
+        assert updated_symbol_set.id == existing_symbol_set.id
+        assert existing_symbol_set.storage_ptr == "new-storage"
+        assert existing_symbol_set.content_hash == "new-hash"
+        mock_delete.assert_called_once_with("old-storage")
 
     def _assert_logs_the_activity(self, error_tracking_issue_id: int, expected: list[dict]) -> None:
         activity_response = self._get_error_tracking_issue_activity(error_tracking_issue_id)

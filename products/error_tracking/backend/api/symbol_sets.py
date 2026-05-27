@@ -23,7 +23,12 @@ from posthog.models.utils import uuid7
 from posthog.rate_limit import SymbolSetUploadBurstRateThrottle, SymbolSetUploadSustainedRateThrottle
 from posthog.storage import object_storage
 
-from products.error_tracking.backend.models import ErrorTrackingRelease, ErrorTrackingStackFrame, ErrorTrackingSymbolSet
+from products.error_tracking.backend.models import (
+    ErrorTrackingRelease,
+    ErrorTrackingStackFrame,
+    ErrorTrackingSymbolSet,
+    delete_symbol_set_contents,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -32,6 +37,19 @@ JS_DATA_MAGIC = b"posthog_error_tracking"
 JS_DATA_VERSION = 1
 JS_DATA_TYPE_SOURCE_AND_MAP = 2
 PRESIGNED_MULTIPLE_UPLOAD_TIMEOUT = 60 * 5
+
+
+def cleanup_replaced_symbol_set_contents(storage_ptrs: set[str]) -> None:
+    for storage_ptr in storage_ptrs:
+        try:
+            delete_symbol_set_contents(storage_ptr)
+        except Exception:
+            logger.exception("error_tracking_symbol_set_cleanup_failed", storage_ptr=storage_ptr)
+
+
+def schedule_symbol_set_cleanup(storage_ptrs: set[str]) -> None:
+    if storage_ptrs:
+        transaction.on_commit(lambda: cleanup_replaced_symbol_set_contents(storage_ptrs))
 
 
 class ErrorTrackingSymbolSetSerializer(serializers.ModelSerializer):
@@ -568,6 +586,7 @@ def create_symbol_set(
     else:
         release = None
 
+    replaced_storage_ptrs: set[str] = set()
     with transaction.atomic():
         try:
             symbol_set = ErrorTrackingSymbolSet.objects.get(team=team, ref=chunk_id)
@@ -575,6 +594,8 @@ def create_symbol_set(
                 symbol_set.release = release
             elif symbol_set.release != release:
                 raise ValidationError(f"Symbol set has already been uploaded for a different release")
+            if symbol_set.storage_ptr and symbol_set.storage_ptr != storage_ptr:
+                replaced_storage_ptrs.add(symbol_set.storage_ptr)
             symbol_set.storage_ptr = storage_ptr
             symbol_set.content_hash = content_hash
             symbol_set.save()
@@ -590,8 +611,9 @@ def create_symbol_set(
 
         # Delete any existing frames associated with this symbol set
         ErrorTrackingStackFrame.objects.filter(team=team, symbol_set=symbol_set).delete()
+        schedule_symbol_set_cleanup(replaced_storage_ptrs)
 
-        return symbol_set
+    return symbol_set
 
 
 @posthoganalytics.scoped()
@@ -634,6 +656,7 @@ def bulk_create_symbol_sets(
 
     id_url_map: dict[str, dict[str, str]] = {}
     new_symbol_set_map = {x.chunk_id: x for x in new_symbol_sets}
+    replaced_storage_ptrs: set[str] = set()
 
     with transaction.atomic():
         existing_symbol_sets = list(ErrorTrackingSymbolSet.objects.filter(team=team, ref__in=chunk_ids))
@@ -697,6 +720,8 @@ def bulk_create_symbol_sets(
                     "presigned_url": presigned_url,
                     "symbol_set_id": str(existing.id),
                 }
+                if existing.storage_ptr and existing.storage_ptr != storage_ptr:
+                    replaced_storage_ptrs.add(existing.storage_ptr)
                 existing.storage_ptr = storage_ptr
                 dirty = True
             elif existing.content_hash is None:
@@ -708,6 +733,8 @@ def bulk_create_symbol_sets(
                     "presigned_url": presigned_url,
                     "symbol_set_id": str(existing.id),
                 }
+                if existing.storage_ptr and existing.storage_ptr != storage_ptr:
+                    replaced_storage_ptrs.add(existing.storage_ptr)
                 existing.storage_ptr = storage_ptr
                 dirty = True
             elif existing.content_hash == upload.content_hash:
@@ -724,6 +751,8 @@ def bulk_create_symbol_sets(
                     "presigned_url": presigned_url,
                     "symbol_set_id": str(existing.id),
                 }
+                if existing.storage_ptr and existing.storage_ptr != storage_ptr:
+                    replaced_storage_ptrs.add(existing.storage_ptr)
                 existing.storage_ptr = storage_ptr
                 existing.content_hash = None  # will be set by bulk_finish_upload
                 dirty = True
@@ -747,6 +776,7 @@ def bulk_create_symbol_sets(
         # We update only the symbol sets we modified the release of - for all others, this is a no-op (we assume they were uploaded
         # during a prior attempt or something).
         _ = ErrorTrackingSymbolSet.objects.bulk_update(to_update, ["release", "content_hash", "storage_ptr"])
+        schedule_symbol_set_cleanup(replaced_storage_ptrs)
 
     return id_url_map
 
