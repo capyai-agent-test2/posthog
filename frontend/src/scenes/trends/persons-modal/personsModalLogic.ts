@@ -414,6 +414,20 @@ export const personsModalLogic = kea<personsModalLogicType>([
                 return aggregationLabel(isGroupType(firstResult) ? firstResult.group_type_index : undefined)
             },
         ],
+        totalActorsCount: [
+            (s) => [s.actors, s.missingActorsCount],
+            (actors, missingActorsCount): number => missingActorsCount + actors.length,
+        ],
+        pathMatchCount: [
+            (s) => [s.actors, s.query],
+            (actors, query): number | null => {
+                if (query?.source.kind !== NodeKind.PathsQuery) {
+                    return null
+                }
+
+                return actors.reduce((total, actor) => total + (actor.value_at_data_point ?? 0), 0)
+            },
+        ],
         validationError: [
             (s) => [s.errorObject],
             (errorObject): string | null => {

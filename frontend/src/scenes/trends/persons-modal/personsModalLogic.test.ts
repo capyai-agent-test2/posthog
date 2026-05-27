@@ -457,4 +457,57 @@ describe('personsModalLogic', () => {
             )
         })
     })
+
+    describe('path actor counts', () => {
+        it('tracks path matches separately from unique actors for paths queries', () => {
+            logic = personsModalLogic({
+                query: {
+                    kind: NodeKind.InsightActorsQuery,
+                    source: {
+                        kind: NodeKind.PathsQuery,
+                        pathsFilter: {},
+                    },
+                },
+                url: null,
+                additionalSelect: { value_at_data_point: 'event_count' },
+            })
+            logic.mount()
+
+            logic.actions.loadActorsSuccess({
+                results: [
+                    {
+                        count: 2,
+                        people: [
+                            {
+                                type: 'person',
+                                id: 'person-1',
+                                distinct_ids: ['user-1'],
+                                is_identified: true,
+                                properties: {},
+                                created_at: '2024-01-01',
+                                matched_recordings: [],
+                                value_at_data_point: 2,
+                            },
+                            {
+                                type: 'person',
+                                id: 'person-2',
+                                distinct_ids: ['user-2'],
+                                is_identified: true,
+                                properties: {},
+                                created_at: '2024-01-01',
+                                matched_recordings: [],
+                                value_at_data_point: 1,
+                            },
+                        ],
+                    },
+                ],
+                missing_persons: 0,
+            })
+
+            expectLogic(logic).toMatchValues({
+                totalActorsCount: 2,
+                pathMatchCount: 3,
+            })
+        })
+    })
 })

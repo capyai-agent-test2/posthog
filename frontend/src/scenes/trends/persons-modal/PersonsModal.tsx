@@ -90,6 +90,8 @@ export function PersonsModal({
         isCohortModalOpen,
         isModalOpen,
         missingActorsCount,
+        totalActorsCount,
+        pathMatchCount,
         propertiesTimelineFilterFromUrl,
         insightEventsQueryUrl,
         exploreUrl,
@@ -101,7 +103,6 @@ export function PersonsModal({
     const { currentTeam } = useValues(teamLogic)
     const { startExport } = useActions(exportsLogic)
 
-    const totalActorsCount = missingActorsCount + actors.length
     type ActorsQuery = NonNullable<typeof query>
 
     const asLemonSelectValue = (value: unknown): string | number | boolean | null =>
@@ -220,10 +221,31 @@ export function PersonsModal({
                             ) : (
                                 <span>
                                     {actorsResponse?.next || actorsResponse?.offset ? 'More than ' : ''}
-                                    <b>
-                                        {totalActorsCount || 'No'} unique{' '}
-                                        {pluralize(totalActorsCount, actorLabel.singular, actorLabel.plural, false)}
-                                    </b>
+                                    {pathMatchCount !== null ? (
+                                        <>
+                                            <b>{pathMatchCount || 'No'} path matches</b>
+                                            {totalActorsCount > 0 && (
+                                                <span>
+                                                    {' '}
+                                                    across{' '}
+                                                    <b>
+                                                        {totalActorsCount} unique{' '}
+                                                        {pluralize(
+                                                            totalActorsCount,
+                                                            actorLabel.singular,
+                                                            actorLabel.plural,
+                                                            false
+                                                        )}
+                                                    </b>
+                                                </span>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <b>
+                                            {totalActorsCount || 'No'} unique{' '}
+                                            {pluralize(totalActorsCount, actorLabel.singular, actorLabel.plural, false)}
+                                        </b>
+                                    )}
                                 </span>
                             )}
                         </div>
