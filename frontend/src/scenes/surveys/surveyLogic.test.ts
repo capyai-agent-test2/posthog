@@ -2322,15 +2322,51 @@ describe('processOpenEndedResults', () => {
         expect(openData.data).toHaveLength(2)
         expect(openData.data[0]).toEqual({
             distinctId: 'user123',
+            personDisplayName: undefined,
             response: 'Great product!',
             timestamp: '2024-01-15T10:30:00Z',
             sessionId: 'session-abc',
         })
         expect(openData.data[1]).toEqual({
             distinctId: 'user456',
+            personDisplayName: undefined,
             response: 'Could be better',
             timestamp: '2024-01-15T11:45:00Z',
             sessionId: undefined,
+        })
+    })
+
+    it('collects respondent display metadata for open and "Other" responses', () => {
+        const questions = [
+            { id: 'open-q1', type: SurveyQuestionType.Open as const, question: 'Tell us more' },
+            {
+                id: 'choice-q1',
+                type: SurveyQuestionType.SingleChoice as const,
+                question: 'Pick one',
+                choices: ['Yes', 'No', 'Other'],
+                hasOpenChoice: true,
+            },
+        ]
+        const columnMap: OpenEndedColumnMap = {
+            'open-q1': { columnIndex: 0, questionIndex: 0, type: SurveyQuestionType.Open },
+            'choice-q1': { columnIndex: 1, questionIndex: 1, type: SurveyQuestionType.SingleChoice },
+        }
+        const rows = [
+            ['Great product!', 'Custom answer', 'user123', '2024-01-15T10:30:00Z', 'session-abc', 'test@posthog.com'],
+        ]
+
+        const result = processOpenEndedResults(questions, columnMap, rows)
+        const openData = result['open-q1'] as OpenQuestionProcessedResponses
+        const choiceData = result['choice-q1'] as ChoiceQuestionProcessedResponses
+
+        expect(openData.data[0]).toMatchObject({
+            distinctId: 'user123',
+            personDisplayName: 'test@posthog.com',
+        })
+        expect(choiceData.data[0]).toMatchObject({
+            distinctId: 'user123',
+            personDisplayName: 'test@posthog.com',
+            label: 'Custom answer',
         })
     })
 

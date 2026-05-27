@@ -750,7 +750,8 @@ export function buildOpenEndedQuery(
             ${openColumns.join(',\n')},
             events.distinct_id,
             events.timestamp,
-            events.properties.$session_id
+            events.properties.$session_id,
+            coalesce(nullIf(person.properties.email, ''), nullIf(person.properties.name, ''), nullIf(person.properties.username, '')) AS respondent_display
         FROM events
         WHERE event = '${SurveyEventName.SENT}'
             AND properties.${SurveyEventProperties.SURVEY_ID} = '${survey.id}'

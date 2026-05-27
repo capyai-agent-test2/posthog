@@ -503,7 +503,8 @@ function collectOpenChoiceResponses(
     rows: any[][],
     columnIndex: number,
     distinctIdIdx: number,
-    timestampIdx: number
+    timestampIdx: number,
+    respondentDisplayIdx: number
 ): ChoiceQuestionResponseData[] {
     const predefined = new Set(question.choices ?? [])
     const otherData: ChoiceQuestionResponseData[] = []
@@ -529,6 +530,10 @@ function collectOpenChoiceResponses(
                     value: 1,
                     isPredefined: false,
                     distinctId: row[distinctIdIdx] as string,
+                    personDisplayName:
+                        typeof row[respondentDisplayIdx] === 'string' && row[respondentDisplayIdx]
+                            ? (row[respondentDisplayIdx] as string)
+                            : undefined,
                     timestamp: row[timestampIdx] as string,
                 })
             }
@@ -551,6 +556,7 @@ export function processOpenEndedResults(
     const distinctIdIdx = numCols
     const timestampIdx = numCols + 1
     const sessionIdIdx = numCols + 2
+    const respondentDisplayIdx = numCols + 3
     const result: ResponsesByQuestion = {}
 
     for (const [questionId, { columnIndex, type }] of Object.entries(columnMap)) {
@@ -564,6 +570,10 @@ export function processOpenEndedResults(
                 data.push({
                     distinctId: row[distinctIdIdx] as string,
                     response: value,
+                    personDisplayName:
+                        typeof row[respondentDisplayIdx] === 'string' && row[respondentDisplayIdx]
+                            ? (row[respondentDisplayIdx] as string)
+                            : undefined,
                     timestamp: row[timestampIdx] as string,
                     sessionId: (row[sessionIdIdx] as string) || undefined,
                 })
@@ -574,7 +584,15 @@ export function processOpenEndedResults(
             if (!question) {
                 continue
             }
-            const otherData = collectOpenChoiceResponses(question, type, rows, columnIndex, distinctIdIdx, timestampIdx)
+            const otherData = collectOpenChoiceResponses(
+                question,
+                type,
+                rows,
+                columnIndex,
+                distinctIdIdx,
+                timestampIdx,
+                respondentDisplayIdx
+            )
             if (otherData.length > 0) {
                 result[questionId] = { type, data: otherData, totalResponses: 0, noResponseCount: 0 }
             }
@@ -1949,7 +1967,9 @@ export const surveyLogic = kea<surveyLogicType>([
                         ...data,
                         data: data.data.map((r) => {
                             const id = 'distinctId' in r ? r.distinctId : undefined
-                            return id && personNames[id] ? { ...r, personDisplayName: personNames[id] } : r
+                            return id && personNames[id] && !r.personDisplayName
+                                ? { ...r, personDisplayName: personNames[id] }
+                                : r
                         }),
                     } as typeof data
                 }
