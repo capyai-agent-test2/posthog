@@ -21,6 +21,7 @@ import { defaultDataTableColumns, removeExpressionComment } from '~/queries/node
 import { getPersonsEndpoint } from '~/queries/query'
 import { DataNode, DataTableNode } from '~/queries/schema/schema-general'
 import {
+    isActorsQuery,
     isEventsQuery,
     isGroupsQuery,
     isHogQLQuery,
