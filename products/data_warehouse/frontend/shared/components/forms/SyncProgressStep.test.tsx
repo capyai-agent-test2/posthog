@@ -24,6 +24,10 @@ describe('SyncProgressStep', () => {
         )
     })
 
+    it('does not show a source setup error when the source is not in an error state', () => {
+        expect(getSourceErrorMessage({ latest_error: '1 table failed to sync', status: 'Running' })).toBeNull()
+    })
+
     it('includes the direct connection id in SQL editor preview URLs', () => {
         const previewUrl = new URL(getPreviewQueryUrl('orders', 'direct', 'source-123'), 'https://app.posthog.com')
 

@@ -18,9 +18,9 @@ export function getPreviewQueryUrl(
 export function getSourceErrorMessage(
     source: { latest_error?: string | null; status?: string | null } | null
 ): string | null {
-    if (!source) {
+    if (!source || source.status !== 'Error') {
         return null
     }
 
-    return source.latest_error ?? (source.status === 'Error' ? 'We hit an error while syncing this source.' : null)
+    return source.latest_error ?? 'We hit an error while syncing this source.'
 }
