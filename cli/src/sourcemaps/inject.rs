@@ -112,8 +112,7 @@ fn normalize_integrity_root(path: &Path, public_path_prefix: Option<&str>) -> Pa
     loop {
         match subtree_html_reference_status(&current, asset_path, public_path_prefix) {
             HtmlReferenceStatus::ContainsReference => return current,
-            HtmlReferenceStatus::ContainsHtmlWithoutReference => return fallback,
-            HtmlReferenceStatus::NoHtml => {}
+            HtmlReferenceStatus::ContainsHtmlWithoutReference | HtmlReferenceStatus::NoHtml => {}
         }
         let Some(parent) = current.parent() else {
             return fallback;
