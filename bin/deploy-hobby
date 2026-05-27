@@ -18,12 +18,8 @@ detect_package_manager() {
         echo "dnf"
     elif command -v yum &> /dev/null; then
         echo "yum"
-    elif command -v pacman &> /dev/null; then
-        echo "pacman"
-    elif command -v zypper &> /dev/null; then
-        echo "zypper"
     else
-        echo "Unsupported package manager. Please install git, curl, ca-certificates, brotli, and Docker manually." >&2
+        echo "Unsupported package manager. This installer currently supports apt, dnf, and yum-based Linux distributions. Please install git, curl, ca-certificates, brotli, and Docker manually." >&2
         exit 1
     fi
 }
@@ -41,12 +37,6 @@ update_package_cache() {
         yum)
             sudo yum makecache
             ;;
-        pacman)
-            sudo pacman -Sy --noconfirm
-            ;;
-        zypper)
-            sudo zypper --gpg-auto-import-keys refresh
-            ;;
     esac
 }
 
@@ -60,12 +50,6 @@ install_packages() {
             ;;
         yum)
             sudo yum install -y "$@"
-            ;;
-        pacman)
-            sudo pacman -S --noconfirm --needed "$@"
-            ;;
-        zypper)
-            sudo zypper install -y "$@"
             ;;
     esac
 }
