@@ -30,6 +30,12 @@
         flex: 1;
         flex-direction: column;
         border-radius: 0 0 var(--radius) var(--radius);
+
+        &.ExportedInsight__content--with-legend {
+            .InsightCard__viz {
+                overflow: visible;
+            }
+        }
     }
 
     .LemonTable {

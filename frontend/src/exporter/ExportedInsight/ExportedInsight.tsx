@@ -103,6 +103,7 @@ export function ExportedInsight({
                 <div
                     className={clsx({
                         ExportedInsight__content: true,
+                        'ExportedInsight__content--with-legend': showLegend,
                         'ExportedInsight__content--with-watermark': showWatermark,
                     })}
                 >
