@@ -1,5 +1,9 @@
 import type { AppMetricsTimeSeriesResponse } from './appMetricsLogic'
-import { filterAppMetricSeries, syncVisibleSeriesNames } from './appMetricsSeriesFilter'
+import {
+    filterAppMetricSeries,
+    mergeNewSeriesIntoVisibleSeriesNames,
+    syncVisibleSeriesNames,
+} from './appMetricsSeriesFilter'
 
 describe('appMetricsSeriesFilter', () => {
     const appMetricsTrends: AppMetricsTimeSeriesResponse = {
@@ -16,11 +20,17 @@ describe('appMetricsSeriesFilter', () => {
     })
 
     it('preserves selected series, drops missing ones, and adds newly available ones', () => {
-        expect(syncVisibleSeriesNames(['failed', 'missing'], ['triggered', 'failed', 'succeeded'])).toEqual([
-            'failed',
-            'triggered',
-            'succeeded',
-        ])
+        expect(syncVisibleSeriesNames(['failed', 'missing'], ['triggered', 'failed', 'succeeded'])).toEqual(['failed'])
+    })
+
+    it('adds only newly introduced series while keeping hidden ones hidden', () => {
+        expect(
+            mergeNewSeriesIntoVisibleSeriesNames(
+                ['failed'],
+                ['triggered', 'failed'],
+                ['triggered', 'failed', 'succeeded']
+            )
+        ).toEqual(['failed', 'succeeded'])
     })
 
     it('filters the trends response to the selected series', () => {

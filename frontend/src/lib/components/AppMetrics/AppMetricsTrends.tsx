@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { LemonInputSelect, SpinnerOverlay } from '@posthog/lemon-ui'
 
@@ -7,7 +7,11 @@ import { AxisSeries } from '~/queries/nodes/DataVisualization/dataVisualizationL
 import { ChartDisplayType } from '~/types'
 
 import type { AppMetricsTimeSeriesResponse } from './appMetricsLogic'
-import { filterAppMetricSeries, syncVisibleSeriesNames } from './appMetricsSeriesFilter'
+import {
+    filterAppMetricSeries,
+    mergeNewSeriesIntoVisibleSeriesNames,
+    syncVisibleSeriesNames,
+} from './appMetricsSeriesFilter'
 
 export type AppMetricsSeriesMetadata = Record<
     string,
@@ -37,11 +41,21 @@ export function AppMetricsTrends({
         [appMetricsTrends]
     )
     const [visibleSeriesNames, setVisibleSeriesNames] = useState<string[] | null>(null)
+    const previousAllSeriesNamesRef = useRef<string[]>([])
 
     useEffect(() => {
-        setVisibleSeriesNames((currentVisibleSeriesNames) =>
-            syncVisibleSeriesNames(currentVisibleSeriesNames, allSeriesNames)
-        )
+        setVisibleSeriesNames((currentVisibleSeriesNames) => {
+            if (currentVisibleSeriesNames === null) {
+                return syncVisibleSeriesNames(currentVisibleSeriesNames, allSeriesNames)
+            }
+
+            return mergeNewSeriesIntoVisibleSeriesNames(
+                currentVisibleSeriesNames,
+                previousAllSeriesNamesRef.current,
+                allSeriesNames
+            )
+        })
+        previousAllSeriesNamesRef.current = allSeriesNames
     }, [allSeriesNames])
 
     const filteredAppMetricsTrends = useMemo(
@@ -58,7 +72,8 @@ export function AppMetricsTrends({
                 return {
                     key: seriesName,
                     value: seriesName,
-                    label: (
+                    label,
+                    labelComponent: (
                         <div className="flex flex-col items-start py-0.5">
                             <span>{label}</span>
                             {metadata?.description ? (
