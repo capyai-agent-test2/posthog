@@ -763,7 +763,7 @@ const getEventCountSeries = (metric: ExperimentMetric): AnyEntityNode[] => {
     }
 
     const mathProperties =
-        isExperimentMeanMetric(metric) && source.math
+        isExperimentMeanMetric(metric) && source.kind === NodeKind.ExperimentDataWarehouseNode && source.math
             ? {
                   math: source.math,
                   ...(source.math_property && { math_property: source.math_property }),
