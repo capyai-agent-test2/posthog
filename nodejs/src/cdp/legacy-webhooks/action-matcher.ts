@@ -734,7 +734,7 @@ function splitClasses(tag: string): string[] {
             parenDepth -= 1
         }
 
-        if (char === '.' && bracketDepth === 0 && parenDepth === 0 && startsNewClass(tag, index)) {
+        if (char === '.' && bracketDepth === 0 && parenDepth === 0 && startsNewClass(tag, index, parts)) {
             parts.push(current)
             current = ''
             continue
@@ -747,7 +747,11 @@ function splitClasses(tag: string): string[] {
     return parts
 }
 
-function startsNewClass(tag: string, dotIndex: number): boolean {
+function startsNewClass(tag: string, dotIndex: number, parts: string[]): boolean {
+    if (parts.length === 0) {
+        return true
+    }
+
     const previousChar = tag[dotIndex - 1]
     const nextChar = tag[dotIndex + 1]
 

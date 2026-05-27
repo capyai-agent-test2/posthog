@@ -116,7 +116,7 @@ class SelectorPart:
             elif char == ")" and paren_depth > 0:
                 paren_depth -= 1
 
-            if char == "." and bracket_depth == 0 and paren_depth == 0 and self._starts_new_class(tag, index):
+            if char == "." and bracket_depth == 0 and paren_depth == 0 and self._starts_new_class(tag, index, parts):
                 parts.append("".join(current))
                 current = []
                 continue
@@ -126,7 +126,10 @@ class SelectorPart:
         parts.append("".join(current))
         return parts
 
-    def _starts_new_class(self, tag: str, dot_index: int) -> bool:
+    def _starts_new_class(self, tag: str, dot_index: int, parts: list[str]) -> bool:
+        if len(parts) == 0:
+            return True
+
         previous_index = dot_index - 1
         next_index = dot_index + 1
 

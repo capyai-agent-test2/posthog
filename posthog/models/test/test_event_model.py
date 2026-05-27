@@ -774,6 +774,9 @@ class TestSelectors(BaseTest):
         selector4 = Selector(".2xl\\:flex")
         self.assertEqual(selector4.parts[0].data, {"attr_class__contains": ["2xl:flex"]})
 
+        selector5 = Selector("h1.2xl\\:flex")
+        self.assertEqual(selector5.parts[0].data, {"tag_name": "h1", "attr_class__contains": ["2xl:flex"]})
+
     def test_nth_child(self):
         selector1 = Selector("div > span:nth-child(3)")
         self.assertEqual(selector1.parts[0].data, {"tag_name": "span", "nth_child": "3"})

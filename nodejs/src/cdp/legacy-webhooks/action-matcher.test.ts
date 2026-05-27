@@ -1125,6 +1125,7 @@ describe('ActionMatcher', () => {
             expect(checkElementsAgainstSelector(elements, '.border-[1.5px]')).toBeTruthy()
             expect(checkElementsAgainstSelector(elements, '.!ml-auto')).toBeTruthy()
             expect(checkElementsAgainstSelector(elements, '.2xl\\:flex')).toBeTruthy()
+            expect(checkElementsAgainstSelector(elements, 'section.2xl\\:flex')).toBeTruthy()
             expect(checkElementsAgainstSelector(elements, '.text-sm.text-center')).toBeTruthy()
             expect(checkElementsAgainstSelector(elements, '.text-sm .text-center')).toBeTruthy()
         })

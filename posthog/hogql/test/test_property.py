@@ -925,6 +925,20 @@ class TestProperty(BaseTest):
             ),
         )
 
+        self.assertEqual(
+            self._selector_to_expr("h1.2xl\\:flex"),
+            clear_locations(
+                parse_expr(
+                    "{regex} and arrayCount(x -> x IN ['h1'], elements_chain_elements) > 0",
+                    {
+                        "regex": elements_chain_match(
+                            '(^|;)h1.*?\\.2xl:flex([-_a-zA-Z0-9\\.:"= \\[\\]\\(\\),]*?)?($|;|:([^;^\\s]*(;|$|\\s)))'
+                        )
+                    },
+                )
+            ),
+        )
+
     def test_cohort_filter_static(self):
         cohort = Cohort.objects.create(
             team=self.team,
