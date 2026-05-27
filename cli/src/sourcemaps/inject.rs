@@ -163,7 +163,8 @@ fn integrity_search_boundary(path: &Path) -> PathBuf {
     if path.is_dir() {
         path.to_path_buf()
     } else {
-        path.parent().unwrap_or(path).to_path_buf()
+        let parent = path.parent().unwrap_or(path);
+        parent.parent().unwrap_or(parent).to_path_buf()
     }
 }
 
@@ -383,6 +384,6 @@ mod tests {
         std::fs::write(&file, "console.log('x');").expect("Failed to write JS");
 
         assert_eq!(integrity_search_boundary(&dir), dir);
-        assert_eq!(integrity_search_boundary(&file), dir);
+        assert_eq!(integrity_search_boundary(&file), dir.parent().unwrap());
     }
 }
