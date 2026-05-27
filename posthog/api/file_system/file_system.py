@@ -784,8 +784,7 @@ class FileSystemViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
         segments = split_path(path)
         for depth_index in range(1, len(segments)):
             parent_path = join_path(segments[:depth_index])
-            parent_q = FileSystem.objects.filter(path=parent_path)
-            parent_q = self._scope_by_project(parent_q)
+            parent_q = FileSystem.objects.filter(team=team or self.team, path=parent_path)
             if not parent_q.exists():
                 FileSystem.objects.create(
                     team=team or self.team,
