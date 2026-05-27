@@ -5,12 +5,14 @@ from typing import Any, TypedDict, cast
 import pytest
 from freezegun import freeze_time
 from posthog.test.base import APIBaseTest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+from django.test import SimpleTestCase
 
 from rest_framework import status
 from rest_framework.test import APIRequestFactory
 
-from posthog.api.file_system.file_system import DELETE_PREVIEW_ENTRY_LIMIT
+from posthog.api.file_system.file_system import DELETE_PREVIEW_ENTRY_LIMIT, FileSystemViewSet
 from posthog.models import FeatureFlag, Insight, Project, Team, User
 from posthog.models.activity_logging.activity_log import ActivityLog
 from posthog.models.cohort import Cohort
@@ -1536,6 +1538,32 @@ class TestMoveRepairsLeftoverHogFunctions(APIBaseTest):
         self.assertFalse(
             FileSystem.objects.filter(team=self.team, path="Shared", type="folder").exists(),
             "Old folder for team-1 should have been moved away",
+        )
+
+
+class TestFileSystemViewSetParentFolderScoping(SimpleTestCase):
+    def test_assure_parent_folders_uses_explicit_team_scope(self) -> None:
+        viewset = FileSystemViewSet()
+        current_team = MagicMock()
+        created_by = MagicMock()
+        parent_query = MagicMock()
+        parent_query.exists.return_value = False
+
+        viewset.team = current_team
+
+        with (
+            patch("posthog.api.file_system.file_system.FileSystem.objects.filter", return_value=parent_query) as filter_mock,
+            patch("posthog.api.file_system.file_system.FileSystem.objects.create") as create_mock,
+        ):
+            viewset._assure_parent_folders("ExistingParent/Team One Dashboard", created_by)
+
+        filter_mock.assert_called_once_with(team=current_team, path="ExistingParent")
+        create_mock.assert_called_once_with(
+            team=current_team,
+            path="ExistingParent",
+            depth=1,
+            type="folder",
+            created_by=created_by,
         )
 
 
