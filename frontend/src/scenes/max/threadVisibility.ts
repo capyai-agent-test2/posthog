@@ -1,7 +1,7 @@
 import { AssistantMessageType } from '~/queries/schema/schema-assistant-messages'
 
-import { isDangerousOperationResponse } from './approvalOperationUtils'
 import type { ThreadMessage } from './maxThreadLogic'
+import { isRenderableUIPayloadTool } from './uiPayloadRenderability'
 import { isAssistantToolCallMessage } from './utils'
 
 export interface VisibleThreadItem {
@@ -12,14 +12,6 @@ export interface VisibleThreadItem {
 
 function isErrorMessage(message: ThreadMessage): boolean {
     return message.type !== 'human' && (message.status === 'error' || message.type === AssistantMessageType.Failure)
-}
-
-function isRenderableUIPayloadTool(toolName: string, toolPayload: unknown): boolean {
-    return (
-        ['search_session_recordings', 'search_error_tracking_issues', 'summarize_sessions', 'create_form'].includes(
-            toolName
-        ) || isDangerousOperationResponse(toolPayload)
-    )
 }
 
 export function getVisibleThreadItems(threadGrouped: ThreadMessage[], threadLoading: boolean): VisibleThreadItem[] {
