@@ -3,6 +3,7 @@ from typing import Any, Optional, cast
 
 from freezegun import freeze_time
 from posthog.test.base import APIBaseTest
+from unittest.mock import patch
 
 from django.utils import timezone
 
@@ -247,6 +248,34 @@ class TestEventDefinitionEnterpriseAPI(APIBaseTest):
                 "type": "EventDefinition",
             },
         ]
+
+    def test_update_event_definition_requires_ingestion_taxonomy(self):
+        event = EnterpriseEventDefinition.objects.create(team=self.demo_team, name="enterprise event", owner=self.user)
+
+        response = self.client.patch(
+            f"/api/projects/@current/event_definitions/{str(event.id)}/",
+            {"default_columns": ["properties.$browser"]},
+        )
+
+        assert response.status_code == status.HTTP_402_PAYMENT_REQUIRED
+        assert response.json()["detail"] == (
+            "Ingestion taxonomy is part of the PostHog Cloud Scale add-on. "
+            "Self-hosted licenses are no longer available for purchase. Please contact sales@posthog.com to discuss options."
+        )
+
+    @patch("posthog.exceptions.is_cloud", return_value=True)
+    def test_update_event_definition_uses_scale_addon_message_on_cloud(self, _mock_is_cloud):
+        event = EnterpriseEventDefinition.objects.create(team=self.demo_team, name="enterprise event", owner=self.user)
+
+        response = self.client.patch(
+            f"/api/projects/@current/event_definitions/{str(event.id)}/",
+            {"default_columns": ["properties.$browser"]},
+        )
+
+        assert response.status_code == status.HTTP_402_PAYMENT_REQUIRED
+        assert response.json()["detail"] == (
+            "Ingestion taxonomy is part of the PostHog Cloud Scale add-on. To use it, please subscribe to the add-on."
+        )
 
     def test_can_get_event_verification_data(self):
         super(LicenseManager, cast(LicenseManager, License.objects)).create(

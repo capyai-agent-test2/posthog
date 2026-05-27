@@ -5,7 +5,9 @@ from rest_framework import serializers
 
 from posthog.api.shared import UserBasicSerializer
 from posthog.api.tagged_item import TaggedItemSerializerMixin
+from posthog.constants import AvailableFeature
 from posthog.event_usage import groups
+from posthog.exceptions import EnterpriseFeatureException
 from posthog.models import EventDefinition, ObjectMediaPreview
 from posthog.models.organization import OrganizationMembership
 
@@ -173,6 +175,9 @@ class EnterpriseEventDefinitionSerializer(TaggedItemSerializerMixin, serializers
     def update(self, event_definition: EnterpriseEventDefinition, validated_data):
         """Track analytics for verification toggle."""
         user = self.context["request"].user
+
+        if not user.organization.is_feature_available(AvailableFeature.INGESTION_TAXONOMY):
+            raise EnterpriseFeatureException(AvailableFeature.INGESTION_TAXONOMY)
 
         # Track verification status changes for analytics
         if "verified" in validated_data:
