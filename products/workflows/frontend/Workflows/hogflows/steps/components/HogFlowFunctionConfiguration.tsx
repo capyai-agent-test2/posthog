@@ -29,7 +29,14 @@ export function HogFlowFunctionConfiguration({
     setMappings?: (mappings: HogFunctionMappingType[]) => void
     errors?: Record<string, string>
 }): JSX.Element {
-    const { workflow, hogFunctionTemplatesById, hogFunctionTemplatesByIdLoading, logicProps } = useValues(workflowLogic)
+    const {
+        workflow,
+        hogFunctionTemplatesById,
+        hogFunctionTemplatesByIdLoading,
+        logicProps,
+        pendingSchedule,
+        currentSchedule,
+    } = useValues(workflowLogic)
     const { setWorkflowValues } = useActions(workflowLogic)
 
     const template = hogFunctionTemplatesById[templateId]
@@ -119,11 +126,23 @@ export function HogFlowFunctionConfiguration({
             redirectUrl,
             currentTab: workflowSceneLogic.findMounted()?.values.currentTab,
             shouldSaveDraft: !logicProps.editTemplateId,
+            pendingSchedule,
+            currentSchedule,
             setWorkflowValues,
             saveDraftWorkflow: (savedWorkflow) =>
                 savedWorkflow.id && savedWorkflow.id !== 'new'
                     ? api.hogFlows.updateHogFlow(savedWorkflow.id, savedWorkflow)
                     : api.hogFlows.createHogFlow(savedWorkflow),
+            savePendingSchedule: async (workflowId, currentPendingSchedule, savedCurrentSchedule) => {
+                const existingScheduleId = savedCurrentSchedule?.id
+                if (currentPendingSchedule === null && existingScheduleId) {
+                    await api.hogFlows.deleteHogFlowSchedule(workflowId, existingScheduleId)
+                } else if (currentPendingSchedule !== null && existingScheduleId) {
+                    await api.hogFlows.updateHogFlowSchedule(workflowId, existingScheduleId, currentPendingSchedule)
+                } else if (currentPendingSchedule !== null) {
+                    await api.hogFlows.createHogFlowSchedule(workflowId, currentPendingSchedule)
+                }
+            },
         })
 
     return (

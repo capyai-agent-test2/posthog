@@ -1,6 +1,6 @@
 import { HogFunctionTemplateType } from '~/types'
 
-import { HogFlow } from '../../types'
+import { HogFlow, HogFlowSchedule } from '../../types'
 import { persistWorkflowForIntegrationRedirect } from './persistWorkflowForIntegrationRedirect'
 
 const makeWorkflow = (overrides: Partial<HogFlow> = {}): HogFlow => ({
@@ -40,6 +40,7 @@ const makeWorkflow = (overrides: Partial<HogFlow> = {}): HogFlow => ({
 
 describe('persistWorkflowForIntegrationRedirect', () => {
     const templatesById: Record<string, HogFunctionTemplateType> = {}
+    const schedule: HogFlowSchedule = { id: 'sched-1', rrule: 'RRULE:FREQ=DAILY', starts_at: '2026-05-01T00:00:00Z' }
 
     it('creates a new workflow and rewrites the redirect target to the saved workflow URL', async () => {
         const setWorkflowValues = jest.fn()
@@ -62,17 +63,26 @@ describe('persistWorkflowForIntegrationRedirect', () => {
     it('flushes draft edits for existing workflows without changing the redirect target', async () => {
         const setWorkflowValues = jest.fn()
         const saveDraftWorkflow = jest.fn().mockResolvedValue(makeWorkflow({ id: 'wf-456', name: 'Saved draft' }))
+        const savePendingSchedule = jest.fn()
 
         const next = await persistWorkflowForIntegrationRedirect({
             workflow: makeWorkflow({ id: 'wf-456', name: 'Edited draft' }),
             hogFunctionTemplatesById: templatesById,
             redirectUrl: '/project/1/workflows/wf-456/workflow?integration_target=slack',
             currentTab: 'workflow',
+            pendingSchedule: { rrule: 'RRULE:FREQ=WEEKLY', starts_at: '2026-06-01T00:00:00Z' },
+            currentSchedule: schedule,
             setWorkflowValues,
             saveDraftWorkflow,
+            savePendingSchedule,
         })
 
         expect(saveDraftWorkflow).toHaveBeenCalledTimes(1)
+        expect(savePendingSchedule).toHaveBeenCalledWith(
+            'wf-456',
+            { rrule: 'RRULE:FREQ=WEEKLY', starts_at: '2026-06-01T00:00:00Z' },
+            schedule
+        )
         expect(setWorkflowValues).toHaveBeenCalledWith(expect.objectContaining({ id: 'wf-456', name: 'Saved draft' }))
         expect(next).toBe('/project/1/workflows/wf-456/workflow?integration_target=slack')
     })
