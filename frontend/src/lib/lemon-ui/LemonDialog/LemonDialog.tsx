@@ -44,6 +44,10 @@ type LemonDialogMethods = {
     openForm: (props: LemonFormDialogProps) => void
 }
 
+export function shouldSubmitDialogOnEnter(isComposing: boolean): boolean {
+    return !isComposing
+}
+
 const LemonDialogComponent = forwardRef<LemonDialogRef, LemonDialogProps>(function LemonDialog(
     {
         onAfterClose,
@@ -210,12 +214,20 @@ export const LemonFormDialog = ({
             onKeyDown={
                 props.shouldAwaitSubmit
                     ? async (e: React.KeyboardEvent<HTMLFormElement>): Promise<void> => {
+                          if (e.key === 'Enter' && !shouldSubmitDialogOnEnter(e.nativeEvent.isComposing)) {
+                              return
+                          }
+
                           if (e.key === 'Enter' && primaryButton?.htmlType === 'submit' && isFormValid) {
                               await onSubmit(form)
                               ref?.current?.closeDialog()
                           }
                       }
                     : (e: React.KeyboardEvent<HTMLFormElement>): void => {
+                          if (e.key === 'Enter' && !shouldSubmitDialogOnEnter(e.nativeEvent.isComposing)) {
+                              return
+                          }
+
                           if (e.key === 'Enter' && primaryButton?.htmlType === 'submit' && isFormValid) {
                               void onSubmit(form)
                               ref?.current?.closeDialog()
