@@ -2,6 +2,22 @@
 
 set -e
 
+resolve_node_tag() {
+    local app_tag="$1"
+
+    if [ -n "$POSTHOG_NODE_TAG" ]; then
+        echo "$POSTHOG_NODE_TAG"
+        return
+    fi
+
+    if [ -n "$app_tag" ] && curl -sf "https://hub.docker.com/v2/repositories/posthog/posthog-node/tags/$app_tag" > /dev/null 2>&1; then
+        echo "$app_tag"
+        return
+    fi
+
+    echo "latest"
+}
+
 echo "Upgrading PostHog. This will cause a few minutes of downtime."
 read -r -p "Do you want to upgrade PostHog? [y/N] " response
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])+$ ]]
@@ -175,7 +191,7 @@ fi
 export POSTHOG_APP_TAG="${POSTHOG_APP_TAG:-latest-release}"
 
 if [ -z "$POSTHOG_NODE_TAG" ]; then
-    export POSTHOG_NODE_TAG="$POSTHOG_APP_TAG"
+    export POSTHOG_NODE_TAG="$(resolve_node_tag "$POSTHOG_APP_TAG")"
     if grep -q '^POSTHOG_NODE_TAG=' .env; then
         sed -i "s/^POSTHOG_NODE_TAG=.*/POSTHOG_NODE_TAG=$POSTHOG_NODE_TAG/" .env
     else

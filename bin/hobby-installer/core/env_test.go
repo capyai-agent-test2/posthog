@@ -7,8 +7,19 @@ import (
 	"testing"
 )
 
+func stubNodeTagExists(t *testing.T, fn func(string) bool) {
+	t.Helper()
+
+	original := nodeTagExists
+	nodeTagExists = fn
+	t.Cleanup(func() {
+		nodeTagExists = original
+	})
+}
+
 func TestNewEnvConfigDefaultsNodeTagToVersion(t *testing.T) {
 	t.Setenv("POSTHOG_NODE_TAG", "")
+	stubNodeTagExists(t, func(tag string) bool { return tag == "sha-test123" })
 
 	config, err := NewEnvConfig("example.com", "sha-test123")
 	if err != nil {
@@ -22,6 +33,7 @@ func TestNewEnvConfigDefaultsNodeTagToVersion(t *testing.T) {
 
 func TestNewEnvConfigRespectsExplicitNodeTag(t *testing.T) {
 	t.Setenv("POSTHOG_NODE_TAG", "pr-123")
+	stubNodeTagExists(t, func(tag string) bool { return false })
 
 	config, err := NewEnvConfig("example.com", "sha-test123")
 	if err != nil {
@@ -33,9 +45,24 @@ func TestNewEnvConfigRespectsExplicitNodeTag(t *testing.T) {
 	}
 }
 
+func TestNewEnvConfigFallsBackToLatestWhenVersionTagMissing(t *testing.T) {
+	t.Setenv("POSTHOG_NODE_TAG", "")
+	stubNodeTagExists(t, func(tag string) bool { return false })
+
+	config, err := NewEnvConfig("example.com", "sha-test123")
+	if err != nil {
+		t.Fatalf("NewEnvConfig returned error: %v", err)
+	}
+
+	if config.PosthogNodeTag != "latest" {
+		t.Fatalf("expected missing version tag to fall back to latest, got %q", config.PosthogNodeTag)
+	}
+}
+
 func TestUpdateEnvForUpgradeAddsMissingNodeTag(t *testing.T) {
 	tempDir := t.TempDir()
 	envPath := filepath.Join(tempDir, ".env")
+	stubNodeTagExists(t, func(tag string) bool { return tag == "sha-new123" })
 	originalWD, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("Getwd returned error: %v", err)
@@ -76,6 +103,7 @@ func TestUpdateEnvForUpgradeAddsMissingNodeTag(t *testing.T) {
 func TestUpdateEnvForUpgradeReplacesEmptyNodeTagWithoutDuplicates(t *testing.T) {
 	tempDir := t.TempDir()
 	envPath := filepath.Join(tempDir, ".env")
+	stubNodeTagExists(t, func(tag string) bool { return false })
 	originalWD, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("Getwd returned error: %v", err)
@@ -104,8 +132,8 @@ func TestUpdateEnvForUpgradeReplacesEmptyNodeTagWithoutDuplicates(t *testing.T) 
 		t.Fatalf("ReadFile returned error: %v", err)
 	}
 
-	if got := ReadEnvValue("POSTHOG_NODE_TAG"); got != "sha-new123" {
-		t.Fatalf("expected empty node tag to be replaced from version, got %q", got)
+	if got := ReadEnvValue("POSTHOG_NODE_TAG"); got != "latest" {
+		t.Fatalf("expected empty node tag to fall back to latest, got %q", got)
 	}
 
 	if count := strings.Count(string(updatedEnv), "POSTHOG_NODE_TAG="); count != 1 {

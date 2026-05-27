@@ -4,6 +4,22 @@ set -e
 
 export DEBIAN_FRONTEND=noninteractive
 
+resolve_node_tag() {
+    local app_tag="$1"
+
+    if [ -n "$POSTHOG_NODE_TAG" ]; then
+        echo "$POSTHOG_NODE_TAG"
+        return
+    fi
+
+    if [ -n "$app_tag" ] && curl -sf "https://hub.docker.com/v2/repositories/posthog/posthog-node/tags/$app_tag" > /dev/null 2>&1; then
+        echo "$app_tag"
+        return
+    fi
+
+    echo "latest"
+}
+
 # Automatically restart without asking.
 # this gets around needrestart command halting for user input
 export RESTART_MODE=l
@@ -123,10 +139,7 @@ then
     export REGISTRY_URL="posthog/posthog"
 fi
 
-if [ -z "$POSTHOG_NODE_TAG" ]
-then
-    export POSTHOG_NODE_TAG="$POSTHOG_APP_TAG"
-fi
+export POSTHOG_NODE_TAG="$(resolve_node_tag "$POSTHOG_APP_TAG")"
 
 # Write .env only on a fresh install. On a re-run (e.g. after a partial
 # failure) preserve the existing file, so POSTHOG_SECRET and
