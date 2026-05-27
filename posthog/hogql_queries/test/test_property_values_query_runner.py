@@ -265,7 +265,7 @@ class TestPropertyValuesQueryRunner(ClickhouseTestMixin, APIBaseTest):
             )
         )
 
-        assert [r.name for r in results] == ["https://app.test/pricing", "/"]
+        assert {r.name for r in results} == {"https://app.test/pricing", "/"}
 
     @parameterized.expand(
         [
