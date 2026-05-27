@@ -289,44 +289,44 @@ export const LineGraph = ({
                         },
                         scaleID: hasLeftYAxis ? 'yLeft' : 'yRight',
                         value: cur.value,
-                        enter: (ctx) => {
-                            if (ctx.chart.options.plugins?.annotation?.annotations) {
-                                const annotationsList = ctx.chart.options.plugins.annotation.annotations as Record<
-                                    string,
-                                    any
-                                >
-                                if (annotationsList[`line${curIndex}`]) {
-                                    annotationsList[`line${curIndex}`].label.content = `${
-                                        cur.label
-                                    }: ${cur.value.toLocaleString()}`
-                                    const tooltipEl = document.getElementById('InsightTooltipWrapper-hover')
+                        ...(!isBarChart
+                            ? {
+                                  enter: (ctx) => {
+                                      if (ctx.chart.options.plugins?.annotation?.annotations) {
+                                          const annotationsList = ctx.chart.options.plugins.annotation
+                                              .annotations as Record<string, any>
+                                          if (annotationsList[`line${curIndex}`]) {
+                                              annotationsList[`line${curIndex}`].label.content = `${
+                                                  cur.label
+                                              }: ${cur.value.toLocaleString()}`
+                                              const tooltipEl = document.getElementById('InsightTooltipWrapper-hover')
 
-                                    if (tooltipEl) {
-                                        tooltipEl.classList.add('opacity-0', 'invisible')
-                                    }
+                                              if (tooltipEl) {
+                                                  tooltipEl.classList.add('opacity-0', 'invisible')
+                                              }
 
-                                    ctx.chart.update()
-                                }
-                            }
-                        },
-                        leave: (ctx) => {
-                            if (ctx.chart.options.plugins?.annotation?.annotations) {
-                                const annotationsList = ctx.chart.options.plugins.annotation.annotations as Record<
-                                    string,
-                                    any
-                                >
-                                if (annotationsList[`line${curIndex}`]) {
-                                    annotationsList[`line${curIndex}`].label.content = cur.label
+                                              ctx.chart.update()
+                                          }
+                                      }
+                                  },
+                                  leave: (ctx) => {
+                                      if (ctx.chart.options.plugins?.annotation?.annotations) {
+                                          const annotationsList = ctx.chart.options.plugins.annotation
+                                              .annotations as Record<string, any>
+                                          if (annotationsList[`line${curIndex}`]) {
+                                              annotationsList[`line${curIndex}`].label.content = cur.label
 
-                                    const tooltipEl = document.getElementById('InsightTooltipWrapper-hover')
-                                    if (tooltipEl) {
-                                        tooltipEl.classList.remove('opacity-0', 'invisible')
-                                    }
+                                              const tooltipEl = document.getElementById('InsightTooltipWrapper-hover')
+                                              if (tooltipEl) {
+                                                  tooltipEl.classList.remove('opacity-0', 'invisible')
+                                              }
 
-                                    ctx.chart.update()
-                                }
-                            }
-                        },
+                                              ctx.chart.update()
+                                          }
+                                      }
+                                  },
+                              }
+                            : {}),
                     }
 
                     acc.annotations[`line${curIndex}`] = {
