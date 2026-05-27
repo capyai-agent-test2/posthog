@@ -209,11 +209,17 @@ impl AggregateFunnelRow {
             .filter(|i| **i <= final_index as i8)
             .count();
 
-        for i in 0..(final_index - optional_count) {
+        let mut required_step_index = 0;
+        for step_index in 0..final_index {
+            if args.optional_steps.contains(&((step_index + 1) as i8)) {
+                continue;
+            }
+
             //if event_uuids[i].len() >= MAX_REPLAY_EVENTS && !event_uuids[i].contains(&final_value.uuids[i]) {
             // Always put the actual event uuids first, we use it to extract timestamps
             // This might create duplicates, but that's fine (we can remove it in clickhouse)
-            vars.event_uuids[i].insert(0, final_value.uuids[i].clone());
+            vars.event_uuids[step_index].insert(0, final_value.uuids[required_step_index].clone());
+            required_step_index += 1;
         }
 
         self.results.push(Result(
