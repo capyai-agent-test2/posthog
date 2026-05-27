@@ -1371,6 +1371,65 @@ describe('getEventCountQuery', () => {
         expect(query?.tags).toEqual({ productKey: ProductKey.PRODUCT_ANALYTICS })
     })
 
+    it('preserves mean-metric aggregation for data warehouse sources', () => {
+        const metric: ExperimentMetric = {
+            uuid: 'test-metric',
+            kind: NodeKind.ExperimentMetric,
+            metric_type: ExperimentMetricType.MEAN,
+            source: {
+                kind: NodeKind.ExperimentDataWarehouseNode,
+                name: 'Orders',
+                table_name: 'orders',
+                timestamp_field: 'created_at',
+                events_join_key: 'distinct_id',
+                data_warehouse_join_key: 'customer_id',
+                math: ExperimentMetricMathType.Avg,
+                math_property: 'revenue',
+            },
+        }
+
+        const query = getEventCountQuery(metric, true)
+
+        expect(query?.series).toEqual([
+            expect.objectContaining({
+                kind: NodeKind.DataWarehouseNode,
+                table_name: 'orders',
+                math: ExperimentMetricMathType.Avg,
+                math_property: 'revenue',
+            }),
+        ])
+    })
+
+    it('keeps non-mean previews on total count', () => {
+        const metric: ExperimentMetric = {
+            uuid: 'test-metric',
+            kind: NodeKind.ExperimentMetric,
+            metric_type: ExperimentMetricType.RATIO,
+            numerator: {
+                kind: NodeKind.EventsNode,
+                event: '$pageview',
+                name: 'Pageview',
+                math: ExperimentMetricMathType.Sum,
+                math_property: 'value',
+            },
+            denominator: {
+                kind: NodeKind.EventsNode,
+                event: '$pageleave',
+                name: 'Pageleave',
+            },
+        }
+
+        const query = getEventCountQuery(metric, true)
+
+        expect(query?.series).toEqual([
+            expect.objectContaining({
+                kind: NodeKind.EventsNode,
+                event: '$pageview',
+                math: ExperimentMetricMathType.TotalCount,
+            }),
+        ])
+    })
+
     it('returns null when series is empty', () => {
         const metric: ExperimentMetric = {
             uuid: 'test-metric',

@@ -762,13 +762,24 @@ const getEventCountSeries = (metric: ExperimentMetric): AnyEntityNode[] => {
         return []
     }
 
+    const mathProperties =
+        isExperimentMeanMetric(metric) && source.math
+            ? {
+                  math: source.math,
+                  ...(source.math_property && { math_property: source.math_property }),
+                  ...(source.math_property_type && { math_property_type: source.math_property_type }),
+                  ...(source.math_hogql && { math_hogql: source.math_hogql }),
+                  ...(source.math_group_type_index != null && { math_group_type_index: source.math_group_type_index }),
+              }
+            : { math: ExperimentMetricMathType.TotalCount }
+
     const series: AnyEntityNode[] = match(source)
         .with({ kind: NodeKind.EventsNode }, (eventsNode) => [
             {
                 kind: NodeKind.EventsNode as const,
                 name: eventsNode.event || undefined,
                 event: eventsNode.event || undefined,
-                math: ExperimentMetricMathType.TotalCount,
+                ...mathProperties,
                 ...(eventsNode.properties && eventsNode.properties.length > 0 && { properties: eventsNode.properties }),
             },
         ])
@@ -777,7 +788,7 @@ const getEventCountSeries = (metric: ExperimentMetric): AnyEntityNode[] => {
                 kind: NodeKind.ActionsNode as const,
                 id: actionsNode.id,
                 name: actionsNode.name,
-                math: ExperimentMetricMathType.TotalCount,
+                ...mathProperties,
                 ...(actionsNode.properties &&
                     actionsNode.properties.length > 0 && { properties: actionsNode.properties }),
             },
@@ -791,7 +802,7 @@ const getEventCountSeries = (metric: ExperimentMetric): AnyEntityNode[] => {
                 timestamp_field: dataWarehouseNode.timestamp_field,
                 distinct_id_field: dataWarehouseNode.events_join_key,
                 name: dataWarehouseNode.name,
-                math: ExperimentMetricMathType.TotalCount,
+                ...mathProperties,
                 ...(dataWarehouseNode.properties &&
                     dataWarehouseNode.properties.length > 0 && { properties: dataWarehouseNode.properties }),
             },
