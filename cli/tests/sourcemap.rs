@@ -358,3 +358,57 @@ fn test_updates_html_integrity_after_js_changes() {
     assert!(html.contains(&updated_hash));
     assert!(!html.contains(&original_hash));
 }
+
+#[test]
+fn test_updates_html_integrity_per_root_without_collisions() {
+    let tempdir = tempfile::tempdir().expect("Failed to create tempdir");
+    let root_a = tempdir.path().join("a");
+    let root_b = tempdir.path().join("b");
+
+    let asset_a = root_a.join("assets").join("app.js");
+    let asset_b = root_b.join("assets").join("app.js");
+    fs::create_dir_all(asset_a.parent().unwrap()).expect("Failed to create root A assets");
+    fs::create_dir_all(asset_b.parent().unwrap()).expect("Failed to create root B assets");
+
+    let js_a = "console.log('root-a');";
+    let js_b = "console.log('root-b');";
+    fs::write(&asset_a, js_a).expect("Failed to write root A asset");
+    fs::write(&asset_b, js_b).expect("Failed to write root B asset");
+
+    let stale_hash = format!("sha512-{}", STANDARD.encode(Sha512::digest(b"stale")));
+    let hash_a = format!(
+        "sha512-{}",
+        STANDARD.encode(Sha512::digest(js_a.as_bytes()))
+    );
+    let hash_b = format!(
+        "sha512-{}",
+        STANDARD.encode(Sha512::digest(js_b.as_bytes()))
+    );
+
+    let html_a = root_a.join("index.html");
+    let html_b = root_b.join("index.html");
+    fs::write(
+        &html_a,
+        format!(r#"<script src="/assets/app.js" integrity="{stale_hash}"></script>"#),
+    )
+    .expect("Failed to write root A HTML");
+    fs::write(
+        &html_b,
+        format!(r#"<script src="/assets/app.js" integrity="{stale_hash}"></script>"#),
+    )
+    .expect("Failed to write root B HTML");
+
+    let updated_files = update_html_integrity_for_sources(
+        &[root_a.clone(), root_b.clone()],
+        &[asset_a.clone(), asset_b.clone()],
+    )
+    .expect("Failed to rewrite integrity");
+    assert_eq!(updated_files, 2);
+
+    let rewritten_a = fs::read_to_string(html_a).expect("Failed to read root A HTML");
+    let rewritten_b = fs::read_to_string(html_b).expect("Failed to read root B HTML");
+    assert!(rewritten_a.contains(&hash_a));
+    assert!(!rewritten_a.contains(&hash_b));
+    assert!(rewritten_b.contains(&hash_b));
+    assert!(!rewritten_b.contains(&hash_a));
+}

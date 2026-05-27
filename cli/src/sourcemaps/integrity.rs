@@ -68,7 +68,7 @@ fn normalize_url_path(url: &str) -> &str {
     url.split(['?', '#']).next().unwrap_or(url)
 }
 
-fn candidate_asset_urls(asset_path: &Path, roots: &[PathBuf]) -> BTreeSet<String> {
+fn candidate_asset_urls(asset_path: &Path, root: &Path) -> BTreeSet<String> {
     let mut candidates = BTreeSet::new();
     candidates.insert(
         asset_path
@@ -78,17 +78,15 @@ fn candidate_asset_urls(asset_path: &Path, roots: &[PathBuf]) -> BTreeSet<String
             .into_owned(),
     );
 
-    for root in roots {
-        let base = if root.is_dir() {
-            root.as_path()
-        } else {
-            root.parent().unwrap_or(root.as_path())
-        };
-        if let Ok(relative) = asset_path.strip_prefix(base) {
-            let relative = relative.to_string_lossy().replace('\\', "/");
-            candidates.insert(relative.clone());
-            candidates.insert(format!("/{relative}"));
-        }
+    let base = if root.is_dir() {
+        root
+    } else {
+        root.parent().unwrap_or(root)
+    };
+    if let Ok(relative) = asset_path.strip_prefix(base) {
+        let relative = relative.to_string_lossy().replace('\\', "/");
+        candidates.insert(relative.clone());
+        candidates.insert(format!("/{relative}"));
     }
 
     candidates
@@ -156,14 +154,14 @@ fn rewrite_integrity_attributes(
     (rewritten.into_owned(), updated_count)
 }
 
-pub fn update_html_integrity_for_sources(
-    roots: &[PathBuf],
-    source_paths: &[PathBuf],
-) -> Result<usize> {
+fn update_html_integrity_for_root(root: &Path, source_paths: &[PathBuf]) -> Result<usize> {
     let mut known_assets = BTreeMap::new();
     for source_path in source_paths {
+        if source_path.strip_prefix(root).is_err() {
+            continue;
+        }
         let bytes = std::fs::read(source_path)?;
-        for candidate in candidate_asset_urls(source_path, roots) {
+        for candidate in candidate_asset_urls(source_path, root) {
             known_assets.insert(candidate, bytes.clone());
         }
     }
@@ -173,36 +171,45 @@ pub fn update_html_integrity_for_sources(
     }
 
     let mut updated_files = 0;
-    for root in roots {
-        let scan_root = if root.is_dir() {
-            root.clone()
-        } else {
-            root.parent().unwrap_or(root.as_path()).to_path_buf()
-        };
-        for entry in WalkDir::new(scan_root)
-            .into_iter()
-            .filter_map(|entry| entry.ok())
-        {
-            let path = entry.path();
-            if !entry.file_type().is_file() || path.extension().is_none_or(|ext| ext != "html") {
-                continue;
-            }
-
-            let file = SourceFile::<String>::load(&path.to_path_buf())?;
-            let (rewritten, updated_count) =
-                rewrite_integrity_attributes(&file.content, &known_assets);
-            if updated_count == 0 || rewritten == file.content {
-                continue;
-            }
-
-            debug!(
-                "updated {} integrity attribute(s) in {}",
-                updated_count,
-                path.display()
-            );
-            SourceFile::new(path.to_path_buf(), rewritten).save(None)?;
-            updated_files += 1;
+    let scan_root = if root.is_dir() {
+        root.to_path_buf()
+    } else {
+        root.parent().unwrap_or(root).to_path_buf()
+    };
+    for entry in WalkDir::new(scan_root)
+        .into_iter()
+        .filter_map(|entry| entry.ok())
+    {
+        let path = entry.path();
+        if !entry.file_type().is_file() || path.extension().is_none_or(|ext| ext != "html") {
+            continue;
         }
+
+        let file = SourceFile::<String>::load(&path.to_path_buf())?;
+        let (rewritten, updated_count) = rewrite_integrity_attributes(&file.content, &known_assets);
+        if updated_count == 0 || rewritten == file.content {
+            continue;
+        }
+
+        debug!(
+            "updated {} integrity attribute(s) in {}",
+            updated_count,
+            path.display()
+        );
+        SourceFile::new(path.to_path_buf(), rewritten).save(None)?;
+        updated_files += 1;
+    }
+
+    Ok(updated_files)
+}
+
+pub fn update_html_integrity_for_sources(
+    roots: &[PathBuf],
+    source_paths: &[PathBuf],
+) -> Result<usize> {
+    let mut updated_files = 0;
+    for root in roots {
+        updated_files += update_html_integrity_for_root(root, source_paths)?;
     }
 
     if updated_files > 0 {

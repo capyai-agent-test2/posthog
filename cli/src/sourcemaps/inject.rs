@@ -48,7 +48,8 @@ pub fn inject_impl(
 
     info!("injecting selection: {}", file_selection);
 
-    let iterator = FileSelection::try_from(file_selection.clone())?;
+    let resolved_file_selection = file_selection.clone().resolve_stdin()?;
+    let iterator = FileSelection::try_from(resolved_file_selection.clone())?;
 
     let mut pairs = read_pairs(
         iterator.into_iter().filter(|entry| matcher(entry)),
@@ -77,7 +78,12 @@ pub fn inject_impl(
         .iter()
         .map(|pair| pair.source.inner.path.clone())
         .collect::<Vec<_>>();
-    update_html_integrity_for_sources(&file_selection.directory, &updated_sources)?;
+    let resolved_roots = resolved_file_selection
+        .directory
+        .iter()
+        .map(|path| path.canonicalize())
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    update_html_integrity_for_sources(&resolved_roots, &updated_sources)?;
     info!("injecting done");
     Ok(())
 }
