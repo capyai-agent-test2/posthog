@@ -87,7 +87,14 @@ pub fn inject_impl(
         .filter_map(|path| path.canonicalize().ok())
         .collect::<BTreeSet<_>>()
         .into_iter()
-        .map(|path| normalize_integrity_root(&path, public_path_prefix.as_deref()))
+        .map(|path| {
+            let relevant_sources = updated_sources
+                .iter()
+                .filter(|source| source.starts_with(&path) || path.starts_with(source))
+                .cloned()
+                .collect::<Vec<_>>();
+            normalize_integrity_root(&path, &relevant_sources, public_path_prefix.as_deref())
+        })
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect::<Vec<_>>();
@@ -100,18 +107,27 @@ pub fn inject_impl(
     Ok(())
 }
 
-fn normalize_integrity_root(path: &Path, public_path_prefix: Option<&str>) -> PathBuf {
-    if path.is_dir() {
-        return path.to_path_buf();
-    }
+fn normalize_integrity_root(
+    path: &Path,
+    relevant_sources: &[PathBuf],
+    public_path_prefix: Option<&str>,
+) -> PathBuf {
+    let sources = if relevant_sources.is_empty() {
+        vec![path.to_path_buf()]
+    } else {
+        relevant_sources.to_vec()
+    };
 
-    let asset_path = path;
-    let mut current = asset_path.parent().unwrap_or(asset_path).to_path_buf();
+    let mut current = if path.is_dir() {
+        path.to_path_buf()
+    } else {
+        path.parent().unwrap_or(path).to_path_buf()
+    };
     let fallback = current.clone();
     let mut best_match = None;
 
     loop {
-        match subtree_html_reference_status(&current, asset_path, public_path_prefix) {
+        match subtree_html_reference_status(&current, &sources, public_path_prefix) {
             HtmlReferenceStatus::ContainsReference => best_match = Some(current.clone()),
             HtmlReferenceStatus::ContainsHtmlWithoutReference | HtmlReferenceStatus::NoHtml => {}
         }
@@ -133,24 +149,30 @@ enum HtmlReferenceStatus {
 
 fn subtree_html_reference_status(
     root: &Path,
-    asset_path: &Path,
+    asset_paths: &[PathBuf],
     public_path_prefix: Option<&str>,
 ) -> HtmlReferenceStatus {
-    let relative = asset_path
-        .strip_prefix(root)
-        .ok()
-        .map(|path| path.to_string_lossy().replace('\\', "/"));
-    let Some(relative) = relative else {
+    let candidates = asset_paths
+        .iter()
+        .filter_map(|asset_path| {
+            let relative = asset_path
+                .strip_prefix(root)
+                .ok()
+                .map(|path| path.to_string_lossy().replace('\\', "/"))?;
+            let mut candidates = vec![relative.clone(), format!("/{relative}")];
+            if let Some(prefix) = public_path_prefix
+                .map(|prefix| prefix.trim_matches('/'))
+                .filter(|prefix| !prefix.is_empty())
+            {
+                candidates.push(format!("{prefix}/{relative}"));
+                candidates.push(format!("/{prefix}/{relative}"));
+            }
+            Some(candidates)
+        })
+        .flatten()
+        .collect::<Vec<_>>();
+    if candidates.is_empty() {
         return HtmlReferenceStatus::NoHtml;
-    };
-
-    let mut candidates = vec![relative.clone(), format!("/{relative}")];
-    if let Some(prefix) = public_path_prefix
-        .map(|prefix| prefix.trim_matches('/'))
-        .filter(|prefix| !prefix.is_empty())
-    {
-        candidates.push(format!("{prefix}/{relative}"));
-        candidates.push(format!("/{prefix}/{relative}"));
     }
 
     let mut saw_html = false;
@@ -244,7 +266,8 @@ mod tests {
         .expect("Failed to write HTML");
         std::fs::write(assets.join("app.js"), "console.log('x');").expect("Failed to write JS");
 
-        let normalized = normalize_integrity_root(&assets.join("app.js"), None);
+        let normalized =
+            normalize_integrity_root(&assets.join("app.js"), &[assets.join("app.js")], None);
         assert_eq!(normalized, dist);
     }
 
@@ -267,7 +290,25 @@ mod tests {
         .expect("Failed to write nested HTML");
         std::fs::write(assets.join("app.js"), "console.log('x');").expect("Failed to write JS");
 
-        let normalized = normalize_integrity_root(&assets.join("app.js"), None);
+        let normalized =
+            normalize_integrity_root(&assets.join("app.js"), &[assets.join("app.js")], None);
+        assert_eq!(normalized, dist);
+    }
+
+    #[test]
+    fn normalize_integrity_root_expands_directory_inputs_to_html_root() {
+        let tempdir = tempfile::tempdir().expect("Failed to create tempdir");
+        let dist = tempdir.path().join("dist");
+        let assets = dist.join("assets");
+        std::fs::create_dir_all(&assets).expect("Failed to create asset directory");
+        std::fs::write(
+            dist.join("index.html"),
+            r#"<script src="/assets/app.js"></script>"#,
+        )
+        .expect("Failed to write HTML");
+        std::fs::write(assets.join("app.js"), "console.log('x');").expect("Failed to write JS");
+
+        let normalized = normalize_integrity_root(&assets, &[assets.join("app.js")], None);
         assert_eq!(normalized, dist);
     }
 }
