@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
 use anyhow::Result;
@@ -70,13 +70,6 @@ fn normalize_url_path(url: &str) -> &str {
 
 fn candidate_asset_urls(asset_path: &Path, root: &Path) -> BTreeSet<String> {
     let mut candidates = BTreeSet::new();
-    candidates.insert(
-        asset_path
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .into_owned(),
-    );
 
     let base = if root.is_dir() {
         root
@@ -92,8 +85,48 @@ fn candidate_asset_urls(asset_path: &Path, root: &Path) -> BTreeSet<String> {
     candidates
 }
 
+fn root_base(root: &Path) -> &Path {
+    if root.is_dir() {
+        root
+    } else {
+        root.parent().unwrap_or(root)
+    }
+}
+
+fn normalize_relative_path(path: &Path) -> Option<String> {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::Normal(part) => normalized.push(part),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if !normalized.pop() {
+                    return None;
+                }
+            }
+            Component::RootDir => {}
+            Component::Prefix(_) => return None,
+        }
+    }
+
+    Some(normalized.to_string_lossy().replace('\\', "/"))
+}
+
+fn resolve_asset_key(asset_url: &str, html_path: &Path, root: &Path) -> Option<String> {
+    let normalized_url = normalize_url_path(asset_url);
+    if normalized_url.starts_with('/') {
+        return normalize_relative_path(Path::new(normalized_url.trim_start_matches('/')));
+    }
+
+    let html_dir = html_path.parent().unwrap_or(root_base(root));
+    let html_relative_dir = html_dir.strip_prefix(root_base(root)).ok()?;
+    normalize_relative_path(&html_relative_dir.join(normalized_url))
+}
+
 fn rewrite_integrity_attributes(
     html: &str,
+    html_path: &Path,
+    root: &Path,
     known_assets: &BTreeMap<String, Vec<u8>>,
 ) -> (String, usize) {
     let mut updated_count = 0;
@@ -131,8 +164,10 @@ fn rewrite_integrity_attributes(
             return tag.to_string();
         }
 
-        let normalized_url = normalize_url_path(&asset_url);
-        let Some(asset_bytes) = known_assets.get(normalized_url) else {
+        let Some(asset_key) = resolve_asset_key(&asset_url, html_path, root) else {
+            return tag.to_string();
+        };
+        let Some(asset_bytes) = known_assets.get(&asset_key) else {
             return tag.to_string();
         };
         let Some(new_integrity) = recompute_integrity(&existing_integrity, asset_bytes) else {
@@ -186,7 +221,8 @@ fn update_html_integrity_for_root(root: &Path, source_paths: &[PathBuf]) -> Resu
         }
 
         let file = SourceFile::<String>::load(&path.to_path_buf())?;
-        let (rewritten, updated_count) = rewrite_integrity_attributes(&file.content, &known_assets);
+        let (rewritten, updated_count) =
+            rewrite_integrity_attributes(&file.content, path, root, &known_assets);
         if updated_count == 0 || rewritten == file.content {
             continue;
         }
@@ -223,7 +259,7 @@ mod tests {
     use super::{rewrite_integrity_attributes, STANDARD};
     use base64::Engine as _;
     use sha2::{Digest, Sha512};
-    use std::collections::BTreeMap;
+    use std::{collections::BTreeMap, path::Path};
 
     #[test]
     fn rewrites_matching_integrity_hashes() {
@@ -236,9 +272,14 @@ mod tests {
         );
 
         let mut assets = BTreeMap::new();
-        assets.insert("/assets/app.js".to_string(), updated.to_vec());
+        assets.insert("assets/app.js".to_string(), updated.to_vec());
 
-        let (rewritten, count) = rewrite_integrity_attributes(&html, &assets);
+        let (rewritten, count) = rewrite_integrity_attributes(
+            &html,
+            Path::new("/tmp/dist/index.html"),
+            Path::new("/tmp/dist"),
+            &assets,
+        );
         assert_eq!(count, 1);
         assert!(rewritten.contains(&expected_hash));
         assert!(!rewritten.contains(&original_hash));
@@ -251,8 +292,35 @@ mod tests {
         let mut assets = BTreeMap::new();
         assets.insert("https://cdn.example.com/app.js".to_string(), b"x".to_vec());
 
-        let (rewritten, count) = rewrite_integrity_attributes(html, &assets);
+        let (rewritten, count) = rewrite_integrity_attributes(
+            html,
+            Path::new("/tmp/dist/index.html"),
+            Path::new("/tmp/dist"),
+            &assets,
+        );
         assert_eq!(count, 0);
         assert_eq!(rewritten, html);
+    }
+
+    #[test]
+    fn rewrites_relative_asset_urls() {
+        let original = b"console.log('before');";
+        let updated = b"console.log('after');";
+        let original_hash = format!("sha512-{}", STANDARD.encode(Sha512::digest(original)));
+        let expected_hash = format!("sha512-{}", STANDARD.encode(Sha512::digest(updated)));
+        let html =
+            format!(r#"<script src="../assets/app.js" integrity="{original_hash}"></script>"#);
+
+        let mut assets = BTreeMap::new();
+        assets.insert("assets/app.js".to_string(), updated.to_vec());
+        let tempdir = tempfile::tempdir().expect("Failed to create tempdir");
+        let root = tempdir.path();
+        std::fs::create_dir_all(root.join("nested")).expect("Failed to create nested directory");
+        let html_path = root.join("nested/index.html");
+
+        let (rewritten, count) = rewrite_integrity_attributes(&html, &html_path, root, &assets);
+        assert_eq!(count, 1);
+        assert!(rewritten.contains(&expected_hash));
+        assert!(!rewritten.contains(&original_hash));
     }
 }

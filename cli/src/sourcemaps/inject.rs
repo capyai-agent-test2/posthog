@@ -81,8 +81,8 @@ pub fn inject_impl(
     let resolved_roots = resolved_file_selection
         .directory
         .iter()
-        .map(|path| path.canonicalize())
-        .collect::<std::result::Result<Vec<_>, _>>()?;
+        .filter_map(|path| path.canonicalize().ok())
+        .collect::<Vec<_>>();
     update_html_integrity_for_sources(&resolved_roots, &updated_sources)?;
     info!("injecting done");
     Ok(())
