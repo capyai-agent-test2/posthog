@@ -172,9 +172,7 @@ export const organizationLogic = kea<organizationLogicType>([
     }),
     listeners(({ actions, values }) => ({
         loadCurrentOrganizationSuccess: ({ currentOrganization }) => {
-            if (currentOrganization) {
-                ApiConfig.setCurrentOrganizationId(currentOrganization.id)
-            }
+            ApiConfig.setCurrentOrganizationId(currentOrganization?.id ?? null)
         },
         locationChanged: ({ pathname }) => {
             // Redirect to pending deletion page if organization deletion is in progress

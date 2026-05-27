@@ -2,6 +2,8 @@ import { api, MOCK_DEFAULT_ORGANIZATION, MOCK_DEFAULT_USER } from 'lib/api.mock'
 
 import { expectLogic } from 'kea-test-utils'
 
+import { ApiConfig } from 'lib/api'
+
 import { initKeaTests } from '~/test/init'
 
 import { AppContext } from '../types'
@@ -41,6 +43,20 @@ describe('organizationLogic', () => {
             logic = organizationLogic()
             logic.mount()
             expect(logic.values.currentOrganizationId).toBe('@current')
+        })
+    })
+
+    describe('ApiConfig synchronization', () => {
+        it('clears the current organization id when organization context becomes unavailable', async () => {
+            initKeaTests(false)
+            logic = organizationLogic()
+            logic.mount()
+
+            logic.actions.loadCurrentOrganizationSuccess(MOCK_DEFAULT_ORGANIZATION)
+            expect(ApiConfig.getCurrentOrganizationId()).toBe(MOCK_DEFAULT_ORGANIZATION.id)
+
+            logic.actions.loadCurrentOrganizationSuccess(null)
+            expect(() => ApiConfig.getCurrentOrganizationId()).toThrow('Organization ID is not known.')
         })
     })
 
