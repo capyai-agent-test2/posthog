@@ -398,7 +398,7 @@ class TestProjectAdvancedActivityLogsExport(APIBaseTest):
 
         exported_asset = self.team.exported_assets.get(id=export_id)
         assert exported_asset.export_context == {
-            "path": f"/api/projects/{self.team.id}/advanced_activity_logs/?page=1&page_size=25",
+            "path": f"/api/projects/{self.team.id}/advanced_activity_logs/?export_page_size=25",
             "method": "GET",
             "filters": {},
             "filename": ANY,
