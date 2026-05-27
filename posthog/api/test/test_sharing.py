@@ -13,6 +13,8 @@ from django.utils.timezone import now
 from parameterized import parameterized
 from rest_framework import status
 
+from posthog.schema import NodeKind
+
 from posthog.api.sharing import _log_share_password_attempt, shared_url_as_png
 from posthog.constants import AvailableFeature
 from posthog.models import ActivityLog, ExportedAsset
@@ -21,6 +23,7 @@ from posthog.models.insight import Insight
 from posthog.models.share_password import SharePassword
 from posthog.models.sharing_configuration import SharingConfiguration
 from posthog.models.user import User
+from posthog.schema_migrations import LATEST_VERSIONS, MIGRATIONS, SchemaMigration
 
 from products.dashboards.backend.models.dashboard import Dashboard
 
@@ -1400,12 +1403,64 @@ class TestSharedCohortInlining(APIBaseTest):
             key=lambda c: c["id"],
         )
 
+    @mock_exporter_template
+    def test_shared_insight_upgrades_legacy_query_before_export(self):
+        class SampleMigration(SchemaMigration):
+            targets = {NodeKind.TRENDS_QUERY: 1}
+
+            def transform(self, query):
+                query["aggregationGroupTypeIndex"] = query.pop("aggregation_group_type_index")
+                return query
+
+        original_migrations = MIGRATIONS.get(NodeKind.TRENDS_QUERY)
+        original_latest_version = LATEST_VERSIONS.get(NodeKind.TRENDS_QUERY)
+        MIGRATIONS[NodeKind.TRENDS_QUERY] = {1: SampleMigration()}
+        LATEST_VERSIONS[NodeKind.TRENDS_QUERY] = 2
+
+        try:
+            insight = Insight.objects.create(
+                team=self.team,
+                created_by=self.user,
+                query={
+                    "kind": NodeKind.INSIGHT_VIZ_NODE,
+                    "source": {
+                        "kind": NodeKind.TRENDS_QUERY,
+                        "version": 1,
+                        "series": [{"kind": NodeKind.EVENTS_NODE, "event": "$pageview"}],
+                        "aggregation_group_type_index": 2,
+                    },
+                },
+            )
+            config = SharingConfiguration.objects.create(team=self.team, insight=insight, enabled=True)
+
+            response = self.client.get(f"/shared/{config.access_token}")
+
+            assert response.status_code == status.HTTP_200_OK
+            exported_query = self._parse_exported_data(response.content.decode("utf-8"))["insight"]["query"]["source"]
+            assert exported_query["version"] == 2
+            assert exported_query["aggregationGroupTypeIndex"] == 2
+            assert "aggregation_group_type_index" not in exported_query
+        finally:
+            if original_migrations is None:
+                del MIGRATIONS[NodeKind.TRENDS_QUERY]
+            else:
+                MIGRATIONS[NodeKind.TRENDS_QUERY] = original_migrations
+
+            if original_latest_version is None:
+                del LATEST_VERSIONS[NodeKind.TRENDS_QUERY]
+            else:
+                LATEST_VERSIONS[NodeKind.TRENDS_QUERY] = original_latest_version
+
     @staticmethod
     def _parse_exported_cohorts(html: str) -> list[dict]:
+        return TestSharing._parse_exported_data(html).get("cohorts", [])
+
+    @staticmethod
+    def _parse_exported_data(html: str) -> dict:
         # mock_exporter_template embeds the exported_data JSON inside this <script> tag.
         start_marker = '<script id="posthog-exported-data" type="application/json">'
         start = html.index(start_marker) + len(start_marker)
         end = html.index("</script>", start)
         outer = json.loads(html[start:end])
         inner = json.loads(outer) if isinstance(outer, str) else outer
-        return inner.get("cohorts", [])
+        return inner

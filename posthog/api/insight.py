@@ -953,46 +953,47 @@ class InsightSerializer(InsightBasicSerializer):
             request, dashboard, list(self.context["insight_variables"])
         )
 
-        if instance.query is not None or instance.query_from_filters is not None:
-            query = instance.query or instance.query_from_filters
-            if (
-                dashboard is not None
-                or dashboard_filters_override is not None
-                or dashboard_variables_override is not None
-            ):
-                query = apply_dashboard_filters_to_dict(
-                    query,
-                    (
-                        dashboard_filters_override
-                        if dashboard_filters_override is not None
-                        else dashboard.filters
-                        if dashboard
-                        else {}
-                    ),
-                    instance.team,
+        with upgrade_query(instance):
+            if instance.query is not None or instance.query_from_filters is not None:
+                query = instance.query or instance.query_from_filters
+                if (
+                    dashboard is not None
+                    or dashboard_filters_override is not None
+                    or dashboard_variables_override is not None
+                ):
+                    query = apply_dashboard_filters_to_dict(
+                        query,
+                        (
+                            dashboard_filters_override
+                            if dashboard_filters_override is not None
+                            else dashboard.filters
+                            if dashboard
+                            else {}
+                        ),
+                        instance.team,
+                    )
+
+                    query = apply_dashboard_variables_to_dict(
+                        query,
+                        dashboard_variables_override or {},
+                        instance.team,
+                    )
+                representation["filters"] = {}
+                representation["query"] = query
+            else:
+                representation["filters"] = instance.dashboard_filters(
+                    dashboard=dashboard, dashboard_filters_override=dashboard_filters_override
+                )
+                representation["query"] = instance.get_effective_query(
+                    dashboard=dashboard,
+                    dashboard_filters_override=dashboard_filters_override,
+                    dashboard_variables_override=dashboard_variables_override,
                 )
 
-                query = apply_dashboard_variables_to_dict(
-                    query,
-                    dashboard_variables_override or {},
-                    instance.team,
-                )
-            representation["filters"] = {}
-            representation["query"] = query
-        else:
-            representation["filters"] = instance.dashboard_filters(
-                dashboard=dashboard, dashboard_filters_override=dashboard_filters_override
-            )
-            representation["query"] = instance.get_effective_query(
-                dashboard=dashboard,
-                dashboard_filters_override=dashboard_filters_override,
-                dashboard_variables_override=dashboard_variables_override,
-            )
+                if "insight" not in representation["filters"] and not representation["query"]:
+                    representation["filters"]["insight"] = "TRENDS"
 
-            if "insight" not in representation["filters"] and not representation["query"]:
-                representation["filters"]["insight"] = "TRENDS"
-
-        representation["filters_hash"] = self.insight_result(instance).cache_key
+            representation["filters_hash"] = self.insight_result(instance).cache_key
 
         # Hide PII fields when hideExtraDetails from SharingConfiguration is enabled
         if self.context.get("hide_extra_details", False):
