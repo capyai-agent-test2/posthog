@@ -34,8 +34,11 @@ function supportsMetadataGeneration(node: Record<string, any> | null): boolean {
 }
 
 export function InsightPageHeader({ insightLogicProps }: { insightLogicProps: InsightLogicProps }): JSX.Element {
-    const { insightMode, filtersOverride, variablesOverride, dashboardId } = useValues(insightSceneLogic)
-    const { setInsightMode } = useActions(insightSceneLogic)
+    const scopedInsightSceneLogic = insightLogicProps.tabId
+        ? insightSceneLogic({ tabId: insightLogicProps.tabId })
+        : insightSceneLogic
+    const { insightMode, filtersOverride, variablesOverride, dashboardId } = useValues(scopedInsightSceneLogic)
+    const { setInsightMode } = useActions(scopedInsightSceneLogic)
 
     const { insightProps, canEditInsight, insight, insightChanged, insightSaving, hasDashboardItemId, insightLoading } =
         useValues(insightLogic(insightLogicProps))

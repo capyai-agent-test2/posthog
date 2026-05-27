@@ -17,7 +17,10 @@ export function InsightPanelDangerZone({
 }: {
     insightLogicProps: InsightLogicProps
 }): JSX.Element | null {
-    const { dashboardId } = useValues(insightSceneLogic)
+    const scopedInsightSceneLogic = insightLogicProps.tabId
+        ? insightSceneLogic({ tabId: insightLogicProps.tabId })
+        : insightSceneLogic
+    const { dashboardId } = useValues(scopedInsightSceneLogic)
 
     const theInsightLogic = insightLogic(insightLogicProps)
     const { insight, hasDashboardItemId } = useValues(theInsightLogic)

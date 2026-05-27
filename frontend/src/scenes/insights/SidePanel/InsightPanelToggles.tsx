@@ -13,8 +13,11 @@ import { InsightLogicProps, ItemMode } from '~/types'
 const RESOURCE_TYPE = 'insight'
 
 export function InsightPanelToggles({ insightLogicProps }: { insightLogicProps: InsightLogicProps }): JSX.Element {
-    const { insightMode } = useValues(insightSceneLogic)
-    const { setInsightMode } = useActions(insightSceneLogic)
+    const scopedInsightSceneLogic = insightLogicProps.tabId
+        ? insightSceneLogic({ tabId: insightLogicProps.tabId })
+        : insightSceneLogic
+    const { insightMode } = useValues(scopedInsightSceneLogic)
+    const { setInsightMode } = useActions(scopedInsightSceneLogic)
 
     const theInsightLogic = insightLogic(insightLogicProps)
     const { insightProps, insight, hasDashboardItemId } = useValues(theInsightLogic)
