@@ -1,8 +1,9 @@
 import '@testing-library/jest-dom'
 
-import { render } from '@testing-library/react'
+import { cleanup, render } from '@testing-library/react'
 import { useActions, useValues } from 'kea'
 import { router } from 'kea-router'
+import type React from 'react'
 
 import { eventUsageLogic } from 'lib/utils/eventUsageLogic'
 import { dashboardLogic } from 'scenes/dashboard/dashboardLogic'
@@ -12,6 +13,24 @@ import { insightsModel } from '~/models/insightsModel'
 import { DashboardMode, DashboardPlacement } from '~/types'
 
 import { DashboardItems } from './DashboardItems'
+
+jest.mock(
+    '@posthog/quill',
+    () =>
+        new Proxy(
+            {},
+            {
+                get: (_, key) => {
+                    if (key === '__esModule') {
+                        return true
+                    }
+
+                    return ({ children }: { children?: React.ReactNode }) => <>{children}</>
+                },
+            }
+        ),
+    { virtual: true }
+)
 
 jest.mock('kea', () => ({
     ...jest.requireActual('kea'),
@@ -73,11 +92,23 @@ jest.mock('scenes/urls', () => ({
 }))
 
 jest.mock('lib/components/Cards/InsightCard', () => ({
-    InsightCard: ({ tile, showResizeHandles }: { tile: { id: number }; showResizeHandles: boolean }) => (
+    InsightCard: ({
+        tile,
+        showResizeHandles,
+        apiErrored,
+        apiError,
+    }: {
+        tile: { id: number }
+        showResizeHandles: boolean
+        apiErrored?: boolean
+        apiError?: { detail?: string | null }
+    }) => (
         <div
-            data-attr="insight-card"
+            data-attr={`insight-card-${tile.id}`}
             data-tile-id={String(tile.id)}
             data-show-resize-handles={String(showResizeHandles)}
+            data-api-errored={String(apiErrored)}
+            data-api-error-detail={apiError?.detail || ''}
         />
     ),
 }))
@@ -138,6 +169,10 @@ const mockedUseValues = useValues as jest.Mock
 const mockedUseActions = useActions as jest.Mock
 
 describe('DashboardItems', () => {
+    afterEach(() => {
+        cleanup()
+    })
+
     beforeEach(() => {
         jest.clearAllMocks()
 
@@ -221,6 +256,88 @@ describe('DashboardItems', () => {
 
     it('matches snapshot in edit mode with layout zoom enabled', () => {
         const { container } = render(<DashboardItems />)
-        expect(container.firstChild).toMatchSnapshot()
+        expect(container.firstChild).toMatchInlineSnapshot(`
+            <div
+              class="dashboard-items-wrapper"
+            >
+              <div
+                class="relative"
+              >
+                <div
+                  data-attr="grid-background"
+                  data-margin="14.4,14.4"
+                  data-row-height="60"
+                />
+                <div
+                  data-attr="react-grid-layout"
+                  data-class-name="dashboard-edit-mode"
+                  data-drag-enabled="true"
+                  data-margin="14.4,14.4"
+                  data-resize-enabled="false"
+                  data-row-height="60"
+                >
+                  <div
+                    data-api-error-detail=""
+                    data-api-errored="false"
+                    data-attr="insight-card-1"
+                    data-show-resize-handles="false"
+                    data-tile-id="1"
+                  />
+                </div>
+              </div>
+            </div>
+        `)
+    })
+
+    it('passes cached query status errors through to the insight card', () => {
+        mockedUseValues.mockImplementation((logic) => {
+            if (logic === dashboardLogic) {
+                return {
+                    dashboard: { id: 5 },
+                    tiles: [
+                        {
+                            id: 1,
+                            insight: {
+                                id: 101,
+                                short_id: 'abc123',
+                                query: { kind: 'InsightVizNode' },
+                                query_status: { error_message: 'Column does not exist' },
+                            },
+                        },
+                    ],
+                    layouts: {
+                        sm: [{ i: '1', x: 0, y: 0, w: 6, h: 5 }],
+                    },
+                    dashboardMode: DashboardMode.Edit,
+                    placement: DashboardPlacement.Dashboard,
+                    isRefreshingQueued: () => false,
+                    isRefreshing: () => false,
+                    highlightedInsightId: null,
+                    refreshStatus: {},
+                    itemsLoading: false,
+                    dashboardStreaming: false,
+                    effectiveEditBarFilters: {},
+                    effectiveDashboardVariableOverrides: {},
+                    temporaryBreakdownColors: [],
+                    dataColorThemeId: null,
+                    canEditDashboard: true,
+                    layoutZoom: 0.75,
+                }
+            }
+
+            if (logic === dashboardsModel) {
+                return {
+                    nameSortedDashboards: [{ id: 6, name: 'Other dashboard' }],
+                }
+            }
+
+            return {}
+        })
+
+        const { getByTestId } = render(<DashboardItems />)
+        const card = getByTestId('insight-card-1')
+
+        expect(card).toHaveAttribute('data-api-errored', 'true')
+        expect(card).toHaveAttribute('data-api-error-detail', 'Column does not exist')
     })
 })
