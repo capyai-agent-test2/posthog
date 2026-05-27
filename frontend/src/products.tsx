@@ -981,11 +981,13 @@ export const productUrls = {
             search?: string
             tab?: string
             msg?: string
-        }
+        },
+        encode: boolean = true
     ): string => {
         const queryParams = new URLSearchParams(params)
         const stringifiedParams = queryParams.toString()
-        return `/ai-observability/traces/${id}${stringifiedParams ? `?${stringifiedParams}` : ''}`
+        const traceId = encode ? encodeURIComponent(id) : id
+        return `/ai-observability/traces/${traceId}${stringifiedParams ? `?${stringifiedParams}` : ''}`
     },
     llmAnalyticsUsers: (): string => '/ai-observability/users',
     llmAnalyticsErrors: (): string => '/ai-observability/errors',

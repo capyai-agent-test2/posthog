@@ -59,6 +59,14 @@ export interface LLMAnalyticsTraceDataNodeLogicParams {
 
 const EXCEPTION_LOOKUP_WINDOW_MINUTES = 20
 
+function decodeTraceId(traceId: string): string {
+    try {
+        return decodeURIComponent(traceId)
+    } catch {
+        return traceId
+    }
+}
+
 export function getDataNodeLogicProps({
     traceId,
     query,
@@ -474,8 +482,11 @@ export const llmAnalyticsTraceLogic = kea<llmAnalyticsTraceLogicType>([
     })),
 
     tabAwareUrlToAction(({ actions }) => ({
-        [urls.llmAnalyticsTrace(':id')]: ({ id }, { event, timestamp, exception_ts, search, line, tab, msg }) => {
-            actions.setTraceId(id ?? '')
+        [urls.llmAnalyticsTrace(':id', undefined, false)]: (
+            { id },
+            { event, timestamp, exception_ts, search, line, tab, msg }
+        ) => {
+            actions.setTraceId(decodeTraceId(id ?? ''))
             void addProductIntent({
                 product_type: ProductKey.LLM_ANALYTICS,
                 intent_context: ProductIntentContext.LLM_ANALYTICS_TRACE_VIEWED,

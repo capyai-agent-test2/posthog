@@ -82,6 +82,28 @@ describe('llmAnalyticsTraceLogic', () => {
         })
     })
 
+    it('properly loads trace scene when trace ID contains hash and spaces', async () => {
+        const traceIdWithHash = 'PK:Convo#4295b424-d0f1-706a-df9e-2ac962fd19b9#pre-prod SK:1757329741.372116'
+        const traceUrl = combineUrl(urls.llmAnalyticsTrace(traceIdWithHash))
+
+        expect(traceUrl.url).toContain(encodeURIComponent(traceIdWithHash))
+
+        router.actions.push(addProjectIdIfMissing(traceUrl.url, MOCK_TEAM_ID))
+        await expectLogic(logic).toMatchValues({
+            traceId: traceIdWithHash,
+        })
+    })
+
+    it('falls back to the raw trace ID when URL decoding fails', async () => {
+        const malformedTraceId = 'trace%'
+        const traceUrl = combineUrl(urls.llmAnalyticsTrace(malformedTraceId, undefined, false))
+
+        router.actions.push(addProjectIdIfMissing(traceUrl.url, MOCK_TEAM_ID))
+        await expectLogic(logic).toMatchValues({
+            traceId: malformedTraceId,
+        })
+    })
+
     it('preserves timestamp when both timestamp and tab parameters are present', async () => {
         const traceId = 'test-trace-id'
         const timestamp = '2024-01-15T12:00:00Z'
