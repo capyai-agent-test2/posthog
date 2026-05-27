@@ -679,7 +679,18 @@ class BasePrinter(Visitor[str]):
         return JoinExprResponse(printed_sql=" ".join(join_strings), where=extra_where)
 
     def visit_join_constraint(self, node: ast.JoinConstraint):
+        if node.constraint_type == "USING":
+            return self._render_using_constraint(node.expr)
         return self.visit(node.expr)
+
+    def _render_using_constraint(self, expr: ast.Expr) -> str:
+        if isinstance(expr, ast.Tuple):
+            return f"({', '.join(self._render_using_constraint(item) for item in expr.exprs)})"
+        if isinstance(expr, ast.Alias):
+            return self._print_identifier(expr.alias)
+        if isinstance(expr, ast.Field):
+            return self._print_identifier(str(expr.chain[-1]))
+        return self.visit(expr)
 
     def visit_arithmetic_operation(self, node: ast.ArithmeticOperation):
         if node.op == ast.ArithmeticOperationOp.Add:

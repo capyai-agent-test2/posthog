@@ -54,6 +54,7 @@ from posthog.hogql.parser import parse_expr, parse_select
 from posthog.hogql.printer import prepare_and_print_ast, prepare_ast_for_printing, print_prepared_ast, to_printed_hogql
 from posthog.hogql.property import property_to_expr
 from posthog.hogql.query import execute_hogql_query
+from posthog.hogql.resolver import resolve_types
 
 from posthog.clickhouse.client.execute import sync_execute
 from posthog.models import PropertyDefinition
@@ -1646,6 +1647,32 @@ class TestPrinter(BaseTest):
         where_clause = result[where_start:] if where_start != -1 else ""
         self.assertIn(f"equals(events.team_id, {self.team.pk})", where_clause)
         self.assertIn(f"equals(e2.team_id, {self.team.pk})", where_clause)
+
+    def test_join_using_prints_unqualified_cte_columns(self):
+        query = parse_select(
+            "WITH one_table AS (SELECT 1 AS id, 2 AS value), another_table AS (SELECT 1 AS id, 3 AS other_value) "
+            "SELECT one_table.id, value, other_value FROM one_table JOIN another_table USING(id)"
+        )
+        context = HogQLContext(database=Database(), team_id=1, enable_select_queries=True)
+
+        resolved = cast(ast.SelectQuery, resolve_types(query, context, dialect="clickhouse"))
+        printed = print_prepared_ast(resolved, context, dialect="clickhouse")
+
+        self.assertIn("JOIN another_table USING id", printed)
+        self.assertNotIn("USING one_table.id", printed)
+
+    def test_join_using_prints_unqualified_tuple_columns(self):
+        query = parse_select(
+            "WITH a AS (SELECT 1 AS id, 2 AS x, 3 AS y), b AS (SELECT 1 AS id, 2 AS x, 4 AS y) "
+            "SELECT a.y, b.y FROM a JOIN b USING (id, x)"
+        )
+        context = HogQLContext(database=Database(), team_id=1, enable_select_queries=True)
+
+        resolved = cast(ast.SelectQuery, resolve_types(query, context, dialect="clickhouse"))
+        printed = print_prepared_ast(resolved, context, dialect="clickhouse")
+
+        self.assertIn("JOIN b USING (id, x)", printed)
+        self.assertNotIn("USING a.id", printed)
 
     @parameterized.expand(
         [
