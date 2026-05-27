@@ -883,7 +883,9 @@ def process_ok_values(ok_values: Any, operator: OperatorType) -> list[str]:
 
 def build_selector_regex(selector: Selector) -> str:
     regex = r""
-    for tag in selector.parts:
+    for index, tag in enumerate(selector.parts):
+        if index > 0 and not tag.direct_descendant:
+            regex += r"(?:[^;]*;)*"
         if tag.data.get("tag_name") and isinstance(tag.data["tag_name"], str) and tag.data["tag_name"] != "*":
             # The elements in the elements_chain are separated by the semicolon
             regex += re.escape(tag.data["tag_name"])
