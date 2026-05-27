@@ -11,6 +11,7 @@ import { AnyPropertyFilter, LiveEvent, PropertyOperator } from '~/types'
 
 import { deduplicateEvents } from './deduplicateEvents'
 import type { liveEventsLogicType } from './liveEventsLogicType'
+import { getLiveEventHostOrigin } from './liveEventsUtils'
 
 const ERROR_TOAST_ID = 'live-stream-error'
 
@@ -178,11 +179,9 @@ export const liveEventsLogic = kea<liveEventsLogicType>([
         addEvents: ({ events }) => {
             if (events.length > 0) {
                 const event = events[0]
-                const eventUrl = event.properties?.$current_url
-                if (eventUrl) {
-                    const eventHost = new URL(eventUrl).host
-                    const eventProtocol = new URL(eventUrl).protocol
-                    actions.addEventHost(`${eventProtocol}//${eventHost}`)
+                const eventHostOrigin = getLiveEventHostOrigin(event.properties)
+                if (eventHostOrigin) {
+                    actions.addEventHost(eventHostOrigin)
                 }
             }
         },
