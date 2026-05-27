@@ -948,6 +948,15 @@ class TestProperty(BaseTest):
             ),
         )
 
+        self.assertEqual(
+            self._selector_to_expr(".w-1.2-foo"),
+            clear_locations(
+                elements_chain_match(
+                    '(^|;).*?\\.2\\-foo\\..*?w\\-1([-_a-zA-Z0-9\\.:"= \\[\\]\\(\\),]*?)?($|;|:([^;^\\s]*(;|$|\\s)))'
+                )
+            ),
+        )
+
     def test_cohort_filter_static(self):
         cohort = Cohort.objects.create(
             team=self.team,

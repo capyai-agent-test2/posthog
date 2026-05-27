@@ -142,11 +142,11 @@ class SelectorPart:
         if not (previous_is_digit and next_is_digit):
             return True
 
-        next_next_index = next_index + 1
-        if next_next_index >= len(tag):
-            return False
+        scan_index = next_index
+        while scan_index < len(tag) and tag[scan_index].isdigit():
+            scan_index += 1
 
-        return tag[next_next_index].isalpha() or tag[next_next_index] == "\\"
+        return scan_index < len(tag)
 
 
 class Selector:

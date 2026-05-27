@@ -479,6 +479,9 @@ export class ActionMatcher {
                 return false
             }
             const part = parts[partIndex]
+            if (part.invalid) {
+                return false
+            }
             wasPartMatched = false
             for (let depthDiff = 1; baseElementIndex - depthDiff >= 0; depthDiff++) {
                 // Subtracting depthDiff as elements are reversed, meaning outer elements have higher indexes
@@ -554,6 +557,7 @@ class SelectorPart {
     directDescendant: boolean
     uniqueOrder: number
     requirements: Partial<Element>
+    invalid: boolean
 
     constructor(tag: string, directDescendant: boolean, escapeSlashes: boolean) {
         const ATTRIBUTE_SELECTOR_REGEX = /\[(.*)=[\'|\"](.*)[\'|\"]\]/
@@ -563,6 +567,7 @@ class SelectorPart {
         this.directDescendant = directDescendant
         this.uniqueOrder = 0
         this.requirements = {}
+        this.invalid = false
 
         let attributeSelector = tag.match(ATTRIBUTE_SELECTOR_REGEX)
         while (attributeSelector) {
@@ -613,6 +618,10 @@ class SelectorPart {
                 this.requirements.attr_class = this.requirements.attr_class.map(this.unescapeClassName.bind(this))
             } // TODO: determine if we need escapeSlashes in this port
             tag = classParts[0]
+        }
+        if (tag.includes(':') || tag.includes('(') || tag.includes(')')) {
+            this.invalid = true
+            return
         }
         const finalTag = tag.match(FINAL_TAG_REGEX)
         if (finalTag) {
@@ -758,10 +767,10 @@ function startsNewClass(tag: string, dotIndex: number, parts: string[]): boolean
         return true
     }
 
-    const nextNextChar = tag[dotIndex + 2]
-    if (!nextNextChar) {
-        return false
+    let index = dotIndex + 1
+    while (index < tag.length && /\d/.test(tag[index])) {
+        index += 1
     }
 
-    return /[A-Za-z\\]/.test(nextNextChar)
+    return index < tag.length
 }
