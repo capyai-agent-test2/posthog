@@ -231,7 +231,15 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             or self.instance is None
             or (self.instance is not None and self.instance.enabled and bool(Subscription.RRULE_FIELDS & attrs.keys()))
         )
-        if check_schedule and Subscription.project_next_delivery_date(instance=self.instance, **attrs) is None:
+        if (
+            check_schedule
+            and Subscription.project_next_delivery_date(
+                instance=self.instance,
+                team_timezone=self.context["get_team"]().timezone,
+                **attrs,
+            )
+            is None
+        ):
             base = "Subscription schedule has reached its end date. Extend until_date or remove count"
             if is_re_enabling:
                 raise ValidationError({"enabled": [f"{base} before re-enabling."]})
