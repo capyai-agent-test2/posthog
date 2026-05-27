@@ -204,7 +204,10 @@ export const insightVizDataLogic = kea<insightVizDataLogicType>([
         isWebOverview: [(s) => [s.querySource], (q) => isWebOverviewQuery(q)],
         isWebAnalytics: [(s) => [s.querySource], (q) => isWebAnalyticsInsightQuery(q)],
         isTrendsLike: [(s) => [s.querySource], (q) => isTrendsQuery(q) || isLifecycleQuery(q) || isStickinessQuery(q)], // this is for filtering out world map
-        supportsDisplay: [(s) => [s.querySource], (q) => isTrendsQuery(q) || isStickinessQuery(q)],
+        supportsDisplay: [
+            (s) => [s.querySource],
+            (q) => isTrendsQuery(q) || isStickinessQuery(q) || isLifecycleQuery(q),
+        ],
         supportsCompare: [
             (s) => [s.querySource, s.display, s.dateRange],
             (q, display, dateRange) =>
