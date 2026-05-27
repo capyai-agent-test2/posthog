@@ -115,7 +115,7 @@ def fetch_recent_session_ids(
             else _DEFAULT_FILTER_TEST_ACCOUNTS,
             date_from=f"-{lookback_minutes}m",
             limit=limit,
-            having_predicates=_BASELINE_HAVING_PREDICATES + (user_defined_query.having_predicates or []),
+            having_predicates=user_defined_query.having_predicates,
             properties=user_defined_query.properties,
             events=user_defined_query.events,
             actions=user_defined_query.actions,
@@ -127,7 +127,6 @@ def fetch_recent_session_ids(
             filter_test_accounts=_DEFAULT_FILTER_TEST_ACCOUNTS,
             date_from=f"-{lookback_minutes}m",
             limit=limit,
-            having_predicates=_BASELINE_HAVING_PREDICATES,
         )
 
     sampling_predicate = _sampling_having_predicate(sample_rate)
@@ -136,7 +135,11 @@ def fetch_recent_session_ids(
             team=team,
             query=query,
             max_execution_time=max_execution_time_seconds,
-            extra_having_predicates=[sampling_predicate] if sampling_predicate is not None else None,
+            extra_having_predicates=[
+                *_BASELINE_HAVING_PREDICATES,
+                *([sampling_predicate] if sampling_predicate is not None else []),
+            ]
+            or None,
         ).run()
 
     return [recording["session_id"] for recording in result.results]

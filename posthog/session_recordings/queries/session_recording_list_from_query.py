@@ -222,17 +222,7 @@ class SessionRecordingListFromQuery(SessionRecordingsListingBaseQuery):
             {
                 # Check if the most recent _timestamp is within five minutes of the current time
                 # proxy for a live session
-                "ongoing_selection": ast.Alias(
-                    alias="ongoing",
-                    expr=ast.CompareOperation(
-                        left=ast.Call(name="max", args=[ast.Field(chain=["s", "_timestamp"])]),
-                        right=ast.Constant(
-                            # provided in a placeholder, so we can pass now from python to make tests easier 🙈
-                            value=datetime.now(UTC) - timedelta(minutes=5),
-                        ),
-                        op=ast.CompareOperationOp.GtEq,
-                    ),
-                ),
+                "ongoing_selection": self._ongoing_selection(),
                 "where_predicates": self._where_predicates(),
                 "having_predicates": self._having_predicates() or ast.Constant(value=True),
                 "python_now": ast.Constant(value=datetime.now(UTC)),
@@ -259,6 +249,19 @@ class SessionRecordingListFromQuery(SessionRecordingsListingBaseQuery):
 
         return ast.OrderExpr(expr=ast.Field(chain=[order_by]), order=direction)
 
+    def _ongoing_selection(self) -> ast.Alias:
+        return ast.Alias(
+            alias="ongoing",
+            expr=ast.CompareOperation(
+                left=ast.Call(name="max", args=[ast.Field(chain=["s", "_timestamp"])]),
+                right=ast.Constant(
+                    # provided in a placeholder, so we can pass now from python to make tests easier 🙈
+                    value=datetime.now(UTC) - timedelta(minutes=5),
+                ),
+                op=ast.CompareOperationOp.GtEq,
+            ),
+        )
+
     def _user_having_predicates_expr(self) -> ast.Expr | None:
         if not self._query.having_predicates:
             return None
@@ -280,7 +283,7 @@ class SessionRecordingListFromQuery(SessionRecordingsListingBaseQuery):
         matching_recordings_query = parse_select(
             self.BASE_QUERY,
             {
-                "ongoing_selection": ast.Alias(alias="ongoing", expr=ast.Constant(value=False)),
+                "ongoing_selection": self._ongoing_selection(),
                 "where_predicates": ast.Constant(value=True),
                 "having_predicates": user_having_predicates,
                 "python_now": ast.Constant(value=datetime.now(UTC)),

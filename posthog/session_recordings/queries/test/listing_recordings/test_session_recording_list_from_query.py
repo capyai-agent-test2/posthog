@@ -1568,6 +1568,15 @@ class TestSessionRecordingsListFromQuery(ClickhouseTestMixin, APIBaseTest):
             properties={"$session_id": long_session_with_event},
         )
 
+        long_session_without_event = "long_session_without_event"
+        produce_replay_summary(
+            distinct_id=user,
+            session_id=long_session_without_event,
+            first_timestamp=self.an_hour_ago,
+            last_timestamp=(self.an_hour_ago + relativedelta(seconds=90)),
+            team_id=self.team.id,
+        )
+
         self._assert_query_matches_session_ids(
             {
                 "events": [{"id": "custom_event", "type": "events", "order": 0, "name": "custom_event"}],
@@ -1609,6 +1618,16 @@ class TestSessionRecordingsListFromQuery(ClickhouseTestMixin, APIBaseTest):
             last_timestamp=(self.an_hour_ago + relativedelta(seconds=90)),
             team_id=self.team.id,
             snapshot_source="mobile",
+        )
+
+        long_web_session = "long_web_session"
+        produce_replay_summary(
+            distinct_id=user,
+            session_id=long_web_session,
+            first_timestamp=self.an_hour_ago,
+            last_timestamp=(self.an_hour_ago + relativedelta(seconds=90)),
+            team_id=self.team.id,
+            snapshot_source="web",
         )
 
         self._assert_query_matches_session_ids(
