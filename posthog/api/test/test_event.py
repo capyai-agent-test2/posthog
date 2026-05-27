@@ -26,6 +26,8 @@ from rest_framework import status
 from posthog.models import Element, Organization, Person, PropertyDefinition, User
 from posthog.models.cohort import Cohort
 from posthog.models.event.query_event_list import insight_query_with_columns
+from posthog.models.personal_api_key import PersonalAPIKey
+from posthog.models.utils import generate_random_token_personal, hash_key_value
 from posthog.test.test_journeys import journeys_for
 
 from products.actions.backend.models.action import Action
@@ -1247,6 +1249,42 @@ class TestEvents(ClickhouseTestMixin, APIBaseTest):
 
 
 class TestEventListTimeWindowOptimization(ClickhouseTestMixin, APIBaseTest):
+    @patch("posthog.api.event.query_events_list")
+    def test_defaults_to_last_24h_for_csv_exports(self, mock_query_events_list):
+        mock_query_events_list.return_value = ([], None)
+
+        self.client.get(f"/api/projects/{self.team.id}/events/?format=csv")
+
+        assert mock_query_events_list.call_args.kwargs["default_to_last_24h"] is True
+
+    @patch("posthog.api.event.query_events_list")
+    def test_defaults_to_last_24h_for_personal_api_key_requests(self, mock_query_events_list):
+        personal_api_key = generate_random_token_personal()
+        PersonalAPIKey.objects.create(
+            label="X",
+            user=self.user,
+            secure_value=hash_key_value(personal_api_key),
+            scopes=["*"],
+        )
+        self.client.logout()
+
+        mock_query_events_list.return_value = ([], None)
+
+        self.client.get(
+            f"/api/projects/{self.team.id}/events/",
+            headers={"authorization": f"Bearer {personal_api_key}"},
+        )
+
+        assert mock_query_events_list.call_args.kwargs["default_to_last_24h"] is True
+
+    @patch("posthog.api.event.query_events_list")
+    def test_keeps_existing_default_range_for_session_requests(self, mock_query_events_list):
+        mock_query_events_list.return_value = ([], None)
+
+        self.client.get(f"/api/projects/{self.team.id}/events/")
+
+        assert mock_query_events_list.call_args.kwargs["default_to_last_24h"] is False
+
     def test_cache_key_generation(self):
         from posthog.api.event import _get_event_list_cache_key, _get_limit_size_category
 
