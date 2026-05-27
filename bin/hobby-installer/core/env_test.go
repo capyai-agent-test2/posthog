@@ -19,6 +19,7 @@ func stubNodeTagExists(t *testing.T, fn func(string) bool) {
 
 func TestNewEnvConfigDefaultsNodeTagToVersion(t *testing.T) {
 	t.Setenv("POSTHOG_NODE_TAG", "")
+	t.Setenv("REGISTRY_URL", "posthog/posthog")
 	stubNodeTagExists(t, func(tag string) bool { return tag == "sha-test123" })
 
 	config, err := NewEnvConfig("example.com", "sha-test123")
@@ -33,6 +34,7 @@ func TestNewEnvConfigDefaultsNodeTagToVersion(t *testing.T) {
 
 func TestNewEnvConfigRespectsExplicitNodeTag(t *testing.T) {
 	t.Setenv("POSTHOG_NODE_TAG", "pr-123")
+	t.Setenv("REGISTRY_URL", "posthog/posthog")
 	stubNodeTagExists(t, func(tag string) bool { return false })
 
 	config, err := NewEnvConfig("example.com", "sha-test123")
@@ -47,6 +49,7 @@ func TestNewEnvConfigRespectsExplicitNodeTag(t *testing.T) {
 
 func TestNewEnvConfigFallsBackToLatestWhenVersionTagMissing(t *testing.T) {
 	t.Setenv("POSTHOG_NODE_TAG", "")
+	t.Setenv("REGISTRY_URL", "posthog/posthog")
 	stubNodeTagExists(t, func(tag string) bool { return false })
 
 	config, err := NewEnvConfig("example.com", "sha-test123")
@@ -56,6 +59,24 @@ func TestNewEnvConfigFallsBackToLatestWhenVersionTagMissing(t *testing.T) {
 
 	if config.PosthogNodeTag != "latest" {
 		t.Fatalf("expected missing version tag to fall back to latest, got %q", config.PosthogNodeTag)
+	}
+}
+
+func TestNewEnvConfigSkipsDockerHubProbeForCustomRegistry(t *testing.T) {
+	t.Setenv("POSTHOG_NODE_TAG", "")
+	t.Setenv("REGISTRY_URL", "ghcr.io/example/posthog")
+	stubNodeTagExists(t, func(tag string) bool {
+		t.Fatalf("expected no Docker Hub probe for custom registry, got tag %q", tag)
+		return false
+	})
+
+	config, err := NewEnvConfig("example.com", "sha-test123")
+	if err != nil {
+		t.Fatalf("NewEnvConfig returned error: %v", err)
+	}
+
+	if config.PosthogNodeTag != "latest" {
+		t.Fatalf("expected custom registry without explicit node tag to fall back to latest, got %q", config.PosthogNodeTag)
 	}
 }
 
@@ -77,7 +98,7 @@ func TestUpdateEnvForUpgradeAddsMissingNodeTag(t *testing.T) {
 		t.Fatalf("Chdir returned error: %v", err)
 	}
 
-	envContents := "POSTHOG_SECRET=test\nDOMAIN=example.com\nENCRYPTION_SALT_KEYS=0123456789abcdef0123456789abcdef\nPOSTHOG_APP_TAG=old-tag\n"
+	envContents := "POSTHOG_SECRET=test\nDOMAIN=example.com\nREGISTRY_URL=posthog/posthog\nENCRYPTION_SALT_KEYS=0123456789abcdef0123456789abcdef\nPOSTHOG_APP_TAG=old-tag\n"
 	if err := os.WriteFile(envPath, []byte(envContents), 0600); err != nil {
 		t.Fatalf("WriteFile returned error: %v", err)
 	}
@@ -118,7 +139,7 @@ func TestUpdateEnvForUpgradeReplacesEmptyNodeTagWithoutDuplicates(t *testing.T) 
 		t.Fatalf("Chdir returned error: %v", err)
 	}
 
-	envContents := "POSTHOG_SECRET=test\nDOMAIN=example.com\nENCRYPTION_SALT_KEYS=0123456789abcdef0123456789abcdef\nPOSTHOG_APP_TAG=old-tag\nPOSTHOG_NODE_TAG=\n"
+	envContents := "POSTHOG_SECRET=test\nDOMAIN=example.com\nREGISTRY_URL=posthog/posthog\nENCRYPTION_SALT_KEYS=0123456789abcdef0123456789abcdef\nPOSTHOG_APP_TAG=old-tag\nPOSTHOG_NODE_TAG=\n"
 	if err := os.WriteFile(envPath, []byte(envContents), 0600); err != nil {
 		t.Fatalf("WriteFile returned error: %v", err)
 	}

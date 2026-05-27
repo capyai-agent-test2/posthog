@@ -6,13 +6,14 @@ export DEBIAN_FRONTEND=noninteractive
 
 resolve_node_tag() {
     local app_tag="$1"
+    local registry_url="$2"
 
     if [ -n "$POSTHOG_NODE_TAG" ]; then
         echo "$POSTHOG_NODE_TAG"
         return
     fi
 
-    if [ -n "$app_tag" ] && curl --connect-timeout 5 --max-time 10 -sf "https://hub.docker.com/v2/repositories/posthog/posthog-node/tags/$app_tag" > /dev/null 2>&1; then
+    if [ "$registry_url" = "posthog/posthog" ] && [ -n "$app_tag" ] && curl --connect-timeout 5 --max-time 10 -sf "https://hub.docker.com/v2/repositories/posthog/posthog-node/tags/$app_tag" > /dev/null 2>&1; then
         echo "$app_tag"
         return
     fi
@@ -154,7 +155,7 @@ if [ -f .env ]; then
         unset POSTHOG_NODE_TAG
     fi
 else
-    export POSTHOG_NODE_TAG="$(resolve_node_tag "$POSTHOG_APP_TAG")"
+    export POSTHOG_NODE_TAG="$(resolve_node_tag "$POSTHOG_APP_TAG" "$REGISTRY_URL")"
     POSTHOG_SECRET=$(head -c 28 /dev/urandom | sha224sum -b | head -c 56)
     ENCRYPTION_SALT_KEYS=$(openssl rand -hex 16)
     cat > .env <<EOF

@@ -31,11 +31,11 @@ var nodeTagExists = func(tag string) bool {
 	return resp.StatusCode == http.StatusOK
 }
 
-func resolveNodeTag(explicitTag, appTag string) string {
+func resolveNodeTag(explicitTag, appTag, registryURL string) string {
 	if explicitTag != "" {
 		return explicitTag
 	}
-	if nodeTagExists(appTag) {
+	if registryURL == "posthog/posthog" && nodeTagExists(appTag) {
 		return appTag
 	}
 	return "latest"
@@ -70,7 +70,7 @@ func NewEnvConfig(domain, version string) (*EnvConfig, error) {
 
 	tlsBlock := os.Getenv("TLS_BLOCK")
 
-	nodeTag := resolveNodeTag(os.Getenv("POSTHOG_NODE_TAG"), version)
+	nodeTag := resolveNodeTag(os.Getenv("POSTHOG_NODE_TAG"), version, registryURL)
 
 	return &EnvConfig{
 		PosthogSecret:        secret,
@@ -185,7 +185,7 @@ func UpdateEnvForUpgrade(version string) error {
 		if appTag == "" {
 			appTag = existing["POSTHOG_APP_TAG"]
 		}
-		nodeTag := resolveNodeTag("", appTag)
+		nodeTag := resolveNodeTag("", appTag, existing["REGISTRY_URL"])
 		if err := UpdateEnvValue("POSTHOG_NODE_TAG", nodeTag); err != nil {
 			return err
 		}
