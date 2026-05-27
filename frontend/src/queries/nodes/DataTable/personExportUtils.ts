@@ -9,5 +9,9 @@ export function getExportSourceForActorsQuery(source: ActorsQuery, onlySelectedC
         return source
     }
 
-    return { ...source, select: ['*'] }
+    return {
+        ...source,
+        select: ['*'],
+        orderBy: source.orderBy ?? (source.select?.includes('created_at') ? ['created_at DESC'] : ['id ASC']),
+    }
 }

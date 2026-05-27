@@ -20,11 +20,25 @@ describe('personExportUtils', () => {
     it('switches export-all actor queries to star selection', () => {
         expect(getExportSourceForActorsQuery(personActorsQuery, false)).toEqual({
             ...personActorsQuery,
+            orderBy: ['id ASC'],
             select: ['*'],
         })
     })
 
     it('keeps selected columns for current-column exports', () => {
         expect(getExportSourceForActorsQuery(personActorsQuery, true)).toEqual(personActorsQuery)
+    })
+
+    it('preserves created_at ordering when that column is visible', () => {
+        expect(
+            getExportSourceForActorsQuery(
+                { ...personActorsQuery, select: ['person_display_name -- Person', 'created_at'] },
+                false
+            )
+        ).toEqual({
+            ...personActorsQuery,
+            orderBy: ['created_at DESC'],
+            select: ['*'],
+        })
     })
 })
