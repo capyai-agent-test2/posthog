@@ -807,18 +807,22 @@ export function LineGraph_({
                                     display: annotation.displayLabel ?? true,
                                     position: annotation.position ?? 'end',
                                 },
-                                enter: () => {
-                                    const tooltipEl = document.getElementById('InsightTooltipWrapper-hover')
-                                    if (tooltipEl) {
-                                        tooltipEl.classList.add('opacity-0', 'invisible')
-                                    }
-                                },
-                                leave: () => {
-                                    const tooltipEl = document.getElementById('InsightTooltipWrapper-hover')
-                                    if (tooltipEl) {
-                                        tooltipEl.classList.remove('opacity-0', 'invisible')
-                                    }
-                                },
+                                ...(!isBarChart
+                                    ? {
+                                          enter: () => {
+                                              const tooltipEl = document.getElementById('InsightTooltipWrapper-hover')
+                                              if (tooltipEl) {
+                                                  tooltipEl.classList.add('opacity-0', 'invisible')
+                                              }
+                                          },
+                                          leave: () => {
+                                              const tooltipEl = document.getElementById('InsightTooltipWrapper-hover')
+                                              if (tooltipEl) {
+                                                  tooltipEl.classList.remove('opacity-0', 'invisible')
+                                              }
+                                          },
+                                      }
+                                    : {}),
                             }
 
                             return acc
