@@ -139,8 +139,6 @@ then
     export REGISTRY_URL="posthog/posthog"
 fi
 
-export POSTHOG_NODE_TAG="$(resolve_node_tag "$POSTHOG_APP_TAG")"
-
 # Write .env only on a fresh install. On a re-run (e.g. after a partial
 # failure) preserve the existing file, so POSTHOG_SECRET and
 # ENCRYPTION_SALT_KEYS are not regenerated, as it would invalidate active
@@ -149,7 +147,14 @@ export POSTHOG_NODE_TAG="$(resolve_node_tag "$POSTHOG_APP_TAG")"
 # Tag changes on an existing instance are handled by bin/upgrade-hobby.
 if [ -f .env ]; then
     echo "Existing .env found, preserving configuration"
+    EXISTING_NODE_TAG=$(grep '^POSTHOG_NODE_TAG=' .env | cut -d '=' -f2-)
+    if [ -n "$EXISTING_NODE_TAG" ]; then
+        export POSTHOG_NODE_TAG="$EXISTING_NODE_TAG"
+    else
+        unset POSTHOG_NODE_TAG
+    fi
 else
+    export POSTHOG_NODE_TAG="$(resolve_node_tag "$POSTHOG_APP_TAG")"
     POSTHOG_SECRET=$(head -c 28 /dev/urandom | sha224sum -b | head -c 56)
     ENCRYPTION_SALT_KEYS=$(openssl rand -hex 16)
     cat > .env <<EOF
