@@ -6,14 +6,15 @@ from parameterized import parameterized
 
 from posthog.schema import ParserMode
 
-from posthog.hogql import ast
+from posthog.hogql import (
+    ast,
+    parser as parser_module,
+)
 from posthog.hogql.parser import HogQLParserShadowMismatch, _resolve_parser_mode, parse_select
 
 
 class TestParserMode(SimpleTestCase):
     def test_compiled_parser_probe_returns_false_when_subprocess_spawn_fails(self):
-        from posthog.hogql import parser as parser_module
-
         with patch("posthog.hogql.parser.subprocess.run", side_effect=OSError("blocked")):
             self.assertFalse(parser_module._compiled_parser_probe("hogql_parser"))
 
