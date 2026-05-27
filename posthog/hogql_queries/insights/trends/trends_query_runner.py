@@ -759,7 +759,25 @@ class TrendsQueryRunner(AnalyticsQueryRunner[TrendsQueryResponse]):
 
     @property
     def exact_timerange(self):
-        return self.query.dateRange and self.query.dateRange.explicitDate
+        if self.query.dateRange and self.query.dateRange.explicitDate:
+            return True
+
+        if self._trends_display.display_type not in (
+            ChartDisplayType.ACTIONS_BAR,
+            ChartDisplayType.ACTIONS_UNSTACKED_BAR,
+        ):
+            return False
+
+        preview_date_range = QueryDateRange(
+            date_range=self.query.dateRange,
+            team=self.team,
+            interval=self.query.interval,
+            now=datetime.now(),
+        )
+
+        return preview_date_range.align_with_interval(
+            preview_date_range.date_from()
+        ) == preview_date_range.align_with_interval(preview_date_range.date_to())
 
     @cached_property
     def query_date_range(self):
