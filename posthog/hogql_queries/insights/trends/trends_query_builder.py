@@ -266,23 +266,9 @@ class TrendsQueryBuilder(DataWarehouseInsightQueryMixin):
         ):
             rolling_average = ast.Alias(
                 alias="total",
-                expr=parse_expr(
-                    """
-                    arrayMap(
-                        i -> floor(arrayAvg(
-                            arraySlice(
-                                total_array,
-                                greatest(i-{smoothing_interval} + 1, 1),
-                                least(i, {smoothing_interval})
-                            )
-                        )),
-                        arrayEnumerate(total_array)
-                    )
-                """,
-                    {
-                        "smoothing_interval": ast.Constant(value=int(self.query.trendsFilter.smoothingIntervals)),
-                        "total_array": total_array,
-                    },
+                expr=self._build_rolling_average_expr(
+                    total_array=total_array,
+                    smoothing_interval=int(self.query.trendsFilter.smoothingIntervals),
                 ),
             )
             select = [
@@ -1013,6 +999,27 @@ class TrendsQueryBuilder(DataWarehouseInsightQueryMixin):
             """
             breakdown_value IS NOT NULL
             """
+        )
+
+    @staticmethod
+    def _build_rolling_average_expr(total_array: ast.Expr, smoothing_interval: int) -> ast.Expr:
+        return parse_expr(
+            """
+            arrayMap(
+                i -> arrayAvg(
+                    arraySlice(
+                        total_array,
+                        greatest(i-{smoothing_interval} + 1, 1),
+                        least(i, {smoothing_interval})
+                    )
+                ),
+                arrayEnumerate(total_array)
+            )
+        """,
+            {
+                "smoothing_interval": ast.Constant(value=smoothing_interval),
+                "total_array": total_array,
+            },
         )
 
     def _team_flag_fewer_array_ops(self) -> bool:
