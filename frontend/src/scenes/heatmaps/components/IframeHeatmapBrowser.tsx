@@ -16,29 +16,31 @@ export function IframeHeatmapBrowser({
 
     return (
         <div className="flex flex-row gap-x-2 w-full">
-            <div className="relative flex justify-center flex-1 w-full overflow-visible">
-                <div
-                    className="relative"
-                    // eslint-disable-next-line react/forbid-dom-props
-                    style={{ width: widthOverride, height: heightOverride }}
-                >
-                    <HeatmapCanvas positioning="absolute" widthOverride={widthOverride} context="in-app" />
-                    <iframe
-                        id="heatmap-iframe"
-                        ref={iframeRef}
-                        title="Heatmap browser"
-                        className="bg-white"
+            <div className="relative flex-1 w-full h-full">
+                <div className="flex justify-center h-full w-full overflow-auto">
+                    <div
+                        className="relative"
                         // eslint-disable-next-line react/forbid-dom-props
                         style={{ width: widthOverride, height: heightOverride }}
-                        src={displayUrl || dataUrl || ''}
-                        onLoad={onIframeLoad}
-                        // these two sandbox values are necessary so that the site and toolbar can run
-                        // this is a very loose sandbox,
-                        // but we specify it so that at least other capabilities are denied
-                        sandbox="allow-scripts allow-same-origin"
-                        // we don't allow things such as camera access though
-                        allow=""
-                    />
+                    >
+                        <HeatmapCanvas positioning="absolute" widthOverride={widthOverride} context="in-app" />
+                        <iframe
+                            id="heatmap-iframe"
+                            ref={iframeRef}
+                            title="Heatmap browser"
+                            className="bg-white"
+                            // eslint-disable-next-line react/forbid-dom-props
+                            style={{ width: widthOverride, height: heightOverride }}
+                            src={displayUrl || dataUrl || ''}
+                            onLoad={onIframeLoad}
+                            // these two sandbox values are necessary so that the site and toolbar can run
+                            // this is a very loose sandbox,
+                            // but we specify it so that at least other capabilities are denied
+                            sandbox="allow-scripts allow-same-origin"
+                            // we don't allow things such as camera access though
+                            allow=""
+                        />
+                    </div>
                 </div>
             </div>
         </div>
