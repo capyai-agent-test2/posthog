@@ -8,6 +8,7 @@ describe('liveEventsUtils', () => {
                 { $current_url: { url: 'https://app.posthog.com/feature_flags' } },
                 'https://app.posthog.com/feature_flags',
             ],
+            [{ $current_url: '', $screen_name: 'Checkout' }, 'Checkout'],
             [{ $screen_name: 'Checkout' }, 'Checkout'],
             [{ $pathname: '/feature_flags' }, '/feature_flags'],
             [{ $current_url: { label: 'nope' }, $screen_name: 'Checkout' }, 'Checkout'],

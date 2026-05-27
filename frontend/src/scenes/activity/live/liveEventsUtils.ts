@@ -4,8 +4,8 @@ type EventPropertyValue = JsonType | undefined
 
 export function getLiveEventLocationValue(properties: Record<string, JsonType>): string | null {
     const locationValue =
-        getStringLikeValue(properties['$current_url']) ??
-        getStringLikeValue(properties['$screen_name']) ??
+        getStringLikeValue(properties['$current_url']) ||
+        getStringLikeValue(properties['$screen_name']) ||
         getStringLikeValue(properties['$pathname'])
 
     return locationValue || null
