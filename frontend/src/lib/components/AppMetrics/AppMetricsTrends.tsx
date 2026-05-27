@@ -41,7 +41,7 @@ export function AppMetricsTrends({
         [appMetricsTrends]
     )
     const [visibleSeriesNames, setVisibleSeriesNames] = useState<string[] | null>(null)
-    const previousAllSeriesNamesRef = useRef<string[]>([])
+    const everSeenSeriesNamesRef = useRef<string[]>([])
 
     useEffect(() => {
         setVisibleSeriesNames((currentVisibleSeriesNames) => {
@@ -51,11 +51,11 @@ export function AppMetricsTrends({
 
             return mergeNewSeriesIntoVisibleSeriesNames(
                 currentVisibleSeriesNames,
-                previousAllSeriesNamesRef.current,
+                everSeenSeriesNamesRef.current,
                 allSeriesNames
             )
         })
-        previousAllSeriesNamesRef.current = allSeriesNames
+        everSeenSeriesNamesRef.current = Array.from(new Set([...everSeenSeriesNamesRef.current, ...allSeriesNames]))
     }, [allSeriesNames])
 
     const filteredAppMetricsTrends = useMemo(
@@ -108,7 +108,7 @@ export function AppMetricsTrends({
                     <SpinnerOverlay />
                 ) : !filteredAppMetricsTrends ? (
                     <div className="flex-1 flex items-center justify-center">Missing</div>
-                ) : filteredAppMetricsTrends.series.length === 0 ? (
+                ) : visibleSeriesNames?.length === 0 && allSeriesNames.length > 0 ? (
                     <div className="flex h-full items-center justify-center text-muted">Select at least one series</div>
                 ) : (
                     <LineGraph

@@ -13,11 +13,11 @@ export function syncVisibleSeriesNames(
 
 export function mergeNewSeriesIntoVisibleSeriesNames(
     previousVisibleSeriesNames: string[],
-    previousAllSeriesNames: string[],
+    everSeenSeriesNames: string[],
     allSeriesNames: string[]
 ): string[] {
     const existingSeries = previousVisibleSeriesNames.filter((name) => allSeriesNames.includes(name))
-    const addedSeries = allSeriesNames.filter((name) => !previousAllSeriesNames.includes(name))
+    const addedSeries = allSeriesNames.filter((name) => !everSeenSeriesNames.includes(name))
 
     return [...existingSeries, ...addedSeries]
 }
