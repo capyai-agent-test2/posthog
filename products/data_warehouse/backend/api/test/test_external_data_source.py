@@ -1227,6 +1227,27 @@ class TestExternalDataSource(APIBaseTest):
         assert response.status_code == 200
         assert response.json()["latest_error"] == "Stripe API key lacks permissions for Dispute"
 
+    def test_latest_error_fallback_clears_after_successful_run(self):
+        source = self._create_external_data_source()
+        self._create_external_data_schema(source.pk)
+        ExternalDataJob.objects.create(
+            team_id=self.team.pk,
+            pipeline=source,
+            status=ExternalDataJob.Status.FAILED,
+            latest_error="Stripe API key lacks permissions for Dispute",
+        )
+        ExternalDataJob.objects.create(
+            team_id=self.team.pk,
+            pipeline=source,
+            status=ExternalDataJob.Status.COMPLETED,
+            latest_error=None,
+        )
+
+        response = self.client.get(f"/api/environments/{self.team.pk}/external_data_sources/{source.pk}")
+
+        assert response.status_code == 200
+        assert response.json()["latest_error"] is None
+
     def test_delete_external_data_source(self):
         source = self._create_external_data_source()
         schema = self._create_external_data_schema(source.pk)
