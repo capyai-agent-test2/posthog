@@ -2,6 +2,8 @@ from posthog.test.base import APIBaseTest
 from unittest import mock
 from unittest.mock import MagicMock
 
+from django.test import RequestFactory
+
 from posthog.utils import get_context_for_template
 
 
@@ -23,6 +25,7 @@ class TestGetContextForTemplate(APIBaseTest):
             "js_posthog_api_key": "sTMFPsFhdP1Ssg",
             "js_posthog_host": "",
             "js_url": "http://localhost:8234",
+            "initial_theme_mode": None,
             "opt_out_capture": False,
             "posthog_app_context": '{"persisted_feature_flags": ["the_persisted_flags"], "anonymous": false}',
             "posthog_bootstrap": "{}",
@@ -39,3 +42,14 @@ class TestGetContextForTemplate(APIBaseTest):
             )
 
         assert actual["stripe_public_key"] == "pk_test_12345"
+
+    def test_sets_initial_theme_mode_from_current_user(self):
+        self.user.theme_mode = "dark"
+        self.user.save(update_fields=["theme_mode"])
+
+        request = RequestFactory().get("/")
+        request.user = self.user
+
+        actual = get_context_for_template("index.html", request)
+
+        assert actual["initial_theme_mode"] == "dark"

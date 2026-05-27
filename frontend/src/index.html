@@ -3,9 +3,15 @@
     <head>
         {% include "head.html" %}
     </head>
-    <body>
+    <body{% if initial_theme_mode and initial_theme_mode != 'system' %} theme="{{ initial_theme_mode }}"{% endif %}>
         {% include "overlays.html" %}
         <script nonce="{{ request.csp_nonce }}">
+            {% if initial_theme_mode == 'system' %}
+                document.body.setAttribute(
+                    'theme',
+                    window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+                )
+            {% endif %}
             const tags = [
                 '{% if debug %}DEBUG mode{% elif region %}Region: {{ region }}{% else %}Hobby deployment{% endif %}',
                 '{% if debug %}Branch: {{ git_branch|default:"unknown" }}{% else %}Commit: {{ git_rev|default:"unknown" }}{% endif %}',

@@ -583,6 +583,8 @@ def _build_template_context(
     # JSON dumps here since there may be objects like Queries
     # that are not serializable by Django's JSON serializer
     context["posthog_app_context"] = json.dumps(posthog_app_context, default=json_uuid_convert)
+    current_user = posthog_app_context.get("current_user") or {}
+    context["initial_theme_mode"] = current_user.get("theme_mode")
 
     if posthog_distinct_id:
         groups = {}
