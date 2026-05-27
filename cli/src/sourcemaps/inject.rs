@@ -89,7 +89,11 @@ pub fn inject_impl(
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect::<Vec<_>>();
-    update_html_integrity_for_sources(&resolved_roots, &updated_sources)?;
+    update_html_integrity_for_sources(
+        &resolved_roots,
+        &updated_sources,
+        public_path_prefix.as_deref(),
+    )?;
     info!("injecting done");
     Ok(())
 }

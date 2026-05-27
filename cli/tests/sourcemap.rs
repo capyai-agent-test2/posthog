@@ -349,9 +349,12 @@ fn test_updates_html_integrity_after_js_changes() {
     )
     .expect("Failed to write HTML");
 
-    let updated_files =
-        update_html_integrity_for_sources(&[dist.to_path_buf()], std::slice::from_ref(&asset_path))
-            .expect("Failed to rewrite integrity");
+    let updated_files = update_html_integrity_for_sources(
+        &[dist.to_path_buf()],
+        std::slice::from_ref(&asset_path),
+        None,
+    )
+    .expect("Failed to rewrite integrity");
     assert_eq!(updated_files, 1);
 
     let html = fs::read_to_string(html_path).expect("Failed to read HTML");
@@ -401,6 +404,7 @@ fn test_updates_html_integrity_per_root_without_collisions() {
     let updated_files = update_html_integrity_for_sources(
         &[root_a.clone(), root_b.clone()],
         &[asset_a.clone(), asset_b.clone()],
+        None,
     )
     .expect("Failed to rewrite integrity");
     assert_eq!(updated_files, 2);

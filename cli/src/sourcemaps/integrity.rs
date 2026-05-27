@@ -68,7 +68,18 @@ fn normalize_url_path(url: &str) -> &str {
     url.split(['?', '#']).next().unwrap_or(url)
 }
 
-fn candidate_asset_urls(asset_path: &Path, root: &Path) -> BTreeSet<String> {
+fn normalized_public_path_prefix(public_path_prefix: Option<&str>) -> Option<String> {
+    public_path_prefix
+        .map(|prefix| prefix.trim_matches('/'))
+        .filter(|prefix| !prefix.is_empty())
+        .map(ToString::to_string)
+}
+
+fn candidate_asset_urls(
+    asset_path: &Path,
+    root: &Path,
+    public_path_prefix: Option<&str>,
+) -> BTreeSet<String> {
     let mut candidates = BTreeSet::new();
 
     let base = if root.is_dir() {
@@ -80,6 +91,10 @@ fn candidate_asset_urls(asset_path: &Path, root: &Path) -> BTreeSet<String> {
         let relative = relative.to_string_lossy().replace('\\', "/");
         candidates.insert(relative.clone());
         candidates.insert(format!("/{relative}"));
+        if let Some(prefix) = normalized_public_path_prefix(public_path_prefix) {
+            candidates.insert(format!("{prefix}/{relative}"));
+            candidates.insert(format!("/{prefix}/{relative}"));
+        }
     }
 
     candidates
@@ -189,14 +204,18 @@ fn rewrite_integrity_attributes(
     (rewritten.into_owned(), updated_count)
 }
 
-fn update_html_integrity_for_root(root: &Path, source_paths: &[PathBuf]) -> Result<usize> {
+fn update_html_integrity_for_root(
+    root: &Path,
+    source_paths: &[PathBuf],
+    public_path_prefix: Option<&str>,
+) -> Result<usize> {
     let mut known_assets = BTreeMap::new();
     for source_path in source_paths {
         if source_path.strip_prefix(root).is_err() {
             continue;
         }
         let bytes = std::fs::read(source_path)?;
-        for candidate in candidate_asset_urls(source_path, root) {
+        for candidate in candidate_asset_urls(source_path, root, public_path_prefix) {
             known_assets.insert(candidate, bytes.clone());
         }
     }
@@ -242,10 +261,11 @@ fn update_html_integrity_for_root(root: &Path, source_paths: &[PathBuf]) -> Resu
 pub fn update_html_integrity_for_sources(
     roots: &[PathBuf],
     source_paths: &[PathBuf],
+    public_path_prefix: Option<&str>,
 ) -> Result<usize> {
     let mut updated_files = 0;
     for root in roots {
-        updated_files += update_html_integrity_for_root(root, source_paths)?;
+        updated_files += update_html_integrity_for_root(root, source_paths, public_path_prefix)?;
     }
 
     if updated_files > 0 {
@@ -256,7 +276,7 @@ pub fn update_html_integrity_for_sources(
 
 #[cfg(test)]
 mod tests {
-    use super::{rewrite_integrity_attributes, STANDARD};
+    use super::{candidate_asset_urls, rewrite_integrity_attributes, STANDARD};
     use base64::Engine as _;
     use sha2::{Digest, Sha512};
     use std::{collections::BTreeMap, path::Path};
@@ -322,5 +342,21 @@ mod tests {
         assert_eq!(count, 1);
         assert!(rewritten.contains(&expected_hash));
         assert!(!rewritten.contains(&original_hash));
+    }
+
+    #[test]
+    fn candidate_asset_urls_include_public_path_prefix() {
+        let tempdir = tempfile::tempdir().expect("Failed to create tempdir");
+        let root = tempdir.path().join("dist");
+        let asset = root.join("assets/app.js");
+        std::fs::create_dir_all(asset.parent().unwrap()).expect("Failed to create asset directory");
+        std::fs::write(&asset, "console.log('x');").expect("Failed to write JS asset");
+
+        let candidates = candidate_asset_urls(&asset, &root, Some("/static/"));
+
+        assert!(candidates.contains("assets/app.js"));
+        assert!(candidates.contains("/assets/app.js"));
+        assert!(candidates.contains("static/assets/app.js"));
+        assert!(candidates.contains("/static/assets/app.js"));
     }
 }
