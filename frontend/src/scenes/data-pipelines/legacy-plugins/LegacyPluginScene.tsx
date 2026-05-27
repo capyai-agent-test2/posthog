@@ -23,7 +23,7 @@ export interface LegacyPluginSceneLogicProps {
 
 export const legacyPluginSceneLogic = kea<legacyPluginSceneLogicType>([
     props({} as LegacyPluginSceneLogicProps),
-    key(({ id, pluginId }: LegacyPluginSceneLogicProps) => id ?? pluginId ?? 'new'),
+    key(({ id, pluginId }: LegacyPluginSceneLogicProps) => (id ? `ID:${id}` : pluginId ? `NEW:${pluginId}` : 'new')),
     path((key) => ['scenes', 'data-pipelines', 'legacy-plugins', 'legacyPluginSceneLogic', key]),
     actions({
         setCurrentTab: (tab: LegacyPluginSceneTab) => ({ tab }),

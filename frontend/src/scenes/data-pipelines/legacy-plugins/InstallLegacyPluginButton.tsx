@@ -40,7 +40,9 @@ export function InstallLegacyPluginButton(): JSX.Element {
             setPluginUrl('')
             router.actions.push(urls.legacyPluginNew(plugin.id.toString()))
         } catch (error) {
-            lemonToast.error(error instanceof ApiError ? error.detail : 'Failed to install plugin')
+            lemonToast.error(
+                error instanceof ApiError ? error.detail || 'Failed to install plugin' : 'Failed to install plugin'
+            )
         } finally {
             setIsSubmitting(false)
         }

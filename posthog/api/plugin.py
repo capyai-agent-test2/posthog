@@ -38,6 +38,7 @@ from posthog.models.activity_logging.activity_log import (
 )
 from posthog.models.activity_logging.activity_page import activity_page_response
 from posthog.models.activity_logging.serializers import ActivityLogSerializer
+from posthog.models.hog_function_template import HogFunctionTemplate
 from posthog.models.organization import Organization
 from posthog.models.plugin import PluginSourceFile, transpile, update_validated_data_from_url
 from posthog.models.utils import generate_random_token
@@ -707,7 +708,6 @@ class PluginConfigSerializer(serializers.ModelSerializer):
         # Try and create a hog function if possible, otherwise create plugin
         from posthog.cdp.legacy_plugins import hog_function_from_plugin_config
         from posthog.event_usage import report_team_action
-        from posthog.models.hog_function_template import HogFunctionTemplate
 
         report_team_action(
             self.context["get_team"](),

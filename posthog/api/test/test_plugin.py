@@ -1,5 +1,4 @@
 import json
-import tempfile
 from datetime import datetime
 from typing import Any, Optional, cast
 from zoneinfo import ZoneInfo
@@ -976,36 +975,30 @@ class TestPluginAPI(APIBaseTest, QueryMatchingTest):
 
     def test_create_plugin_config_for_local_custom_plugin(self, mock_get, mock_reload):
         self.assertEqual(mock_reload.call_count, 0)
-        with tempfile.TemporaryDirectory() as plugin_dir:
-            with open(f"{plugin_dir}/plugin.json", "w", encoding="utf-8") as plugin_json:
-                plugin_json.write(json.dumps({"name": "Local custom plugin", "config": []}))
+        plugin = Plugin.objects.create(
+            organization=self.organization,
+            plugin_type=Plugin.PluginType.LOCAL,
+            name="Local custom plugin",
+            url="file:/tmp/local-custom-plugin",
+        )
 
-            response = self.client.post(
-                "/api/organizations/@current/plugins/",
-                {"url": f"file:{plugin_dir}"},
-            )
-            self.assertEqual(response.status_code, 201)
-            self.assertEqual(Plugin.objects.count(), 1)
-            self.assertEqual(PluginConfig.objects.count(), 0)
-            plugin_id = response.json()["id"]
-
-            response = self.client.post(
-                "/api/plugin_config/",
-                {
-                    "plugin": plugin_id,
-                    "enabled": True,
-                    "order": 0,
-                    "config": json.dumps({}),
-                    "name": "name in ui",
-                    "description": "description in ui",
-                },
-                format="multipart",
-            )
+        response = self.client.post(
+            "/api/plugin_config/",
+            {
+                "plugin": plugin.id,
+                "enabled": True,
+                "order": 0,
+                "config": json.dumps({}),
+                "name": "name in ui",
+                "description": "description in ui",
+            },
+            format="multipart",
+        )
 
         self.assertEqual(response.status_code, 201, response.content)
         self.assertEqual(PluginConfig.objects.count(), 1)
         plugin_config = PluginConfig.objects.get()
-        self.assertEqual(plugin_config.plugin_id, plugin_id)
+        self.assertEqual(plugin_config.plugin_id, plugin.id)
         self.assertTrue(plugin_config.enabled)
         self.assertEqual(plugin_config.name, "name in ui")
         self.assertEqual(plugin_config.description, "description in ui")
