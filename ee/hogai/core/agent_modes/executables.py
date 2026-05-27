@@ -25,6 +25,7 @@ from posthog.schema import (
     AgentMode,
     AssistantMessage,
     AssistantTool,
+    AssistantToolCall,
     AssistantToolCallMessage,
     ContextMessage,
     FailureMessage,
@@ -438,6 +439,18 @@ class AgentToolsExecutable(BaseAgentLoopExecutable):
         if not tool_call:
             return reset_state
 
+        duplicate_result = self._get_duplicate_tool_result_message(state, tool_call)
+        if duplicate_result:
+            return PartialAssistantState(
+                messages=[
+                    AssistantToolCallMessage(
+                        content=duplicate_result,
+                        id=str(uuid4()),
+                        tool_call_id=tool_call.id,
+                    )
+                ]
+            )
+
         # Find the tool class in a toolkit.
         toolkit_manager = self._toolkit_manager_class(
             team=self._team, user=self._user, context_manager=self.context_manager
@@ -605,3 +618,55 @@ class AgentToolsExecutable(BaseAgentLoopExecutable):
         if isinstance(last_message, AssistantToolCallMessage):
             return "root"  # Let the root either proceed or finish, since it now can see the tool call result
         return "end"
+
+    def _get_duplicate_tool_result_message(
+        self, state: AssistantState, current_tool_call: AssistantToolCall
+    ) -> str | None:
+        current_turn_messages = self._get_current_turn_messages(state)
+        matching_results: list[AssistantToolCallMessage] = []
+
+        for index, message in enumerate(current_turn_messages):
+            if not isinstance(message, AssistantMessage) or not message.tool_calls:
+                continue
+
+            for prior_tool_call in message.tool_calls:
+                if prior_tool_call.id == current_tool_call.id:
+                    continue
+                if prior_tool_call.name != current_tool_call.name or prior_tool_call.args != current_tool_call.args:
+                    continue
+
+                result = next(
+                    (
+                        candidate
+                        for candidate in current_turn_messages[index + 1 :]
+                        if isinstance(candidate, AssistantToolCallMessage)
+                        and candidate.tool_call_id == prior_tool_call.id
+                    ),
+                    None,
+                )
+                if result:
+                    matching_results.append(result)
+
+        if not matching_results:
+            return None
+
+        if len(matching_results) == 1 and self._is_single_retry_without_changes_allowed(matching_results[0]):
+            return None
+
+        return (
+            "This exact tool call already ran in this turn. Use the existing result instead of running it again, "
+            "unless the user explicitly asks you to retry."
+        )
+
+    def _get_current_turn_messages(self, state: AssistantState) -> Sequence[AssistantMessageUnion]:
+        if not state.start_id:
+            return state.messages
+
+        for index, message in enumerate(state.messages):
+            if message.id == state.start_id:
+                return state.messages[index:]
+        return state.messages
+
+    @staticmethod
+    def _is_single_retry_without_changes_allowed(result: AssistantToolCallMessage) -> bool:
+        return "retry this operation once without changes" in result.content.lower()
