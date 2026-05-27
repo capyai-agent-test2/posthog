@@ -343,6 +343,9 @@ class AvailableFiltersResponseSerializer(serializers.Serializer):
 
 @extend_schema(tags=["platform_features"])
 class AdvancedActivityLogsViewSet(TeamAndOrgViewSetMixin, viewsets.GenericViewSet, mixins.ListModelMixin):
+    # Activity log rows can carry large JSON detail payloads, so keep export batches small
+    # to reduce peak memory per retried Django request.
+    export_page_size = 25
     serializer_class = ActivityLogSerializer
     pagination_class = ActivityLogPagination
     logger = logging.getLogger(__name__)
@@ -428,6 +431,22 @@ class AdvancedActivityLogsViewSet(TeamAndOrgViewSetMixin, viewsets.GenericViewSe
 
         return super().get_serializer_class()
 
+    def _build_export_query_params(self, filters: dict[str, Any]) -> dict[str, str | int]:
+        query_params: dict[str, str | int] = {}
+
+        for key, value in filters.items():
+            if value:
+                if isinstance(value, list):
+                    query_params[key] = ",".join(str(v) for v in value)
+                elif isinstance(value, dict):
+                    query_params[key] = json.dumps(value)
+                else:
+                    query_params[key] = str(value)
+
+        query_params["page"] = 1
+        query_params["page_size"] = self.export_page_size
+        return query_params
+
     @extend_schema(parameters=[AdvancedActivityLogFiltersSerializer])
     def list(self, request, *args, **kwargs):
         filters_serializer = AdvancedActivityLogFiltersSerializer(data=request.query_params)
@@ -469,17 +488,7 @@ class AdvancedActivityLogsViewSet(TeamAndOrgViewSetMixin, viewsets.GenericViewSe
         if not filters_serializer.is_valid():
             return Response({"error": "Filters are invalid"}, status=400)
 
-        query_params = {}
-
-        # Transform body params to query params to include the filters in the export path
-        for key, value in filters_serializer.validated_data.items():
-            if value:
-                if isinstance(value, list):
-                    query_params[key] = ",".join(str(v) for v in value)
-                elif isinstance(value, dict):
-                    query_params[key] = json.dumps(value)
-                else:
-                    query_params[key] = str(value)
+        query_params = self._build_export_query_params(filters_serializer.validated_data)
 
         try:
             serializable_filters = self._make_filters_serializable(filters_serializer.validated_data)

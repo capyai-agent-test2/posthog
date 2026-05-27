@@ -5,7 +5,7 @@ from uuid import uuid4
 from freezegun import freeze_time
 from freezegun.api import FrozenDateTimeFactory, StepTickTimeFactory, TickingDateTimeFactory
 from posthog.test.base import APIBaseTest, QueryMatchingTest
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 from parameterized import parameterized
 from rest_framework import status
@@ -374,6 +374,35 @@ class TestOrganizationAdvancedActivityLogsViewSet(APIBaseTest):
         res = self.client.post(url, data={"format": "csv"}, format="json")
 
         assert res.status_code == status.HTTP_400_BAD_REQUEST
+
+
+class TestProjectAdvancedActivityLogsExport(APIBaseTest):
+    def setUp(self) -> None:
+        super().setUp()
+        self.organization.available_product_features = [{"key": AvailableFeature.AUDIT_LOGS, "name": "Activity logs"}]
+        self.organization.save()
+        self.client.force_login(self.user)
+
+    @patch("posthog.api.advanced_activity_logs.viewset.exporter.export_asset.delay")
+    def test_export_uses_small_page_based_batches(self, mock_delay) -> None:
+        res = self.client.post(
+            f"/api/projects/{self.team.id}/advanced_activity_logs/export/",
+            data={"format": "csv", "filters": {}},
+            format="json",
+        )
+
+        assert res.status_code == status.HTTP_202_ACCEPTED
+
+        export_id = res.json()["id"]
+        mock_delay.assert_called_once_with(export_id)
+
+        exported_asset = self.team.exported_assets.get(id=export_id)
+        assert exported_asset.export_context == {
+            "path": f"/api/projects/{self.team.id}/advanced_activity_logs/?page=1&page_size=25",
+            "method": "GET",
+            "filters": {},
+            "filename": ANY,
+        }
 
 
 class TestOrganizationAdvancedActivityLogsAvailableFilters(APIBaseTest):
