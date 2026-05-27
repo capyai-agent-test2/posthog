@@ -12,6 +12,7 @@ import { SceneTitleSection } from '~/layout/scenes/components/SceneTitleSection'
 import { ProductKey } from '~/queries/schema/schema-general'
 
 import { DataPipelinesHogFunctions } from './DataPipelinesHogFunctions'
+import { InstallLegacyPluginButton } from './legacy-plugins/InstallLegacyPluginButton'
 import { transformationsSceneLogic } from './transformationsSceneLogic'
 
 export const scene: SceneExport = {
@@ -22,24 +23,27 @@ export const scene: SceneExport = {
 
 export function TransformationsScene(): JSX.Element {
     const action = (
-        <AppShortcut
-            name="NewPipelineTransformation"
-            keybind={[keyBinds.new]}
-            intent="New transformation"
-            interaction="click"
-            scope={Scene.Transformations}
-        >
-            <LemonButton
-                type="primary"
-                to={urls.dataPipelinesNew('transformation')}
-                icon={<IconPlusSmall />}
-                size="small"
-                tooltip="New transformation"
-                data-attr="new-transformation"
+        <div className="flex items-center gap-2">
+            <InstallLegacyPluginButton />
+            <AppShortcut
+                name="NewPipelineTransformation"
+                keybind={[keyBinds.new]}
+                intent="New transformation"
+                interaction="click"
+                scope={Scene.Transformations}
             >
-                New transformation
-            </LemonButton>
-        </AppShortcut>
+                <LemonButton
+                    type="primary"
+                    to={urls.dataPipelinesNew('transformation')}
+                    icon={<IconPlusSmall />}
+                    size="small"
+                    tooltip="New transformation"
+                    data-attr="new-transformation"
+                >
+                    New transformation
+                </LemonButton>
+            </AppShortcut>
+        </div>
     )
 
     return (

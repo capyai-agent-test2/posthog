@@ -17,6 +17,7 @@ import { ActivityScope } from '~/types'
 
 import { DataPipelinesHogFunctions } from './DataPipelinesHogFunctions'
 import { destinationsSceneLogic } from './destinationsSceneLogic'
+import { InstallLegacyPluginButton } from './legacy-plugins/InstallLegacyPluginButton'
 
 export const scene: SceneExport = {
     component: DestinationsScene,
@@ -29,24 +30,27 @@ export function DestinationsScene(): JSX.Element {
     const { setActiveTab } = useActions(destinationsSceneLogic)
 
     const action = (
-        <AppShortcut
-            name="NewPipelineDestination"
-            keybind={[keyBinds.new]}
-            intent="New destination"
-            interaction="click"
-            scope={Scene.Destinations}
-        >
-            <LemonButton
-                type="primary"
-                to={urls.dataPipelinesNew('destination')}
-                icon={<IconPlusSmall />}
-                size="small"
-                tooltip="New destination"
-                data-attr="new-destination"
+        <div className="flex items-center gap-2">
+            <InstallLegacyPluginButton />
+            <AppShortcut
+                name="NewPipelineDestination"
+                keybind={[keyBinds.new]}
+                intent="New destination"
+                interaction="click"
+                scope={Scene.Destinations}
             >
-                New destination
-            </LemonButton>
-        </AppShortcut>
+                <LemonButton
+                    type="primary"
+                    to={urls.dataPipelinesNew('destination')}
+                    icon={<IconPlusSmall />}
+                    size="small"
+                    tooltip="New destination"
+                    data-attr="new-destination"
+                >
+                    New destination
+                </LemonButton>
+            </AppShortcut>
+        </div>
     )
 
     const tabs = [

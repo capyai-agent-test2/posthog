@@ -1,4 +1,5 @@
 import json
+import tempfile
 from datetime import datetime
 from typing import Any, Optional, cast
 from zoneinfo import ZoneInfo
@@ -973,31 +974,41 @@ class TestPluginAPI(APIBaseTest, QueryMatchingTest):
             response_with_none.json(),
         )
 
-    def test_create_plugin_config(self, mock_get, mock_reload):
+    def test_create_plugin_config_for_local_custom_plugin(self, mock_get, mock_reload):
         self.assertEqual(mock_reload.call_count, 0)
-        response = self.client.post(
-            "/api/organizations/@current/plugins/",
-            {"url": "https://github.com/PostHog/helloworldplugin"},
-        )
-        self.assertEqual(response.status_code, 201)
-        self.assertEqual(Plugin.objects.count(), 1)
-        self.assertEqual(PluginConfig.objects.count(), 0)
-        plugin_id = response.json()["id"]
-        response = self.client.post(
-            "/api/plugin_config/",
-            {
-                "plugin": plugin_id,
-                "enabled": True,
-                "order": 0,
-                "config": json.dumps({"bar": "moop"}),
-                "name": "name in ui",
-                "description": "description in ui",
-            },
-            format="multipart",
-        )
-        self.assertEqual(response.status_code, 400, response.content)
+        with tempfile.TemporaryDirectory() as plugin_dir:
+            with open(f"{plugin_dir}/plugin.json", "w", encoding="utf-8") as plugin_json:
+                plugin_json.write(json.dumps({"name": "Local custom plugin", "config": []}))
 
-        assert "Plugin creation is no longer possible" in response.content.decode("utf-8")
+            response = self.client.post(
+                "/api/organizations/@current/plugins/",
+                {"url": f"file:{plugin_dir}"},
+            )
+            self.assertEqual(response.status_code, 201)
+            self.assertEqual(Plugin.objects.count(), 1)
+            self.assertEqual(PluginConfig.objects.count(), 0)
+            plugin_id = response.json()["id"]
+
+            response = self.client.post(
+                "/api/plugin_config/",
+                {
+                    "plugin": plugin_id,
+                    "enabled": True,
+                    "order": 0,
+                    "config": json.dumps({}),
+                    "name": "name in ui",
+                    "description": "description in ui",
+                },
+                format="multipart",
+            )
+
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(PluginConfig.objects.count(), 1)
+        plugin_config = PluginConfig.objects.get()
+        self.assertEqual(plugin_config.plugin_id, plugin_id)
+        self.assertTrue(plugin_config.enabled)
+        self.assertEqual(plugin_config.name, "name in ui")
+        self.assertEqual(plugin_config.description, "description in ui")
 
     def test_update_plugin_config_no_longer_globally_managed_but_still_enabled(self, mock_get, mock_reload):
         self.organization.plugins_access_level = Organization.PluginsAccessLevel.CONFIG
