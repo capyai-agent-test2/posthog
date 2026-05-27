@@ -55,6 +55,7 @@ from posthog.caching.insights_api import (
 from posthog.clickhouse import query_tagging
 from posthog.clickhouse.query_tagging import QueryTags
 from posthog.hogql_queries.insights.trends.display import TrendsDisplay
+from posthog.hogql_queries.insights.trends.exact_timerange import should_use_exact_timerange
 from posthog.hogql_queries.insights.trends.series_with_extras import SeriesWithExtras
 from posthog.hogql_queries.insights.trends.trend_validation_rules import ValidateDataWarehouseBreakdown
 from posthog.hogql_queries.insights.trends.trends_actors_query_builder import TrendsActorsQueryBuilder
@@ -759,7 +760,7 @@ class TrendsQueryRunner(AnalyticsQueryRunner[TrendsQueryResponse]):
 
     @property
     def exact_timerange(self):
-        return self.query.dateRange and self.query.dateRange.explicitDate
+        return should_use_exact_timerange(self.query, self.team, self._trends_display.display_type)
 
     @cached_property
     def query_date_range(self):
