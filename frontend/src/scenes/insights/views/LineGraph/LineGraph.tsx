@@ -807,7 +807,7 @@ export function LineGraph_({
                                     display: annotation.displayLabel ?? true,
                                     position: annotation.position ?? 'end',
                                 },
-                                ...(!isBarChart
+                                ...(!isBar
                                     ? {
                                           enter: () => {
                                               const tooltipEl = document.getElementById('InsightTooltipWrapper-hover')
