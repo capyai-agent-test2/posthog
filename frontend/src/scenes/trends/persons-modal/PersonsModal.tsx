@@ -223,7 +223,10 @@ export function PersonsModal({
                                     {actorsResponse?.next || actorsResponse?.offset ? 'More than ' : ''}
                                     {pathMatchCount !== null ? (
                                         <>
-                                            <b>{pathMatchCount || 'No'} path matches</b>
+                                            <b>
+                                                {pathMatchCount || 'No'}{' '}
+                                                {pluralize(pathMatchCount, 'path match', 'path matches', false)}
+                                            </b>
                                             {totalActorsCount > 0 && (
                                                 <span>
                                                     {' '}
