@@ -1,7 +1,10 @@
 use anyhow::{bail, Result};
-use std::path::Path;
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+};
 use tracing::info;
-use walkdir::DirEntry;
+use walkdir::{DirEntry, WalkDir};
 
 use crate::{
     api::releases::{Release, ReleaseBuilder},
@@ -82,10 +85,45 @@ pub fn inject_impl(
         .directory
         .iter()
         .filter_map(|path| path.canonicalize().ok())
+        .map(|path| normalize_integrity_root(&path))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
         .collect::<Vec<_>>();
     update_html_integrity_for_sources(&resolved_roots, &updated_sources)?;
     info!("injecting done");
     Ok(())
+}
+
+fn normalize_integrity_root(path: &Path) -> PathBuf {
+    let mut current = if path.is_dir() {
+        path.to_path_buf()
+    } else {
+        path.parent().unwrap_or(path).to_path_buf()
+    };
+    let fallback = current.clone();
+
+    loop {
+        if subtree_contains_html(&current) {
+            return current;
+        }
+        let Some(parent) = current.parent() else {
+            return fallback;
+        };
+        if parent == current {
+            return fallback;
+        }
+        current = parent.to_path_buf();
+    }
+}
+
+fn subtree_contains_html(path: &Path) -> bool {
+    WalkDir::new(path)
+        .max_depth(3)
+        .into_iter()
+        .filter_map(|entry| entry.ok())
+        .any(|entry| {
+            entry.file_type().is_file() && entry.path().extension().is_some_and(|ext| ext == "html")
+        })
 }
 
 pub fn inject_pairs(
@@ -133,4 +171,22 @@ pub fn get_release_for_maps<'a>(
     }
 
     Ok(created_release)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_integrity_root;
+
+    #[test]
+    fn normalize_integrity_root_expands_file_inputs_to_html_root() {
+        let tempdir = tempfile::tempdir().expect("Failed to create tempdir");
+        let dist = tempdir.path().join("dist");
+        let assets = dist.join("assets");
+        std::fs::create_dir_all(&assets).expect("Failed to create asset directory");
+        std::fs::write(dist.join("index.html"), "<html></html>").expect("Failed to write HTML");
+        std::fs::write(assets.join("app.js"), "console.log('x');").expect("Failed to write JS");
+
+        let normalized = normalize_integrity_root(&assets.join("app.js"));
+        assert_eq!(normalized, dist);
+    }
 }
