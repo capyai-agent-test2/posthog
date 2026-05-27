@@ -127,8 +127,16 @@ class SelectorPart:
         return parts
 
     def _starts_new_class(self, tag: str, dot_index: int) -> bool:
+        previous_index = dot_index - 1
         next_index = dot_index + 1
-        return next_index < len(tag) and not tag[next_index].isdigit()
+
+        if next_index >= len(tag):
+            return False
+
+        previous_is_digit = previous_index >= 0 and tag[previous_index].isdigit()
+        next_is_digit = tag[next_index].isdigit()
+
+        return not (previous_is_digit and next_is_digit)
 
 
 class Selector:

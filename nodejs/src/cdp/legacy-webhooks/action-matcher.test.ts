@@ -1111,6 +1111,11 @@ describe('ActionMatcher', () => {
                 {
                     tag_name: 'button',
                     attr_class: ['rounded-sm', 'py-2.5', 'border-[1.5px]', '!ml-auto', 'text-sm', 'text-center'],
+                    attributes: { attr__class: 'rounded-sm' },
+                },
+                {
+                    tag_name: 'section',
+                    attr_class: ['2xl:flex'],
                 },
             ]
 
@@ -1119,6 +1124,7 @@ describe('ActionMatcher', () => {
             expect(checkElementsAgainstSelector(elements, '.py-2.5')).toBeTruthy()
             expect(checkElementsAgainstSelector(elements, '.border-[1.5px]')).toBeTruthy()
             expect(checkElementsAgainstSelector(elements, '.!ml-auto')).toBeTruthy()
+            expect(checkElementsAgainstSelector(elements, '.2xl\\:flex')).toBeTruthy()
             expect(checkElementsAgainstSelector(elements, '.text-sm.text-center')).toBeTruthy()
             expect(checkElementsAgainstSelector(elements, '.text-sm .text-center')).toBeTruthy()
         })

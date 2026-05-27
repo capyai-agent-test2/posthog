@@ -748,6 +748,12 @@ function splitClasses(tag: string): string[] {
 }
 
 function startsNewClass(tag: string, dotIndex: number): boolean {
+    const previousChar = tag[dotIndex - 1]
     const nextChar = tag[dotIndex + 1]
-    return !!nextChar && !/\d/.test(nextChar)
+
+    if (!nextChar) {
+        return false
+    }
+
+    return !/\d/.test(previousChar ?? '') || !/\d/.test(nextChar)
 }
