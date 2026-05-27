@@ -26,7 +26,7 @@ function calculateClipTimes(currentTimeMs: number | null, sessionDurationMs: num
         sessionDurationMs,
         clipDuration
     )
-    const fixedUnits = endSeconds > 3600 ? 3 : 2
+    const fixedUnits = Math.floor(sessionDurationMs / 1000) > 3600 ? 3 : 2
 
     return {
         current: colonDelimitedDuration(currentSeconds, fixedUnits),
