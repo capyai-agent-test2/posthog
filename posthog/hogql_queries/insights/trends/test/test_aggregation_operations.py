@@ -16,6 +16,7 @@ from posthog.schema import (
 from posthog.hogql import ast
 
 from posthog.hogql_queries.insights.trends.aggregation_operations import AggregationOperations
+from posthog.hogql_queries.insights.trends.trends_query_builder import TrendsQueryBuilder
 from posthog.hogql_queries.utils.query_date_range import QueryDateRange
 from posthog.models.team.team import Team
 
@@ -115,6 +116,18 @@ def test_requiring_query_orchestration(
     agg_ops = AggregationOperations(team, series, ChartDisplayType.ACTIONS_LINE_GRAPH, query_date_range, False)
     res = agg_ops.requires_query_orchestration()
     assert res == result
+
+
+def test_rolling_average_preserves_fractional_values():
+    expr = TrendsQueryBuilder._build_rolling_average_expr(
+        total_array=ast.Field(chain=["total_array"]),
+        smoothing_interval=30,
+    )
+
+    sql = expr.to_hogql()
+
+    assert "arrayAvg" in sql
+    assert "floor" not in sql
 
 
 @pytest.mark.parametrize(

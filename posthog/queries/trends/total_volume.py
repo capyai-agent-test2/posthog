@@ -217,7 +217,7 @@ class TrendsTotalVolume:
                 null_sql=null_sql,
                 content_sql=content_sql,
                 smoothing_operation=smoothing_operation,
-                aggregate="count" if filter.smoothing_intervals < 2 else "floor(count)",
+                aggregate="count",
             )
 
             return final_query, params, self._parse_total_volume_result(filter, entity, team)
