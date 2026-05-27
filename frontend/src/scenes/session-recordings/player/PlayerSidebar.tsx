@@ -89,9 +89,8 @@ export function PlayerSidebar(): JSX.Element {
                                 key: tabId,
                                 label: capitalizeFirstLetter(splitKebabCase(tabId)),
                             }))}
-                            barClassName="!mb-0"
+                            barClassName="!mb-0 hide-scrollbar"
                             size="small"
-                            className="overflow-x-auto hide-scrollbar"
                         />
                         <div className="flex flex-1 border-b shrink-0" />
                         <div className="flex gap-1 border-b end">

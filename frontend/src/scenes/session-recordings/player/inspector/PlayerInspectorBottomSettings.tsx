@@ -143,7 +143,7 @@ export function PlayerInspectorBottomSettings(): JSX.Element {
     const { collapseInspectorItems } = useValues(playerInspectorLogic(logicProps))
 
     return (
-        <SettingsBar border="top">
+        <SettingsBar border="top" className="overflow-x-auto hide-scrollbar">
             <SyncScrolling />
             <ShowOnlyMatching />
             {collapseInspectorItems ? <GroupRepeatedItems /> : null}
