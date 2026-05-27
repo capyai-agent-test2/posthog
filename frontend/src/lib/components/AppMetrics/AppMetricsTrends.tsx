@@ -44,18 +44,16 @@ export function AppMetricsTrends({
     const everSeenSeriesNamesRef = useRef<string[]>([])
 
     useEffect(() => {
+        const everSeenSeriesNames = everSeenSeriesNamesRef.current
+
         setVisibleSeriesNames((currentVisibleSeriesNames) => {
             if (currentVisibleSeriesNames === null) {
                 return syncVisibleSeriesNames(currentVisibleSeriesNames, allSeriesNames)
             }
 
-            return mergeNewSeriesIntoVisibleSeriesNames(
-                currentVisibleSeriesNames,
-                everSeenSeriesNamesRef.current,
-                allSeriesNames
-            )
+            return mergeNewSeriesIntoVisibleSeriesNames(currentVisibleSeriesNames, everSeenSeriesNames, allSeriesNames)
         })
-        everSeenSeriesNamesRef.current = Array.from(new Set([...everSeenSeriesNamesRef.current, ...allSeriesNames]))
+        everSeenSeriesNamesRef.current = Array.from(new Set([...everSeenSeriesNames, ...allSeriesNames]))
     }, [allSeriesNames])
 
     const filteredAppMetricsTrends = useMemo(
