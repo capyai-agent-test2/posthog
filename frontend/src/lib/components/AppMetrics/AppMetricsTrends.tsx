@@ -78,7 +78,7 @@ export function AppMetricsTrends({
 
     return (
         <div className="flex flex-col gap-2">
-            {showSeriesFilter && seriesOptions.length > 1 ? (
+            {showSeriesFilter && seriesOptions.length > 0 ? (
                 <div className="flex justify-end">
                     <LemonInputSelect
                         value={visibleSeriesNames ?? allSeriesNames}
