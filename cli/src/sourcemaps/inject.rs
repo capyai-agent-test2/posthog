@@ -87,7 +87,7 @@ pub fn inject_impl(
         .filter_map(|path| path.canonicalize().ok())
         .collect::<BTreeSet<_>>()
         .into_iter()
-        .map(|path| normalize_integrity_root(&path))
+        .map(|path| normalize_integrity_root(&path, public_path_prefix.as_deref()))
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect::<Vec<_>>();
@@ -100,17 +100,20 @@ pub fn inject_impl(
     Ok(())
 }
 
-fn normalize_integrity_root(path: &Path) -> PathBuf {
-    let mut current = if path.is_dir() {
-        path.to_path_buf()
-    } else {
-        path.parent().unwrap_or(path).to_path_buf()
-    };
+fn normalize_integrity_root(path: &Path, public_path_prefix: Option<&str>) -> PathBuf {
+    if path.is_dir() {
+        return path.to_path_buf();
+    }
+
+    let asset_path = path;
+    let mut current = asset_path.parent().unwrap_or(asset_path).to_path_buf();
     let fallback = current.clone();
 
     loop {
-        if subtree_contains_html(&current) {
-            return current;
+        match subtree_html_reference_status(&current, asset_path, public_path_prefix) {
+            HtmlReferenceStatus::ContainsReference => return current,
+            HtmlReferenceStatus::ContainsHtmlWithoutReference => return fallback,
+            HtmlReferenceStatus::NoHtml => {}
         }
         let Some(parent) = current.parent() else {
             return fallback;
@@ -122,13 +125,59 @@ fn normalize_integrity_root(path: &Path) -> PathBuf {
     }
 }
 
-fn subtree_contains_html(path: &Path) -> bool {
-    WalkDir::new(path)
+enum HtmlReferenceStatus {
+    NoHtml,
+    ContainsHtmlWithoutReference,
+    ContainsReference,
+}
+
+fn subtree_html_reference_status(
+    root: &Path,
+    asset_path: &Path,
+    public_path_prefix: Option<&str>,
+) -> HtmlReferenceStatus {
+    let relative = asset_path
+        .strip_prefix(root)
+        .ok()
+        .map(|path| path.to_string_lossy().replace('\\', "/"));
+    let Some(relative) = relative else {
+        return HtmlReferenceStatus::NoHtml;
+    };
+
+    let mut candidates = vec![relative.clone(), format!("/{relative}")];
+    if let Some(prefix) = public_path_prefix
+        .map(|prefix| prefix.trim_matches('/'))
+        .filter(|prefix| !prefix.is_empty())
+    {
+        candidates.push(format!("{prefix}/{relative}"));
+        candidates.push(format!("/{prefix}/{relative}"));
+    }
+
+    let mut saw_html = false;
+    for entry in WalkDir::new(root)
         .into_iter()
         .filter_map(|entry| entry.ok())
-        .any(|entry| {
-            entry.file_type().is_file() && entry.path().extension().is_some_and(|ext| ext == "html")
-        })
+    {
+        if !entry.file_type().is_file()
+            || !entry.path().extension().is_some_and(|ext| ext == "html")
+        {
+            continue;
+        }
+
+        saw_html = true;
+        if std::fs::read_to_string(entry.path())
+            .map(|html| candidates.iter().any(|candidate| html.contains(candidate)))
+            .unwrap_or(false)
+        {
+            return HtmlReferenceStatus::ContainsReference;
+        }
+    }
+
+    if saw_html {
+        HtmlReferenceStatus::ContainsHtmlWithoutReference
+    } else {
+        HtmlReferenceStatus::NoHtml
+    }
 }
 
 pub fn inject_pairs(
@@ -188,10 +237,14 @@ mod tests {
         let dist = tempdir.path().join("dist");
         let assets = dist.join("assets");
         std::fs::create_dir_all(&assets).expect("Failed to create asset directory");
-        std::fs::write(dist.join("index.html"), "<html></html>").expect("Failed to write HTML");
+        std::fs::write(
+            dist.join("index.html"),
+            r#"<script src="/assets/app.js"></script>"#,
+        )
+        .expect("Failed to write HTML");
         std::fs::write(assets.join("app.js"), "console.log('x');").expect("Failed to write JS");
 
-        let normalized = normalize_integrity_root(&assets.join("app.js"));
+        let normalized = normalize_integrity_root(&assets.join("app.js"), None);
         assert_eq!(normalized, dist);
     }
 }

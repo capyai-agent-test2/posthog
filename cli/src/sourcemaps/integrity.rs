@@ -17,12 +17,16 @@ fn tag_regex() -> Regex {
 }
 
 fn attr_regex() -> Regex {
-    Regex::new(r#"(?is)\b(?P<name>[a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?P<quote>["'])(?P<value>[^"']*)(?:["'])"#)
+    Regex::new(
+        r#"(?is)\b(?P<name>[a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:(?P<quote>["'])(?P<quoted>[^"']*)(?:["'])|(?P<bare>[^\s>]+))"#,
+    )
         .expect("valid attr regex")
 }
 
 fn integrity_regex() -> Regex {
-    Regex::new(r#"(?is)(?P<prefix>\s)integrity\s*=\s*(?P<quote>["'])(?P<value>[^"']*)(?:["'])"#)
+    Regex::new(
+        r#"(?is)(?P<prefix>\s)integrity\s*=\s*(?:(?P<quote>["'])(?P<quoted>[^"']*)(?:["'])|(?P<bare>[^\s>]+))"#,
+    )
         .expect("valid integrity regex")
 }
 
@@ -159,7 +163,8 @@ fn rewrite_integrity_attributes(
                 .map(|m| m.as_str().to_ascii_lowercase())
                 .unwrap_or_default();
             let value = attr_caps
-                .name("value")
+                .name("quoted")
+                .or_else(|| attr_caps.name("bare"))
                 .map(|m| m.as_str().to_string())
                 .unwrap_or_default();
             match name.as_str() {
@@ -196,11 +201,11 @@ fn rewrite_integrity_attributes(
                     .name("prefix")
                     .map(|m| m.as_str())
                     .unwrap_or(" ");
-                let quote = integrity_caps
-                    .name("quote")
-                    .map(|m| m.as_str())
-                    .unwrap_or("\"");
-                format!("{prefix}integrity={quote}{new_integrity}{quote}")
+                if let Some(quote) = integrity_caps.name("quote").map(|m| m.as_str()) {
+                    format!("{prefix}integrity={quote}{new_integrity}{quote}")
+                } else {
+                    format!("{prefix}integrity={new_integrity}")
+                }
             })
             .to_string()
     });
@@ -384,5 +389,24 @@ mod tests {
         assert_eq!(count, 1);
         assert!(rewritten.contains(r#"data-integrity="keep-me""#));
         assert!(rewritten.contains(&format!(r#"integrity="{expected_hash}""#)));
+    }
+
+    #[test]
+    fn rewrites_unquoted_integrity_attributes() {
+        let expected_hash = format!("sha512-{}", STANDARD.encode(Sha512::digest(b"updated")));
+        let html = r#"<script src=/assets/app.js integrity=sha512-old></script>"#;
+
+        let mut assets = BTreeMap::new();
+        assets.insert("assets/app.js".to_string(), b"updated".to_vec());
+
+        let (rewritten, count) = rewrite_integrity_attributes(
+            html,
+            Path::new("/tmp/dist/index.html"),
+            Path::new("/tmp/dist"),
+            &assets,
+        );
+        assert_eq!(count, 1);
+        assert!(rewritten.contains("src=/assets/app.js"));
+        assert!(rewritten.contains(&format!("integrity={expected_hash}")));
     }
 }
