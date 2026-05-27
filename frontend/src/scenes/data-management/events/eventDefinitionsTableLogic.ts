@@ -360,6 +360,10 @@ export const eventDefinitionsTableLogic = kea<eventDefinitionsTableLogicType>([
     })),
     urlToAction(({ actions, values }) => ({
         '/data-management/events': (_, searchParams) => {
+            if (values.eventDefinitionsLoading) {
+                return
+            }
+
             const { event, event_type, ordering, tags, verified } = searchParams
 
             const filtersFromUrl: Filters = {

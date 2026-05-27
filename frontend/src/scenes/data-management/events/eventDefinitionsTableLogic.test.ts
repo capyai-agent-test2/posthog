@@ -220,6 +220,43 @@ describe('eventDefinitionsTableLogic', () => {
                 })
             expect(api.get).toHaveBeenCalledTimes(2)
         })
+
+        it('does not reset filters when the pagination URL updates during a page change', async () => {
+            const url = urls.eventDefinitions()
+            const secondPageUrl = `api/projects/${MOCK_TEAM_ID}/event_definitions?limit=50&offset=50&event_type=event`
+
+            router.actions.push(url)
+            await expectLogic(logic)
+                .toDispatchActions([
+                    router.actionCreators.push(url),
+                    'loadEventDefinitions',
+                    'loadEventDefinitionsSuccess',
+                ])
+                .toMatchValues({
+                    eventDefinitions: partial({
+                        count: 50,
+                        next: secondPageUrl,
+                    }),
+                })
+
+            api.get.mockClear()
+
+            logic.actions.loadEventDefinitions(secondPageUrl)
+            router.actions.push(combineUrl(url, { page: 2 }).url)
+
+            await expectLogic(logic)
+                .toFinishAllListeners()
+                .toMatchValues({
+                    eventDefinitions: partial({
+                        count: 6,
+                        previous: `api/projects/${MOCK_TEAM_ID}/event_definitions?limit=50&event_type=event`,
+                        next: null,
+                    }),
+                })
+
+            expect(api.get).toHaveBeenCalledTimes(1)
+            expect(api.get).toHaveBeenCalledWith(secondPageUrl)
+        })
     })
 
     describe('property definitions', () => {
