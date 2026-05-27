@@ -232,6 +232,36 @@ describe('propertyFilterLogic', () => {
             expect(calledWith).toHaveLength(1)
             expect(calledWith[0]).toMatchObject({ key: '$browser', value: 'Firefox' })
         })
+
+        it('strips key-only filters before calling onChange in normal mode', async () => {
+            const logic = mountLogic({
+                propertyFilters: [eventFilter('$browser', 'Chrome', PropertyOperator.Exact)],
+                sendAllKeyUpdates: false,
+            })
+
+            logic.actions.setFilter(1, eventFilter('$os'))
+            logic.actions.update()
+
+            await expectLogic(logic).toFinishAllListeners()
+            const calledWith = onChange.mock.calls[0][0]
+            expect(calledWith).toHaveLength(1)
+            expect(calledWith[0]).toMatchObject({ key: '$browser', value: 'Chrome' })
+        })
+
+        it('keeps key-only filters in onChange when sendAllKeyUpdates is enabled', async () => {
+            const logic = mountLogic({
+                propertyFilters: [eventFilter('$browser', 'Chrome', PropertyOperator.Exact)],
+                sendAllKeyUpdates: true,
+            })
+
+            logic.actions.setFilter(1, eventFilter('$os'))
+
+            await expectLogic(logic).toFinishAllListeners()
+            const calledWith = onChange.mock.calls[0][0]
+            expect(calledWith).toHaveLength(2)
+            expect(calledWith[0]).toMatchObject({ key: '$browser', value: 'Chrome' })
+            expect(calledWith[1]).toMatchObject({ key: '$os' })
+        })
     })
 
     describe('records complete property filters to recent filters', () => {
