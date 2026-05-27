@@ -456,7 +456,7 @@ export class ActionMatcher {
             .replace(/> \* > /g, '')
             .replace(/> \*/g, '')
             .trim()
-        const tags = selector.split(' ')
+        const tags = splitSelector(selector)
         // Detecting selector parts
         for (let partIndex = 0; partIndex < tags.length; partIndex++) {
             const tag = tags[partIndex]
@@ -479,6 +479,9 @@ export class ActionMatcher {
                 return false
             }
             const part = parts[partIndex]
+            if (part.invalid) {
+                return false
+            }
             wasPartMatched = false
             for (let depthDiff = 1; baseElementIndex - depthDiff >= 0; depthDiff++) {
                 // Subtracting depthDiff as elements are reversed, meaning outer elements have higher indexes
@@ -554,6 +557,7 @@ class SelectorPart {
     directDescendant: boolean
     uniqueOrder: number
     requirements: Partial<Element>
+    invalid: boolean
 
     constructor(tag: string, directDescendant: boolean, escapeSlashes: boolean) {
         const ATTRIBUTE_SELECTOR_REGEX = /\[(.*)=[\'|\"](.*)[\'|\"]\]/
@@ -563,6 +567,7 @@ class SelectorPart {
         this.directDescendant = directDescendant
         this.uniqueOrder = 0
         this.requirements = {}
+        this.invalid = false
 
         let attributeSelector = tag.match(ATTRIBUTE_SELECTOR_REGEX)
         while (attributeSelector) {
@@ -606,13 +611,17 @@ class SelectorPart {
             colonSelector = tag.match(COLON_SELECTOR_REGEX)
         }
         if (tag.includes('.')) {
-            const classParts = tag.split('.')
+            const classParts = splitClasses(tag)
             // Strip all slashes that are not followed by another slash
             this.requirements.attr_class = classParts.slice(1)
             if (escapeSlashes) {
                 this.requirements.attr_class = this.requirements.attr_class.map(this.unescapeClassName.bind(this))
             } // TODO: determine if we need escapeSlashes in this port
             tag = classParts[0]
+        }
+        if (tag.includes(':') || tag.includes('(') || tag.includes(')')) {
+            this.invalid = true
+            return
         }
         const finalTag = tag.match(FINAL_TAG_REGEX)
         if (finalTag) {
@@ -627,4 +636,141 @@ class SelectorPart {
             .map((p) => p.replace(/\\/g, ''))
             .join('\\')
     }
+}
+
+function splitSelector(selector: string): string[] {
+    const parts: string[] = []
+    let current = ''
+    let bracketDepth = 0
+    let inQuotes: '"' | "'" | undefined
+    let escapeNext = false
+
+    for (const char of selector) {
+        if (escapeNext) {
+            current += char
+            escapeNext = false
+            continue
+        }
+
+        if (char === '\\') {
+            current += char
+            escapeNext = true
+            continue
+        }
+
+        if (inQuotes) {
+            current += char
+            if (char === inQuotes) {
+                inQuotes = undefined
+            }
+            continue
+        }
+
+        if (char === '"' || char === "'") {
+            inQuotes = char
+            current += char
+            continue
+        }
+
+        if (char === '[') {
+            bracketDepth += 1
+        } else if (char === ']' && bracketDepth > 0) {
+            bracketDepth -= 1
+        }
+
+        if (char === ' ' && bracketDepth === 0) {
+            parts.push(current)
+            current = ''
+            continue
+        }
+
+        current += char
+    }
+
+    parts.push(current)
+    return parts
+}
+
+function splitClasses(tag: string): string[] {
+    const parts: string[] = []
+    let current = ''
+    let bracketDepth = 0
+    let parenDepth = 0
+    let inQuotes: '"' | "'" | undefined
+    let escapeNext = false
+
+    for (let index = 0; index < tag.length; index++) {
+        const char = tag[index]
+
+        if (escapeNext) {
+            current += char
+            escapeNext = false
+            continue
+        }
+
+        if (char === '\\') {
+            current += char
+            escapeNext = true
+            continue
+        }
+
+        if (inQuotes) {
+            current += char
+            if (char === inQuotes) {
+                inQuotes = undefined
+            }
+            continue
+        }
+
+        if (char === '"' || char === "'") {
+            inQuotes = char
+            current += char
+            continue
+        }
+
+        if (char === '[') {
+            bracketDepth += 1
+        } else if (char === ']' && bracketDepth > 0) {
+            bracketDepth -= 1
+        } else if (char === '(') {
+            parenDepth += 1
+        } else if (char === ')' && parenDepth > 0) {
+            parenDepth -= 1
+        }
+
+        if (char === '.' && bracketDepth === 0 && parenDepth === 0 && startsNewClass(tag, index, parts)) {
+            parts.push(current)
+            current = ''
+            continue
+        }
+
+        current += char
+    }
+
+    parts.push(current)
+    return parts
+}
+
+function startsNewClass(tag: string, dotIndex: number, parts: string[]): boolean {
+    if (parts.length === 0) {
+        return true
+    }
+
+    const previousChar = tag[dotIndex - 1]
+    const nextChar = tag[dotIndex + 1]
+
+    if (!nextChar) {
+        return false
+    }
+
+    if (!/\d/.test(previousChar ?? '') || !/\d/.test(nextChar)) {
+        return true
+    }
+
+    let index = dotIndex + 1
+    while (index < tag.length && /\d/.test(tag[index])) {
+        index += 1
+    }
+
+    return index < tag.length
 }

@@ -1104,6 +1104,42 @@ describe('ActionMatcher', () => {
             expect(checkElementsAgainstSelector(elements, "div[data-attr='xyz']")).toBeFalsy()
         })
 
+        it('handles selectors with non-alphanumeric classes', () => {
+            const elements: Element[] = [
+                { tag_name: 'span', attr_class: ['text-center'] },
+                { tag_name: 'div', attr_class: ['text-sm'] },
+                {
+                    tag_name: 'button',
+                    attr_class: ['rounded-sm', 'py-2.5', 'border-[1.5px]', '!ml-auto', 'text-sm', 'text-center'],
+                    attributes: { attr__class: 'rounded-sm' },
+                },
+                {
+                    tag_name: 'section',
+                    attr_class: ['2xl:flex'],
+                },
+                {
+                    tag_name: 'article',
+                    attr_class: ['w-1', '2xl:flex'],
+                },
+                {
+                    tag_name: 'aside',
+                    attr_class: ['w-1', '2-foo'],
+                },
+            ]
+
+            expect(checkElementsAgainstSelector(elements, '.rounded-sm')).toBeTruthy()
+            expect(checkElementsAgainstSelector(elements, 'button[class="rounded-sm"]')).toBeTruthy()
+            expect(checkElementsAgainstSelector(elements, '.py-2.5')).toBeTruthy()
+            expect(checkElementsAgainstSelector(elements, '.border-[1.5px]')).toBeTruthy()
+            expect(checkElementsAgainstSelector(elements, '.!ml-auto')).toBeTruthy()
+            expect(checkElementsAgainstSelector(elements, '.2xl\\:flex')).toBeTruthy()
+            expect(checkElementsAgainstSelector(elements, 'section.2xl\\:flex')).toBeTruthy()
+            expect(checkElementsAgainstSelector(elements, '.text-sm.text-center')).toBeTruthy()
+            expect(checkElementsAgainstSelector(elements, '.text-sm .text-center')).toBeTruthy()
+            expect(checkElementsAgainstSelector(elements, '.w-1.2xl\\:flex')).toBeTruthy()
+            expect(checkElementsAgainstSelector(elements, '.w-1.2-foo')).toBeTruthy()
+        })
+
         it('handles any descendant selector', () => {
             const elements: Element[] = [
                 { tag_name: 'h1', attr_class: ['headline'] },

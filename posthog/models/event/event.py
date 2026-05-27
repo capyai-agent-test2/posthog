@@ -45,14 +45,7 @@ class SelectorPart:
             self.ch_attributes["nth-child"] = self.data["nth_child"]
             tag = parts[0]
         if "." in tag:
-            # Regex pattern that matches dots that are NOT inside square brackets
-            # Uses negative lookahead to ensure the dot is not followed by content ending with ]
-            # without an opening [ in between
-            # Handles Tailwind arbitrary values with square brackets properly.
-            # Example: 'div.shadow-[0_4px_6px_rgba(0,0,0,0.1)].text-blue-500'
-            # Returns: ['div', 'shadow-[0_4px_6px_rgba(0,0,0,0.1)]', 'text-blue-500']
-            pattern = r"\.(?![^\[]*\])"
-            parts = re.split(pattern, tag)
+            parts = self._split_classes(tag)
             # Strip all slashes that are not followed by another slash
             self.data["attr_class__contains"] = [self._unescape_class(p) if escape_slashes else p for p in parts[1:]]
             tag = parts[0]
@@ -83,6 +76,77 @@ class SelectorPart:
     def _unescape_class(self, class_name):
         r"""Separate all double slashes "\\" (replace them with "\") and remove all single slashes between them."""
         return "\\".join([p.replace("\\", "") for p in class_name.split("\\\\")])
+
+    def _split_classes(self, tag: str) -> list[str]:
+        parts: list[str] = []
+        current: list[str] = []
+        bracket_depth = 0
+        paren_depth = 0
+        in_quotes: Optional[str] = None
+        escape_next = False
+
+        for index, char in enumerate(tag):
+            if escape_next:
+                current.append(char)
+                escape_next = False
+                continue
+
+            if char == "\\":
+                current.append(char)
+                escape_next = True
+                continue
+
+            if in_quotes is not None:
+                current.append(char)
+                if char == in_quotes:
+                    in_quotes = None
+                continue
+
+            if char in "\"'":
+                in_quotes = char
+                current.append(char)
+                continue
+
+            if char == "[":
+                bracket_depth += 1
+            elif char == "]" and bracket_depth > 0:
+                bracket_depth -= 1
+            elif char == "(":
+                paren_depth += 1
+            elif char == ")" and paren_depth > 0:
+                paren_depth -= 1
+
+            if char == "." and bracket_depth == 0 and paren_depth == 0 and self._starts_new_class(tag, index, parts):
+                parts.append("".join(current))
+                current = []
+                continue
+
+            current.append(char)
+
+        parts.append("".join(current))
+        return parts
+
+    def _starts_new_class(self, tag: str, dot_index: int, parts: list[str]) -> bool:
+        if len(parts) == 0:
+            return True
+
+        previous_index = dot_index - 1
+        next_index = dot_index + 1
+
+        if next_index >= len(tag):
+            return False
+
+        previous_is_digit = previous_index >= 0 and tag[previous_index].isdigit()
+        next_is_digit = tag[next_index].isdigit()
+
+        if not (previous_is_digit and next_is_digit):
+            return True
+
+        scan_index = next_index
+        while scan_index < len(tag) and tag[scan_index].isdigit():
+            scan_index += 1
+
+        return scan_index < len(tag)
 
 
 class Selector:

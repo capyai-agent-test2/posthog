@@ -898,6 +898,65 @@ class TestProperty(BaseTest):
             ),
         )
 
+        self.assertEqual(
+            self._selector_to_expr(".py-2.5"),
+            clear_locations(
+                elements_chain_match(
+                    '(^|;).*?\\.py\\-2\\.5([-_a-zA-Z0-9\\.:"= \\[\\]\\(\\),]*?)?($|;|:([^;^\\s]*(;|$|\\s)))'
+                )
+            ),
+        )
+
+        self.assertEqual(
+            self._selector_to_expr(".!ml-auto"),
+            clear_locations(
+                elements_chain_match(
+                    '(^|;).*?\\.!ml\\-auto([-_a-zA-Z0-9\\.:"= \\[\\]\\(\\),]*?)?($|;|:([^;^\\s]*(;|$|\\s)))'
+                )
+            ),
+        )
+
+        self.assertEqual(
+            self._selector_to_expr(".2xl\\:flex"),
+            clear_locations(
+                elements_chain_match(
+                    '(^|;).*?\\.2xl:flex([-_a-zA-Z0-9\\.:"= \\[\\]\\(\\),]*?)?($|;|:([^;^\\s]*(;|$|\\s)))'
+                )
+            ),
+        )
+
+        self.assertEqual(
+            self._selector_to_expr("h1.2xl\\:flex"),
+            clear_locations(
+                parse_expr(
+                    "{regex} and arrayCount(x -> x IN ['h1'], elements_chain_elements) > 0",
+                    {
+                        "regex": elements_chain_match(
+                            '(^|;)h1.*?\\.2xl:flex([-_a-zA-Z0-9\\.:"= \\[\\]\\(\\),]*?)?($|;|:([^;^\\s]*(;|$|\\s)))'
+                        )
+                    },
+                )
+            ),
+        )
+
+        self.assertEqual(
+            self._selector_to_expr(".w-1.2xl\\:flex"),
+            clear_locations(
+                elements_chain_match(
+                    '(^|;).*?\\.2xl:flex\\..*?w\\-1([-_a-zA-Z0-9\\.:"= \\[\\]\\(\\),]*?)?($|;|:([^;^\\s]*(;|$|\\s)))'
+                )
+            ),
+        )
+
+        self.assertEqual(
+            self._selector_to_expr(".w-1.2-foo"),
+            clear_locations(
+                elements_chain_match(
+                    '(^|;).*?\\.2\\-foo\\..*?w\\-1([-_a-zA-Z0-9\\.:"= \\[\\]\\(\\),]*?)?($|;|:([^;^\\s]*(;|$|\\s)))'
+                )
+            ),
+        )
+
     def test_cohort_filter_static(self):
         cohort = Cohort.objects.create(
             team=self.team,
