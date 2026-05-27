@@ -240,6 +240,7 @@ class TestMRRViewsE2E(ClickhouseTestMixin, QueryMatchingTest, APIBaseTest):
         line["discount_amounts"] = []
         line["subscription"] = invoice_row["subscription"]
         line["parent"]["subscription_item_details"]["subscription"] = invoice_row["subscription"]
+        line["period"]["end"] = line["period"]["start"] + (31 * 24 * 60 * 60)
         lines["data"] = [line]
         lines["total_count"] = 1
         invoice_row["lines"] = json.dumps(lines)
