@@ -162,7 +162,9 @@ export const propertyFilterLogic = kea<propertyFilterLogicType>([
         },
         remove: () => actions.update(),
         update: () => {
-            const cleanedFilters = [...values.filters].filter(isCompletePropertyFilter)
+            const cleanedFilters = props.sendAllKeyUpdates
+                ? [...values.filters].filter((filter) => !!filter?.key)
+                : [...values.filters].filter(isCompletePropertyFilter)
             props.onChange(cleanedFilters)
         },
     })),
