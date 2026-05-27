@@ -12,6 +12,7 @@ import {
     BREAKDOWN_NULL_STRING_LABEL,
     BREAKDOWN_OTHER_NUMERIC_LABEL,
     BREAKDOWN_OTHER_STRING_LABEL,
+    getDisplayNameFromEntityNode,
     getTrendDatasetKey,
     getTrendResultCustomization,
     getTrendResultCustomizationColorToken,
@@ -20,7 +21,6 @@ import {
 
 import {
     BreakdownFilter,
-    EventsNode,
     InsightQueryNode,
     LifecycleQuery,
     MathType,
@@ -142,13 +142,15 @@ export const trendsDataLogic = kea<trendsDataLogicType>([
     selectors(({ values, props }) => ({
         /** series within the trend insight on which user can set alerts */
         alertSeries: [
-            (s) => [s.querySource],
-            (queryNode: InsightQueryNode | null): EventsNode[] => {
-                if (queryNode === null) {
+            (s) => [s.series, s.results],
+            (series, results): Array<{ label: string }> => {
+                if (series === null) {
                     return []
                 }
 
-                return (queryNode as TrendsQuery).series as EventsNode[]
+                return series.map((seriesNode, index) => ({
+                    label: results[index]?.label || getDisplayNameFromEntityNode(seriesNode) || `Series ${index + 1}`,
+                }))
             },
         ],
 

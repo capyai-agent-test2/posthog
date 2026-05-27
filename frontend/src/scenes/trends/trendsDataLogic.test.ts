@@ -78,6 +78,55 @@ describe('trendsDataLogic', () => {
     })
 
     describe('based on insightDataLogic', () => {
+        describe('alertSeries', () => {
+            it('prefers the rendered result label over the raw series node name', async () => {
+                const query: TrendsQuery = {
+                    kind: NodeKind.TrendsQuery,
+                    series: [
+                        {
+                            kind: NodeKind.EventsNode,
+                            event: '$pageview',
+                            name: '$pageview',
+                        },
+                    ],
+                }
+                const insight: Partial<InsightModel> = {
+                    result: [
+                        {
+                            ...trendResult.result[0],
+                            label: 'Renamed page views',
+                        },
+                    ],
+                }
+
+                await expectLogic(logic, () => {
+                    insightVizDataLogic.findMounted(insightProps)?.actions.updateQuerySource(query)
+                    builtDataNodeLogic.actions.loadDataSuccess(insight)
+                }).toMatchValues({
+                    alertSeries: [{ label: 'Renamed page views' }],
+                })
+            })
+
+            it('falls back to the series node label before results load', async () => {
+                const query: TrendsQuery = {
+                    kind: NodeKind.TrendsQuery,
+                    series: [
+                        {
+                            kind: NodeKind.EventsNode,
+                            event: '$pageview',
+                            custom_name: 'Page views',
+                        },
+                    ],
+                }
+
+                await expectLogic(logic, () => {
+                    insightVizDataLogic.findMounted(insightProps)?.actions.updateQuerySource(query)
+                }).toMatchValues({
+                    alertSeries: [{ label: 'Page views' }],
+                })
+            })
+        })
+
         describe('results', () => {
             it('for standard trend', async () => {
                 const insight: Partial<InsightModel> = {
