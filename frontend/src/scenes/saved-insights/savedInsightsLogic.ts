@@ -115,10 +115,7 @@ export const savedInsightsLogic = kea<savedInsightsLogicType>([
                 }
                 const { filters } = values
 
-                const params = {
-                    ...values.paramsFromFilters,
-                    basic: true,
-                }
+                const params = values.paramsFromFilters
 
                 const legacyResponse: CountedPaginatedResponse<InsightModel> = await api.get(
                     `api/environments/${teamLogic.values.currentTeamId}/insights/?${toParams(params)}`
