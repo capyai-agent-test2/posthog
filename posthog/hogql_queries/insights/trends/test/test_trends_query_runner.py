@@ -6775,23 +6775,39 @@ class TestTrendsQueryRunner(ClickhouseTestMixin, APIBaseTest):
             )
         flush_persons_and_events()
 
-        # Test 1: Without explicitDate, filtering last 7 days with monthly interval includes entire month
+        # Test 1: Vertical bar charts with a single monthly bucket should respect the selected timerange
         with freeze_time("2020-01-31 23:59:59"):
             response_default = TrendsQueryRunner(
                 query=TrendsQuery(
                     series=[EventsNode(event="$pageview")],
                     dateRange=DateRange(date_from="-7d", date_to=None, explicitDate=False),
                     interval=IntervalType.MONTH,
+                    trendsFilter=TrendsFilter(display=ChartDisplayType.ACTIONS_BAR),
                 ),
                 team=self.team,
             ).calculate()
 
         self.assertEqual(1, len(response_default.results))
         self.assertEqual(
-            31,
+            7,
             response_default.results[0]["count"],
-            "Without explicitDate, includes entire month due to interval boundary adjustment",
+            "Single-bucket vertical bar charts should not expand the query to full interval boundaries",
         )
+
+        # Non-bar displays preserve the old whole-interval behavior for the single-bucket case.
+        with freeze_time("2020-01-31 23:59:59"):
+            response_line = TrendsQueryRunner(
+                query=TrendsQuery(
+                    series=[EventsNode(event="$pageview")],
+                    dateRange=DateRange(date_from="-7d", date_to=None, explicitDate=False),
+                    interval=IntervalType.MONTH,
+                    trendsFilter=TrendsFilter(display=ChartDisplayType.ACTIONS_LINE_GRAPH),
+                ),
+                team=self.team,
+            ).calculate()
+
+        self.assertEqual(1, len(response_line.results))
+        self.assertEqual(31, response_line.results[0]["count"])
 
         # Test 2: With explicitDate=True and explicit dates, STILL has issues (gets 6 instead of 7)
         with freeze_time("2020-01-31 23:59:59"):
