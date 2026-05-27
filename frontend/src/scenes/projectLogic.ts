@@ -25,7 +25,7 @@ export const projectLogic = kea<projectLogicType>([
     connect(() => ({
         actions: [
             userLogic,
-            ['loadUser', 'switchTeam', 'updateCurrentOrganization'],
+            ['switchTeam', 'updateCurrentOrganization'],
             organizationLogic,
             ['loadCurrentOrganization'],
         ],
@@ -51,7 +51,8 @@ export const projectLogic = kea<projectLogicType>([
                         return null
                     }
                     try {
-                        return await api.get('api/projects/@current')
+                        const projectId = values.currentProject?.id ?? '@current'
+                        return await api.get(`api/projects/${projectId}`)
                     } catch {
                         return values.currentProject
                     }
@@ -67,9 +68,8 @@ export const projectLogic = kea<projectLogicType>([
                     )
                     breakpoint()
 
-                    // We need to reload current org (which lists its projects) in organizationLogic AND in userLogic
+                    // We need to reload current org, which lists its projects.
                     actions.loadCurrentOrganization()
-                    actions.loadUser()
 
                     Object.keys(payload).map((property) => {
                         eventUsageLogic.findMounted()?.actions?.reportProjectSettingChange(property, payload[property])

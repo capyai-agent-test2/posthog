@@ -1,4 +1,4 @@
-import { MOCK_DEFAULT_TEAM, MOCK_TEAM_ID } from 'lib/api.mock'
+import { api, MOCK_DEFAULT_TEAM, MOCK_TEAM_ID } from 'lib/api.mock'
 
 import { expectLogic } from 'kea-test-utils'
 
@@ -10,9 +10,14 @@ import { teamLogic } from './teamLogic'
 describe('teamLogic', () => {
     let logic: ReturnType<typeof teamLogic.build>
 
+    afterEach(() => {
+        jest.restoreAllMocks()
+    })
+
     describe('when team is loaded', () => {
         beforeEach(() => {
             initKeaTests()
+            jest.spyOn(api, 'get').mockResolvedValue(MOCK_DEFAULT_TEAM)
             logic = teamLogic()
             logic.mount()
         })
@@ -25,6 +30,16 @@ describe('teamLogic', () => {
         it('currentProjectId returns the project id', async () => {
             await expectLogic(logic).toDispatchActions(['loadCurrentTeamSuccess'])
             expect(logic.values.currentProjectId).toBe(MOCK_DEFAULT_TEAM.project_id)
+        })
+
+        it('reloads the same team by id instead of relying on @current', async () => {
+            await expectLogic(logic).toDispatchActions(['loadCurrentTeamSuccess'])
+            api.get.mockClear()
+
+            logic.actions.loadCurrentTeam()
+
+            await expectLogic(logic).toDispatchActions(['loadCurrentTeam', 'loadCurrentTeamSuccess'])
+            expect(api.get).toHaveBeenCalledWith(`api/environments/${MOCK_TEAM_ID}`)
         })
     })
 
@@ -50,6 +65,16 @@ describe('teamLogic', () => {
 
         it('currentTeamId returns null (non-breaking)', () => {
             expect(logic.values.currentTeamId).toBeNull()
+        })
+
+        it('falls back to @current before the team is known', async () => {
+            jest.spyOn(api, 'get').mockResolvedValue(MOCK_DEFAULT_TEAM)
+            api.get.mockClear()
+
+            logic.actions.loadCurrentTeam()
+
+            await expectLogic(logic).toDispatchActions(['loadCurrentTeam', 'loadCurrentTeamSuccess'])
+            expect(api.get).toHaveBeenCalledWith('api/environments/@current')
         })
     })
 })

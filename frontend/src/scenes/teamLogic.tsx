@@ -61,7 +61,7 @@ export const teamLogic = kea<teamLogicType>([
         values: [projectLogic, ['currentProject'], featureFlagLogic, ['featureFlags']],
         actions: [
             userLogic,
-            ['loadUser', 'switchTeam'],
+            ['switchTeam'],
             organizationLogic,
             ['loadCurrentOrganization'],
             customProductsLogic,
@@ -94,7 +94,8 @@ export const teamLogic = kea<teamLogicType>([
                     }
 
                     try {
-                        return await api.get('api/environments/@current')
+                        const teamId = values.currentTeam?.id ?? '@current'
+                        return await api.get(`api/environments/${teamId}`)
                     } catch {
                         return values.currentTeam
                     }
@@ -357,8 +358,8 @@ export const teamLogic = kea<teamLogicType>([
             }
         },
         updateCurrentTeamSuccess: () => {
-            // Reload user after team update to keep user object in sync
-            actions.loadUser()
+            // currentTeam/currentOrganization are already updated locally, so avoid reloading
+            // the user via @me where another browser tab may have changed the server-side "current" context.
         },
         createTeamSuccess: ({ currentTeam }) => {
             if (currentTeam) {

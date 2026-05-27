@@ -47,7 +47,7 @@ export const organizationLogic = kea<organizationLogicType>([
     }),
     connect(() => ({
         values: [userLogic, ['hasAvailableFeature']],
-        actions: [userLogic, ['loadUser'], router, ['locationChanged']],
+        actions: [router, ['locationChanged']],
     })),
     reducers({
         organizationBeingDeleted: [
@@ -77,7 +77,8 @@ export const organizationLogic = kea<organizationLogicType>([
                         return null
                     }
                     try {
-                        return await api.get('api/organizations/@current')
+                        const organizationId = values.currentOrganization?.id ?? '@current'
+                        return await api.get(`api/organizations/${organizationId}`)
                     } catch {
                         return null
                     }
@@ -96,7 +97,6 @@ export const organizationLogic = kea<organizationLogicType>([
                         `api/organizations/${values.currentOrganization.id}`,
                         payload
                     )
-                    userLogic.actions.loadUser()
                     return updatedOrganization
                 },
                 completeOnboarding: async () =>
