@@ -78,10 +78,16 @@ export const legacyPluginSceneLogic = kea<legacyPluginSceneLogicType>([
             }
         }
 
+        const reactToNewPluginTabChange = (_: any, _search: Record<string, string>): void => {
+            if (values.currentTab !== 'configuration') {
+                actions.setCurrentTab('configuration')
+            }
+        }
+
         return {
             // All possible routes for this scene need to be listed here
             [urls.legacyPlugin(':id')]: reactToTabChange,
-            [urls.legacyPluginNew(':pluginId')]: reactToTabChange,
+            [urls.legacyPluginNew(':pluginId')]: reactToNewPluginTabChange,
         }
     }),
 ])
