@@ -26,7 +26,11 @@ from rest_framework.relations import ManyRelatedField
 from posthog import redis
 from posthog.api.cohort import get_cohort_actors_for_feature_flag
 from posthog.constants import AvailableFeature
-from posthog.helpers.encrypted_flag_payloads import REDACTED_PAYLOAD_VALUE, get_decrypted_flag_payload
+from posthog.helpers.encrypted_flag_payloads import (
+    REDACTED_PAYLOAD_VALUE,
+    encrypt_flag_payloads,
+    get_decrypted_flag_payload,
+)
 from posthog.models import GroupTypeMapping, TaggedItem, User
 from posthog.models.cohort import Cohort
 from posthog.models.cohort.cohort import CohortType
@@ -2013,6 +2017,47 @@ class TestFeatureFlag(APIBaseTest, ClickhouseTestMixin):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json(), '{"test": false}')
         self.assertNotEqual(response.headers["ETag"], first_response.headers["ETag"])
+
+    def test_remote_config_returns_not_modified_for_encrypted_payload_when_etag_matches(self):
+        filters = {
+            "groups": [{"properties": [], "rollout_percentage": 100}],
+            "payloads": {"true": '{"secret": true}'},
+        }
+        encrypt_flag_payloads({"has_encrypted_payloads": True, "filters": filters})
+
+        FeatureFlag.objects.create(
+            team=self.team,
+            created_by=self.user,
+            key="encrypted-etag-remote-config-flag",
+            name="Remote Config Flag",
+            active=True,
+            filters=filters,
+            is_remote_configuration=True,
+            has_encrypted_payloads=True,
+        )
+        personal_api_key = generate_random_token_personal()
+        PersonalAPIKey.objects.create(
+            label="X", user=self.user, scopes=["*"], secure_value=hash_key_value(personal_api_key)
+        )
+
+        self.client.logout()
+
+        first_response = self.client.get(
+            f"/api/projects/{self.team.id}/feature_flags/encrypted-etag-remote-config-flag/remote_config",
+            headers={"authorization": f"Bearer {personal_api_key}"},
+        )
+        self.assertEqual(first_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(first_response.json(), '{"secret": true}')
+        self.assertIn("ETag", first_response.headers)
+
+        response = self.client.get(
+            f"/api/projects/{self.team.id}/feature_flags/encrypted-etag-remote-config-flag/remote_config",
+            headers={"authorization": f"Bearer {personal_api_key}", "If-None-Match": first_response.headers["ETag"]},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_304_NOT_MODIFIED)
+        self.assertEqual(response.headers["ETag"], first_response.headers["ETag"])
+        self.assertEqual(response.content, b"")
 
     def test_remote_config_with_secret_api_key_prevents_cross_team_access(self):
         # Create two teams with different secret keys
