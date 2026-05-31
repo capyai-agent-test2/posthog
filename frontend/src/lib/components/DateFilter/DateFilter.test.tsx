@@ -36,6 +36,16 @@ describe('DateFilter', () => {
         expect(onChange).toHaveBeenCalledWith('-1dStart', '-1dEnd', false)
     })
 
+    it('prevents browser translation from mutating dynamic date labels', async () => {
+        const dateFilter = screen.getByTestId('date-filter')
+
+        expect(dateFilter.querySelector('.notranslate')).toHaveAttribute('translate', 'no')
+
+        await userEvent.click(dateFilter)
+
+        expect(screen.getByText('Yesterday').closest('.notranslate')).toHaveAttribute('translate', 'no')
+    })
+
     it('can set a custom rolling date range', async () => {
         const dateFilter = screen.getByTestId('date-filter')
         await userEvent.click(dateFilter)

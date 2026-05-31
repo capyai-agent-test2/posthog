@@ -242,7 +242,12 @@ export const DateFilter = forwardRef<HTMLButtonElement, RawDateFilterProps>(func
                 initialTo={typeof dateTo === 'string' ? dateTo : null}
             />
         ) : (
-            <div className="deprecated-space-y-px" ref={optionsRef} onClick={(e) => e.stopPropagation()}>
+            <div
+                className="deprecated-space-y-px notranslate"
+                translate="no"
+                ref={optionsRef}
+                onClick={(e) => e.stopPropagation()}
+            >
                 {dateOptions.map(({ key, values, inactive }) => {
                     if (key === CUSTOM_OPTION_KEY && !showCustom) {
                         return null
@@ -404,7 +409,9 @@ export const DateFilter = forwardRef<HTMLButtonElement, RawDateFilterProps>(func
                 fullWidth={fullWidth}
                 tooltip={formatResolvedDateRange(resolvedDateRange)}
             >
-                <span className={clsx('text-nowrap', className)}>{label}</span>
+                <span className={clsx('text-nowrap notranslate', className)} translate="no">
+                    {label}
+                </span>
             </LemonButton>
         </Popover>
     )
