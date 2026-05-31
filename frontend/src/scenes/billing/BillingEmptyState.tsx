@@ -14,7 +14,7 @@ export function BillingEmptyState({
     return (
         <div
             data-attr="billing-empty-state"
-            className="flex flex-col bg-white rounded px-4 py-8 items-center text-center mx-auto"
+            className="flex flex-col bg-white dark:bg-surface-secondary rounded px-4 py-8 items-center text-center mx-auto"
         >
             <WarningHog width="100" height="100" className="mb-4" />
             <h2 className="text-xl leading-tight">{heading}</h2>
