@@ -2,6 +2,7 @@
     position: absolute;
     z-index: var(--z-graph-tooltip);
     max-width: calc(100vw - 2rem);
+    max-height: calc(100vh - 1rem);
     pointer-events: none;
     transition:
         left 0.05s linear,
@@ -10,7 +11,10 @@
 }
 
 .InsightTooltip {
+    display: flex;
+    flex-direction: column;
     max-width: 30rem;
+    max-height: calc(100vh - 1rem);
     overflow: hidden;
     font-size: 0.8125rem;
     background: var(--color-bg-surface-primary);
@@ -120,17 +124,27 @@
     }
 
     // Scrollable tooltip body with sticky header
-    &__scrollable .LemonTable {
-        .ScrollableShadows__inner {
-            max-height: 16rem;
-            overflow-y: auto !important;
-        }
+    &__scrollable {
+        min-height: 0;
 
-        .LemonTable__content > table > thead {
-            position: sticky;
-            top: 0;
-            z-index: 1;
-            background: var(--color-bg-surface-primary);
+        .LemonTable {
+            min-height: 0;
+
+            .ScrollableShadows {
+                min-height: 0;
+            }
+
+            .ScrollableShadows__inner {
+                max-height: 16rem;
+                overflow-y: auto !important;
+            }
+
+            .LemonTable__content > table > thead {
+                position: sticky;
+                top: 0;
+                z-index: 1;
+                background: var(--color-bg-surface-primary);
+            }
         }
     }
 

@@ -24,6 +24,53 @@ interface PinnedTooltipState extends SharedTooltipBase {
     onUnpin: (() => void) | null
 }
 
+interface TooltipPositionOptions {
+    canvasBounds: DOMRect
+    caretX: number
+    caretY: number
+    centerVertically: boolean
+    tooltipWidth: number
+    tooltipHeight: number
+    viewportWidth: number
+    viewportHeight: number
+    scrollX: number
+    scrollY: number
+}
+
+export function getTooltipPosition({
+    canvasBounds,
+    caretX,
+    caretY,
+    centerVertically,
+    tooltipWidth,
+    tooltipHeight,
+    viewportWidth,
+    viewportHeight,
+    scrollX,
+    scrollY,
+}: TooltipPositionOptions): { left: number; top: number; maxHeight: number } {
+    const viewportPadding = 8
+    const caretLeft = canvasBounds.left + scrollX + caretX
+    let left = caretLeft + viewportPadding
+    const verticalOffset = centerVertically ? -tooltipHeight / 2 : viewportPadding
+    const top = canvasBounds.top + scrollY + caretY + verticalOffset
+
+    const viewportLeft = scrollX + viewportPadding
+    const viewportRight = scrollX + viewportWidth - viewportPadding
+    if (tooltipWidth > 0 && left + tooltipWidth > viewportRight) {
+        left = caretLeft - tooltipWidth - viewportPadding
+    }
+    left = Math.max(viewportLeft, left)
+
+    const viewportTop = scrollY + viewportPadding
+    const viewportBottom = scrollY + viewportHeight - viewportPadding
+    const maxHeight = Math.max(viewportBottom - viewportTop, 0)
+    const effectiveTooltipHeight = Math.min(Math.max(tooltipHeight, 0), maxHeight)
+    const clampedTop = Math.min(Math.max(viewportTop, top), viewportBottom - effectiveTooltipHeight)
+
+    return { left, top: clampedTop, maxHeight }
+}
+
 const hover: HoverTooltipState = {
     element: null,
     root: null,
@@ -347,26 +394,22 @@ function applyPosition(
     caretY: number,
     centerVertically: boolean
 ): void {
-    const caretLeft = canvasBounds.left + window.scrollX + caretX
-    let left = caretLeft + 8
-    const verticalOffset = centerVertically ? -tooltipEl.clientHeight / 2 : 8
-    const top = canvasBounds.top + window.scrollY + caretY + verticalOffset
-
-    const viewportRight = window.scrollX + document.documentElement.clientWidth
-    const tooltipWidth = tooltipEl.offsetWidth
-    if (tooltipWidth > 0 && left + tooltipWidth > viewportRight - 8) {
-        left = caretLeft - tooltipWidth - 8
-    }
-    left = Math.max(window.scrollX + 8, left)
-
-    const viewportBottom = window.scrollY + document.documentElement.clientHeight
-    const clampedTop = Math.min(
-        Math.max(window.scrollY + 8, top),
-        viewportBottom - Math.max(tooltipEl.offsetHeight, 0) - 8
-    )
+    const { left, top, maxHeight } = getTooltipPosition({
+        canvasBounds,
+        caretX,
+        caretY,
+        centerVertically,
+        tooltipWidth: tooltipEl.offsetWidth,
+        tooltipHeight: tooltipEl.offsetHeight,
+        viewportWidth: document.documentElement.clientWidth,
+        viewportHeight: document.documentElement.clientHeight,
+        scrollX: window.scrollX,
+        scrollY: window.scrollY,
+    })
 
     tooltipEl.style.left = `${left}px`
-    tooltipEl.style.top = `${clampedTop}px`
+    tooltipEl.style.top = `${top}px`
+    tooltipEl.style.maxHeight = `${maxHeight}px`
 }
 
 export function positionTooltipAt(id: string, left: number, top: number): void {
