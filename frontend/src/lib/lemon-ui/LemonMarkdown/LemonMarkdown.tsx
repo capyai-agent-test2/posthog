@@ -44,6 +44,19 @@ export interface LemonMarkdownProps {
 
 const HEADING_TAGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const
 
+function canStartIndentedCodeBlockAfterLine(line: string, wasIndentedCodeBlock: boolean): boolean {
+    const trimmedLine = line.trim()
+    const lineWithUpToThreeSpaces = line.match(/^ {0,3}(.*)$/)?.[1] ?? line
+
+    return (
+        wasIndentedCodeBlock ||
+        trimmedLine === '' ||
+        /^#{1,6}(?:\s|$)/.test(lineWithUpToThreeSpaces) ||
+        /^(?:[-*_])(?:\s*\1){2,}\s*$/.test(lineWithUpToThreeSpaces) ||
+        /^>/.test(lineWithUpToThreeSpaces)
+    )
+}
+
 export function normalizeLatexMathDelimiters(markdown: string): string {
     let normalized = ''
     let inlineCodeTicks = 0
@@ -51,7 +64,7 @@ export function normalizeLatexMathDelimiters(markdown: string): string {
     let atLineStart = true
     let canStartIndentedCodeBlock = true
     let inIndentedCodeBlock = false
-    let currentLineHasNonWhitespace = false
+    let currentLine = ''
 
     for (let index = 0; index < markdown.length; index++) {
         const currentCharacter = markdown[index]
@@ -71,6 +84,7 @@ export function normalizeLatexMathDelimiters(markdown: string): string {
             normalized += fenceMatch[1] + fence
             index += fenceMatch[0].length - 1
             atLineStart = false
+            currentLine += fenceMatch[0]
             continue
         }
 
@@ -84,8 +98,8 @@ export function normalizeLatexMathDelimiters(markdown: string): string {
             normalized += indentedCodeBlockMatch[0]
             index += indentedCodeBlockMatch[0].length - 1
             inIndentedCodeBlock = true
-            canStartIndentedCodeBlock = true
-            currentLineHasNonWhitespace = false
+            canStartIndentedCodeBlock = canStartIndentedCodeBlockAfterLine(indentedCodeBlockMatch[0], true)
+            currentLine = ''
             atLineStart = true
             continue
         }
@@ -101,6 +115,7 @@ export function normalizeLatexMathDelimiters(markdown: string): string {
             }
             inlineCodeTicks = inlineCodeTicks === tickCount ? 0 : inlineCodeTicks || tickCount
             normalized += '`'.repeat(tickCount)
+            currentLine += '`'.repeat(tickCount)
             index += tickCount - 1
             atLineStart = false
             continue
@@ -109,12 +124,14 @@ export function normalizeLatexMathDelimiters(markdown: string): string {
         if (!fencedCodeTicks && !inlineCodeTicks && currentCharacter === '\\') {
             if (nextCharacter === '(' || nextCharacter === ')') {
                 normalized += '$'
+                currentLine += '$'
                 index++
                 atLineStart = false
                 continue
             }
             if (nextCharacter === '[' || nextCharacter === ']') {
                 normalized += '$$'
+                currentLine += '$$'
                 index++
                 atLineStart = false
                 continue
@@ -122,13 +139,13 @@ export function normalizeLatexMathDelimiters(markdown: string): string {
         }
 
         normalized += currentCharacter
+        currentLine += currentCharacter
         if (currentCharacter === '\n') {
             atLineStart = true
-            canStartIndentedCodeBlock = !currentLineHasNonWhitespace || inIndentedCodeBlock
-            currentLineHasNonWhitespace = false
+            canStartIndentedCodeBlock = canStartIndentedCodeBlockAfterLine(currentLine, inIndentedCodeBlock)
+            currentLine = ''
         } else {
             atLineStart = false
-            currentLineHasNonWhitespace ||= currentCharacter !== ' ' && currentCharacter !== '\t'
         }
     }
 

@@ -33,6 +33,12 @@ describe('LemonMarkdown utilities', () => {
                 'Before\n    $ still paragraph $\n\nAfter'
             )
         })
+
+        it('does not convert Latex delimiters in indented code blocks after block lines', () => {
+            expect(normalizeLatexMathDelimiters('# Heading\n    \\( code \\)\n\n> Quote\n    \\[ more code \\]')).toBe(
+                '# Heading\n    \\( code \\)\n\n> Quote\n    \\[ more code \\]'
+            )
+        })
     })
 
     describe('slugifyHeading', () => {
