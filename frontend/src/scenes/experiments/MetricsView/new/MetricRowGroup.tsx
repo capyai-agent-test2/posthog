@@ -75,6 +75,8 @@ const getScaledHeightStyle = (rowCount: number): React.CSSProperties => {
 
 const getMinHeightStyle = (height: number): React.CSSProperties => ({ minHeight: `${height}px` })
 
+const TOOLTIP_VIEWPORT_PADDING = 8
+
 interface BreakdownErrorStateProps {
     metric: ExperimentMetric
     isAlternatingRow: boolean
@@ -610,9 +612,13 @@ export function MetricRowGroup({
         let x = chartCellRect.left + deltaPixelX - tooltipRect.width / 2
         const y = chartCellRect.top - tooltipRect.height - 8
 
-        // Keep tooltip within viewport bounds
-        const padding = 8
-        x = Math.max(padding, Math.min(x, window.innerWidth - tooltipRect.width - padding))
+        // Keep tooltip within the visible chart area. The chart can sit next to
+        // fixed navigation, so the full window width is not always available.
+        const maxTooltipRight = Math.min(window.innerWidth, chartCellRect.right)
+        x = Math.max(
+            TOOLTIP_VIEWPORT_PADDING,
+            Math.min(x, maxTooltipRight - tooltipRect.width - TOOLTIP_VIEWPORT_PADDING)
+        )
 
         return { x, y }
     }
@@ -775,6 +781,7 @@ export function MetricRowGroup({
                             left: tooltipState.position.x,
                             top: tooltipState.position.y,
                             visibility: tooltipState.isPositioned ? 'visible' : 'hidden',
+                            maxWidth: `calc(100vw - ${TOOLTIP_VIEWPORT_PADDING * 2}px)`,
                         }}
                         onMouseEnter={clearTooltipCloseTimer}
                         onMouseLeave={(e) => {
