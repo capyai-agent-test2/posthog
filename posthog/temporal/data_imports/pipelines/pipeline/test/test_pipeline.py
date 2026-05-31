@@ -4,8 +4,10 @@ import threading
 import contextvars
 
 import pytest
+from unittest.mock import AsyncMock, Mock, patch
 
-from posthog.temporal.data_imports.pipelines.pipeline.pipeline import async_iterate
+from posthog.temporal.data_imports.pipelines.common.load import run_post_load_operations
+from posthog.temporal.data_imports.pipelines.pipeline.pipeline import PipelineNonDLT, async_iterate
 
 _probe: contextvars.ContextVar[str | None] = contextvars.ContextVar("probe", default=None)
 
@@ -92,3 +94,45 @@ async def test_async_iterate_close_runs_when_cancelled_mid_iteration():
 
     # close() must have run despite cancellation mid-iteration.
     assert closed_flag.wait(timeout=3.0), "iterator.close() was not called"
+
+
+@pytest.mark.asyncio
+async def test_post_run_operations_updates_last_synced_at_without_delta_table():
+    pipeline = PipelineNonDLT.__new__(PipelineNonDLT)
+    pipeline._delta_table_helper = Mock()
+    pipeline._delta_table_helper.get_delta_table = AsyncMock(return_value=None)
+    pipeline._logger = Mock()
+    pipeline._logger.adebug = AsyncMock()
+    pipeline._job = Mock(id="job-id", team_id=1)
+    pipeline._schema = Mock(id="schema-id")
+
+    with patch(
+        "posthog.temporal.data_imports.pipelines.pipeline.pipeline.update_last_synced_at", new=AsyncMock()
+    ) as update_last_synced_at_mock:
+        await pipeline._post_run_operations(row_count=0)
+
+    update_last_synced_at_mock.assert_awaited_once_with(job_id="job-id", schema_id="schema-id", team_id=1)
+
+
+@pytest.mark.asyncio
+async def test_common_post_load_operations_updates_last_synced_at_without_delta_table():
+    job = Mock(id="job-id", team_id=1)
+    schema = Mock(id="schema-id")
+    logger = Mock()
+
+    with patch(
+        "posthog.temporal.data_imports.pipelines.pipeline_sync.update_last_synced_at", new=AsyncMock()
+    ) as update_last_synced_at_mock:
+        await run_post_load_operations(
+            job=job,
+            schema=schema,
+            source=Mock(),
+            delta_table_helper=None,
+            row_count=0,
+            file_uris=[],
+            table_schema_dict={},
+            resource_name="orders",
+            logger=logger,
+        )
+
+    update_last_synced_at_mock.assert_awaited_once_with(job_id="job-id", schema_id="schema-id", team_id=1)

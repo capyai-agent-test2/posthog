@@ -381,6 +381,8 @@ class PipelineNonDLT(Generic[ResumableData]):
         delta_table = await self._delta_table_helper.get_delta_table()
 
         if delta_table is None:
+            await self._logger.adebug("Updating last synced at timestamp on schema")
+            await update_last_synced_at(job_id=self._job.id, schema_id=self._schema.id, team_id=self._job.team_id)
             await self._logger.adebug("No deltalake table, not continuing with post-run ops")
             return
 
