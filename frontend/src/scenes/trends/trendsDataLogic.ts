@@ -15,7 +15,6 @@ import {
     getTrendDatasetKey,
     getTrendResultCustomization,
     getTrendResultCustomizationColorToken,
-    getTrendResultCustomizationKey,
 } from 'scenes/insights/utils'
 
 import {
@@ -64,6 +63,20 @@ export const INTERVAL_TO_DEFAULT_MOVING_AVERAGE_PERIOD: Record<IntervalType, num
 }
 
 const DEFAULT_CONFIDENCE_LEVEL = 95
+
+function getTrendVisibilityCustomization(
+    dataset: IndexedTrendResult,
+    resultCustomizationBy: ResultCustomizationBy,
+    resultCustomizations: Record<string, ResultCustomization> | Record<number, ResultCustomization> | null | undefined
+): ResultCustomization | undefined {
+    const valueKey = getTrendDatasetKey(dataset)
+    const valueCustomization = resultCustomizations?.[valueKey]
+    if (valueCustomization?.hidden !== undefined) {
+        return valueCustomization
+    }
+
+    return getTrendResultCustomization(resultCustomizationBy, dataset, resultCustomizations)
+}
 
 export const trendsDataLogic = kea<trendsDataLogicType>([
     props({} as InsightLogicProps),
@@ -479,9 +492,9 @@ export const trendsDataLogic = kea<trendsDataLogicType>([
             (s) => [s.resultCustomizationBy, s.resultCustomizations],
             (resultCustomizationBy, resultCustomizations) => {
                 return (dataset: IndexedTrendResult): boolean => {
-                    const resultCustomization = getTrendResultCustomization(
-                        resultCustomizationBy,
+                    const resultCustomization = getTrendVisibilityCustomization(
                         dataset,
+                        resultCustomizationBy,
                         resultCustomizations
                     )
                     return resultCustomization?.hidden || false
@@ -506,33 +519,29 @@ export const trendsDataLogic = kea<trendsDataLogicType>([
         ],
 
         getIsOnlyVisibleSeriesInLegend: [
-            (s) => [s.indexedResults, s.resultCustomizationBy, s.getTrendsHidden],
-            (indexedResults, resultCustomizationBy, getTrendsHidden) => {
+            (s) => [s.indexedResults, s.getTrendsHidden],
+            (indexedResults, getTrendsHidden) => {
                 if (indexedResults.length < 2) {
                     return (): boolean => false
                 }
 
                 const visibleKeys = new Set(
-                    indexedResults
-                        .filter((r) => !getTrendsHidden(r))
-                        .map((r) => getTrendResultCustomizationKey(resultCustomizationBy, r))
+                    indexedResults.filter((r) => !getTrendsHidden(r)).map((r) => getTrendDatasetKey(r))
                 )
                 const soloKey = visibleKeys.size === 1 ? [...visibleKeys][0] : null
 
                 return (dataset: IndexedTrendResult): boolean =>
-                    soloKey !== null &&
-                    !getTrendsHidden(dataset) &&
-                    getTrendResultCustomizationKey(resultCustomizationBy, dataset) === soloKey
+                    soloKey !== null && !getTrendsHidden(dataset) && getTrendDatasetKey(dataset) === soloKey
             },
         ],
     })),
 
     listeners(({ actions, values }) => ({
         toggleResultHidden: ({ dataset }) => {
-            const resultCustomizationKey = getTrendResultCustomizationKey(values.resultCustomizationBy, dataset)
-            const resultCustomization = getTrendResultCustomization(
-                values.resultCustomizationBy,
+            const resultCustomizationKey = getTrendDatasetKey(dataset)
+            const resultCustomization = getTrendVisibilityCustomization(
                 dataset,
+                values.resultCustomizationBy,
                 values.resultCustomizations
             )
             actions.updateInsightFilter({
@@ -540,7 +549,7 @@ export const trendsDataLogic = kea<trendsDataLogicType>([
                     ...values.resultCustomizations,
                     [resultCustomizationKey]: {
                         ...resultCustomization,
-                        assignmentBy: values.resultCustomizationBy,
+                        assignmentBy: ResultCustomizationBy.Value,
                         hidden: !resultCustomization?.hidden,
                     },
                 },
@@ -549,15 +558,15 @@ export const trendsDataLogic = kea<trendsDataLogicType>([
         toggleAllResultsHidden: ({ datasets, hidden }) => {
             const resultCustomizations: Record<string, ResultCustomization> = { ...values.resultCustomizations }
             for (const dataset of datasets) {
-                const resultCustomizationKey = getTrendResultCustomizationKey(values.resultCustomizationBy, dataset)
-                const existing = getTrendResultCustomization(
-                    values.resultCustomizationBy,
+                const resultCustomizationKey = getTrendDatasetKey(dataset)
+                const existing = getTrendVisibilityCustomization(
                     dataset,
+                    values.resultCustomizationBy,
                     values.resultCustomizations
                 )
                 resultCustomizations[resultCustomizationKey] = {
                     ...existing,
-                    assignmentBy: values.resultCustomizationBy,
+                    assignmentBy: ResultCustomizationBy.Value,
                     hidden: hidden,
                 }
             }
@@ -572,32 +581,30 @@ export const trendsDataLogic = kea<trendsDataLogicType>([
                 return
             }
 
-            const clickedKey = getTrendResultCustomizationKey(resultCustomizationBy, dataset)
-            const others = indexedResults.filter(
-                (d) => getTrendResultCustomizationKey(resultCustomizationBy, d) !== clickedKey
-            )
+            const clickedKey = getTrendDatasetKey(dataset)
+            const others = indexedResults.filter((d) => getTrendDatasetKey(d) !== clickedKey)
             const isSoloMode = others.length > 0 && !getTrendsHidden(dataset) && others.every((d) => getTrendsHidden(d))
 
             const next: Record<string, ResultCustomization> = { ...resultCustomizations }
 
             if (isSoloMode) {
                 for (const r of indexedResults) {
-                    const key = getTrendResultCustomizationKey(resultCustomizationBy, r)
-                    const existing = getTrendResultCustomization(resultCustomizationBy, r, resultCustomizations)
+                    const key = getTrendDatasetKey(r)
+                    const existing = getTrendVisibilityCustomization(r, resultCustomizationBy, resultCustomizations)
                     next[key] = {
                         ...existing,
-                        assignmentBy: values.resultCustomizationBy,
+                        assignmentBy: ResultCustomizationBy.Value,
                         hidden: false,
                     }
                 }
             } else {
                 for (const r of indexedResults) {
-                    const key = getTrendResultCustomizationKey(resultCustomizationBy, r)
-                    const existing = getTrendResultCustomization(resultCustomizationBy, r, resultCustomizations)
+                    const key = getTrendDatasetKey(r)
+                    const existing = getTrendVisibilityCustomization(r, resultCustomizationBy, resultCustomizations)
                     const isClicked = key === clickedKey
                     next[key] = {
                         ...existing,
-                        assignmentBy: values.resultCustomizationBy,
+                        assignmentBy: ResultCustomizationBy.Value,
                         hidden: !isClicked,
                     }
                 }
