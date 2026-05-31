@@ -14,12 +14,13 @@ import { teamLogic } from 'scenes/teamLogic'
 import { openPersonsModal } from 'scenes/trends/persons-modal/PersonsModal'
 
 import { groupsModel } from '~/models/groupsModel'
-import { InsightQueryNode, NodeKind } from '~/queries/schema/schema-general'
+import { InsightQueryNode } from '~/queries/schema/schema-general'
 import { QueryContext } from '~/queries/types'
 import { ChartParams, TrendResult } from '~/types'
 
 import { SeriesDatum } from '../../InsightTooltip/insightTooltipUtils'
 import { countryVectors } from './countryVectors'
+import { worldMapSeriesToActorsQuery } from './worldMapActorsQuery'
 import { worldMapLogic } from './worldMapLogic'
 
 /** The saturation of a country is proportional to its value BUT the saturation has a floor to improve visibility. */
@@ -173,16 +174,12 @@ const WorldMapSVG = React.memo(
                                 )
                                 hideTooltip()
                             }
-                        } else if (showPersonsModal && countrySeries) {
+                        } else if (showPersonsModal && countrySeries && querySource) {
                             onClick = () => {
-                                if (showPersonsModal && countrySeries) {
+                                if (showPersonsModal && countrySeries && querySource) {
                                     openPersonsModal({
                                         title: countrySeries.label,
-                                        query: {
-                                            kind: NodeKind.InsightActorsQuery,
-                                            source: querySource!,
-                                            includeRecordings: true,
-                                        },
+                                        query: worldMapSeriesToActorsQuery(countrySeries, querySource),
                                         additionalSelect: {
                                             value_at_data_point: 'event_count',
                                             matched_recordings: 'matched_recordings',
