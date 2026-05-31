@@ -100,6 +100,10 @@ describe('experimentsTabLogic', () => {
         theExperimentsTabLogic.mount()
     })
 
+    afterEach(() => {
+        document.body.innerHTML = ''
+    })
+
     describe('core assumptions', () => {
         it('mounts other logics', async () => {
             await expectLogic(theExperimentsTabLogic).toMount([router, experimentsLogic, toolbarConfigLogic])
