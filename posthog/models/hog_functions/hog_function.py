@@ -305,6 +305,7 @@ def team_inject_web_apps_changd(sender, instance, created=None, **kwargs):
 @receiver(models.signals.post_save, sender=Team)
 def enabled_default_hog_functions_for_new_team(sender, instance: Team, created: bool, **kwargs):
     from posthog.api.hog_function import HogFunctionSerializer
+    from posthog.cdp.templates.geoip.template_geoip import template as geoip_template
     from posthog.cdp.templates.hog_function_template import sync_template_to_db
     from posthog.models.hog_function_template import HogFunctionTemplate
     from posthog.plugins.plugin_server_api import get_hog_function_templates
@@ -319,6 +320,8 @@ def enabled_default_hog_functions_for_new_team(sender, instance: Team, created: 
     if not template:
         logger.info("GeoIP template not found in DB, attempting to sync")
         try:
+            template = sync_template_to_db(geoip_template)
+
             # gets templates from node-land (including geo-ip)
             response = get_hog_function_templates()
             if response.status_code == 200:

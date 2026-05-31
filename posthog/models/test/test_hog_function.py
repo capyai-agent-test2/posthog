@@ -501,7 +501,7 @@ class TestHogFunctionsBackgroundReloading(TestCase, QueryMatchingTest):
         assert transformations.count() == 0
 
     @patch("posthog.plugins.plugin_server_api.get_hog_function_templates")
-    def test_geoip_transformation_not_created_when_sync_fails(self, mock_get_templates):
+    def test_geoip_transformation_created_with_bundled_template_when_sync_fails(self, mock_get_templates):
         mock_get_templates.side_effect = Exception("Network error")
 
         with self.settings(DISABLE_MMDB=False):
@@ -510,10 +510,18 @@ class TestHogFunctionsBackgroundReloading(TestCase, QueryMatchingTest):
             )
 
         transformations = HogFunction.objects.filter(team=team, type="transformation")
-        assert transformations.count() == 0
+        assert transformations.count() == 1
+        geoip = transformations.first()
+        assert geoip
+        assert geoip.name == "GeoIP"
+        assert geoip.description == "Adds geoip data to the event"
+        assert geoip.icon_url == "/static/transformations/geoip.png"
+        assert geoip.enabled
+        assert geoip.execution_order == 1
+        assert geoip.template_id == "template-geoip"
 
     @patch("posthog.plugins.plugin_server_api.get_hog_function_templates")
-    def test_geoip_transformation_not_created_when_template_not_found(self, mock_get_templates):
+    def test_geoip_transformation_created_with_bundled_template_when_node_template_not_found(self, mock_get_templates):
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = []
@@ -525,7 +533,15 @@ class TestHogFunctionsBackgroundReloading(TestCase, QueryMatchingTest):
             )
 
         transformations = HogFunction.objects.filter(team=team, type="transformation")
-        assert transformations.count() == 0
+        assert transformations.count() == 1
+        geoip = transformations.first()
+        assert geoip
+        assert geoip.name == "GeoIP"
+        assert geoip.description == "Adds geoip data to the event"
+        assert geoip.icon_url == "/static/transformations/geoip.png"
+        assert geoip.enabled
+        assert geoip.execution_order == 1
+        assert geoip.template_id == "template-geoip"
 
     @patch("posthog.plugins.plugin_server_api.get_hog_function_templates")
     def test_geoip_transformation_not_created_when_hog_code_invalid(self, mock_get_templates):
