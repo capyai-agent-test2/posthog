@@ -846,7 +846,10 @@ class SurveySerializerCreateUpdateOnly(serializers.ModelSerializer):
 
     def _has_new_survey_styling(self, appearance: dict[str, Any]) -> bool:
         for key in SURVEY_STYLING_APPEARANCE_FIELDS:
-            if key in appearance and appearance.get(key) != self._get_existing_appearance_value(key):
+            if key not in appearance:
+                continue
+            value = appearance.get(key)
+            if value != self._get_existing_appearance_value(key) and value != DEFAULT_SURVEY_APPEARANCE.get(key):
                 return True
         return False
 

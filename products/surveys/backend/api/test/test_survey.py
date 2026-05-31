@@ -4463,6 +4463,27 @@ class TestSurveyQuestionValidationWithEnterpriseFeatures(APIBaseTest):
         response_data = response.json()
         assert response.status_code == status.HTTP_200_OK, response_data
 
+    def test_update_survey_to_default_styling_does_not_require_feature(self):
+        self.organization.available_product_features = []
+        self.organization.save()
+        survey = Survey.objects.create(
+            team=self.team,
+            created_by=self.user,
+            name="Styled survey",
+            type="popover",
+            questions=[{"type": "open", "question": "What do you think?"}],
+            appearance={"backgroundColor": "#ffffff"},
+        )
+
+        response = self.client.patch(
+            f"/api/projects/{self.team.id}/surveys/{survey.id}/",
+            data={"appearance": {"backgroundColor": "#eeeded"}},
+            format="json",
+        )
+        response_data = response.json()
+        assert response.status_code == status.HTTP_200_OK, response_data
+        assert response_data["appearance"]["backgroundColor"] == "#eeeded"
+
     def test_create_survey_with_custom_styling_available(self):
         self.organization.available_product_features = [
             {"key": AvailableFeature.SURVEYS_STYLING, "name": AvailableFeature.SURVEYS_STYLING}
