@@ -27,6 +27,12 @@ describe('LemonMarkdown utilities', () => {
                 )
             ).toBe('Before $ x $\n\n    \\( code \\)\n\t\\[ tabbed \\]\n\nAfter $$ y $$')
         })
+
+        it('converts Latex delimiters on indented paragraph continuation lines', () => {
+            expect(normalizeLatexMathDelimiters('Before\n    \\( still paragraph \\)\n\nAfter')).toBe(
+                'Before\n    $ still paragraph $\n\nAfter'
+            )
+        })
     })
 
     describe('slugifyHeading', () => {

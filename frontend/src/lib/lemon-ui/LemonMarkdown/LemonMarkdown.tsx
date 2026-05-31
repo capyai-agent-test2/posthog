@@ -49,6 +49,9 @@ export function normalizeLatexMathDelimiters(markdown: string): string {
     let inlineCodeTicks = 0
     let fencedCodeTicks = ''
     let atLineStart = true
+    let canStartIndentedCodeBlock = true
+    let inIndentedCodeBlock = false
+    let currentLineHasNonWhitespace = false
 
     for (let index = 0; index < markdown.length; index++) {
         const currentCharacter = markdown[index]
@@ -56,6 +59,7 @@ export function normalizeLatexMathDelimiters(markdown: string): string {
         const remainingLine = markdown.slice(index)
         const fenceMatch = remainingLine.match(/^([ \t]*)(`{3,}|~{3,})/)
         const indentedCodeBlockMatch = remainingLine.match(/^(?: {4}|\t)[^\n]*(?:\n|$)/)
+        const isBlankLine = atLineStart && /^[ \t]*(?:\n|$)/.test(remainingLine)
 
         if (atLineStart && !inlineCodeTicks && fenceMatch) {
             const fence = fenceMatch[2]
@@ -70,11 +74,24 @@ export function normalizeLatexMathDelimiters(markdown: string): string {
             continue
         }
 
-        if (atLineStart && !inlineCodeTicks && !fencedCodeTicks && indentedCodeBlockMatch) {
+        if (
+            atLineStart &&
+            !inlineCodeTicks &&
+            !fencedCodeTicks &&
+            indentedCodeBlockMatch &&
+            (canStartIndentedCodeBlock || inIndentedCodeBlock)
+        ) {
             normalized += indentedCodeBlockMatch[0]
             index += indentedCodeBlockMatch[0].length - 1
+            inIndentedCodeBlock = true
+            canStartIndentedCodeBlock = true
+            currentLineHasNonWhitespace = false
             atLineStart = true
             continue
+        }
+
+        if (atLineStart && !isBlankLine && !indentedCodeBlockMatch) {
+            inIndentedCodeBlock = false
         }
 
         if (!fencedCodeTicks && currentCharacter === '`') {
@@ -105,7 +122,14 @@ export function normalizeLatexMathDelimiters(markdown: string): string {
         }
 
         normalized += currentCharacter
-        atLineStart = currentCharacter === '\n'
+        if (currentCharacter === '\n') {
+            atLineStart = true
+            canStartIndentedCodeBlock = !currentLineHasNonWhitespace || inIndentedCodeBlock
+            currentLineHasNonWhitespace = false
+        } else {
+            atLineStart = false
+            currentLineHasNonWhitespace ||= currentCharacter !== ' ' && currentCharacter !== '\t'
+        }
     }
 
     return normalized
