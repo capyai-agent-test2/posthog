@@ -359,6 +359,7 @@ STORAGES = {
 
 
 def static_varies_origin(headers, path, url):
+    headers["Access-Control-Allow-Origin"] = "*"
     headers["Vary"] = "Accept-Encoding, Origin"
 
 
