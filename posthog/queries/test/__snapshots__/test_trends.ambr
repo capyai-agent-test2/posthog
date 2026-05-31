@@ -514,8 +514,8 @@
 # ---
 # name: TestTrends.test_breakdown_filtering_with_properties_in_new_format.3
   '''
-  SELECT [now()] AS date,
-         [0] AS total,
+  SELECT now() AS date,
+         0 AS total,
          '' AS breakdown_value
   LIMIT 0
   '''
