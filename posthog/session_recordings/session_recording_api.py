@@ -1928,6 +1928,10 @@ def list_recordings_from_query(
 
     # If session_recording_id is provided, load it independently so concrete replay links are not hidden by filters.
     if session_recording_id_to_prepend:
+        if all_session_ids:
+            all_session_ids = [session_recording_id_to_prepend] + [
+                sid for sid in all_session_ids if sid != session_recording_id_to_prepend
+            ]
         with timer("load_prepend_recording"):
             prepend_recording = _load_recording_by_id(
                 session_recording_id_to_prepend,
