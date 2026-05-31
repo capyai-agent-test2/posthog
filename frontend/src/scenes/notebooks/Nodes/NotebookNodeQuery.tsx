@@ -272,7 +272,7 @@ export const Settings = ({
             modifiedQuery.showFilters = true
             modifiedQuery.showHeader = true
             modifiedQuery.showResults = false
-            modifiedQuery.embedded = true
+            modifiedQuery.embedded = false
         }
 
         if (
@@ -291,7 +291,7 @@ export const Settings = ({
         }
 
         return modifiedQuery
-    }, [query, canvasFiltersOverride, isDefaultFilterApplied, attributes, updateAttributes])
+    }, [query, canvasFiltersOverride, isDefaultFilterApplied, updateAttributes])
 
     const detachSavedInsight = (): void => {
         if (isSavedInsightNode(attributes.query)) {
