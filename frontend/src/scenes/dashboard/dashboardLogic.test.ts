@@ -1308,6 +1308,48 @@ describe('dashboardLogic', () => {
             expect(tenQuery?.source?.interval).toEqual('hour')
         })
 
+        it('preserves current insight results when dashboard metadata is updated', async () => {
+            const copiedInsight = insight800()
+            const insightQuery = copiedInsight.query as InsightVizNode<TrendsQuery> | undefined
+            dashboardsModel.actions.updateDashboardInsight({
+                ...copiedInsight,
+                query: {
+                    ...insightQuery,
+                    source: {
+                        ...insightQuery?.source,
+                        dateRange: { ...insightQuery?.source?.dateRange, date_from: '-1d' },
+                        interval: 'hour',
+                    },
+                } as InsightVizNode<TrendsQuery>,
+                last_refresh: '2012-04-01T00:00:00Z',
+            })
+            await expectLogic(logic).toFinishAllListeners()
+
+            dashboardsModel.actions.updateDashboardSuccess({
+                ...dashboards[9],
+                name: 'Renamed dashboard',
+                tiles: dashboards[9].tiles.map((tile) =>
+                    tile.insight
+                        ? {
+                              ...tile,
+                              insight: {
+                                  ...tile.insight,
+                                  name: 'Updated insight title',
+                              },
+                          }
+                        : tile
+                ),
+            })
+            await expectLogic(logic).toFinishAllListeners()
+
+            expect(logic.values.dashboard?.name).toEqual('Renamed dashboard')
+            expect(logic.values.insightTiles[0].insight?.name).toEqual('Updated insight title')
+            const query = logic.values.insightTiles[0].insight?.query as InsightVizNode<TrendsQuery> | undefined
+            expect(query?.source?.dateRange?.date_from).toEqual('-1d')
+            expect(query?.source?.interval).toEqual('hour')
+            expect(logic.values.textTiles[0].text!.body).toEqual('I AM A TEXT')
+        })
+
         it('can respond to external insight rename', async () => {
             expect(logic.values.dashboard?.tiles[0].color).toEqual(null)
 
