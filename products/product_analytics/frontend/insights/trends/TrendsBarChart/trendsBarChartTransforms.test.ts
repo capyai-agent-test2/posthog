@@ -6,6 +6,7 @@ import {
     buildTrendsBarAggregatedSeries,
     buildTrendsBarTimeSeries,
     buildTrendsBarTimeSeriesConfig,
+    getTrendsBarAggregatedValue,
     type TrendsBarResultLike,
 } from './trendsBarChartTransforms'
 
@@ -94,7 +95,7 @@ describe('buildTrendsBarAggregatedSeries', () => {
         expect(series[2].data).toEqual([0, 0, 30])
     })
 
-    it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, undefined])(
+    it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, undefined, null])(
         'replaces non-finite aggregated_value (%p) with 0 at the result index',
         (badValue) => {
             const { series } = buildTrendsBarAggregatedSeries([mkResult({ aggregated_value: badValue })], {
@@ -103,6 +104,20 @@ describe('buildTrendsBarAggregatedSeries', () => {
             expect(series[0].data).toEqual([0])
         }
     )
+
+    it('uses numeric aggregated_value strings for result values', () => {
+        const { series } = buildTrendsBarAggregatedSeries([mkResult({ aggregated_value: '12.5' })], {
+            getColor: () => RED,
+        })
+        expect(series[0].data).toEqual([12.5])
+    })
+
+    it('falls back to count when aggregated_value is missing', () => {
+        const { series } = buildTrendsBarAggregatedSeries([mkResult({ aggregated_value: undefined, count: 42 })], {
+            getColor: () => RED,
+        })
+        expect(series[0].data).toEqual([42])
+    })
 
     it('passes per-result colors through from getColor', () => {
         const colors = ['#aaa', '#bbb', '#ccc']
@@ -150,6 +165,18 @@ describe('buildTrendsBarAggregatedSeries', () => {
         expect(series).toHaveLength(2)
         expect(series[0].data).toEqual([1, 0])
         expect(series[1].data).toEqual([0, 3])
+    })
+})
+
+describe('getTrendsBarAggregatedValue', () => {
+    it.each([
+        { result: { aggregated_value: 3 }, expected: 3 },
+        { result: { aggregated_value: '4.5' }, expected: 4.5 },
+        { result: { aggregated_value: undefined, count: 6 }, expected: 6 },
+        { result: { aggregated_value: Number.NaN, count: '7' }, expected: 7 },
+        { result: { aggregated_value: Number.POSITIVE_INFINITY, count: undefined }, expected: 0 },
+    ])('returns $expected for $result', ({ result, expected }) => {
+        expect(getTrendsBarAggregatedValue(makeResult(result))).toBe(expected)
     })
 })
 
