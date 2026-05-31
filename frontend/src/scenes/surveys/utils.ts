@@ -1181,16 +1181,16 @@ export function getSurveyNotificationFilters(
             value: surveyId,
             operator: PropertyOperator.Exact,
         },
-        {
-            key: SurveyEventProperties.SURVEY_COMPLETED,
-            type: PropertyFilterType.Event,
-            value: true,
-            operator: PropertyOperator.Exact,
-        },
         ...extraSentEventProperties,
     ]
 
     return {
+        properties: [
+            {
+                type: PropertyFilterType.HogQL,
+                key: `event != '${SurveyEventName.SENT}' OR coalesce(properties.${SurveyEventProperties.SURVEY_COMPLETED}, true) != false`,
+            },
+        ],
         events: [
             {
                 id: SurveyEventName.SENT,

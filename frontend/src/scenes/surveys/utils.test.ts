@@ -185,6 +185,12 @@ describe('survey utils', () => {
     describe('getSurveyNotificationFilters', () => {
         it('builds survey-specific notification filters', () => {
             expect(getSurveyNotificationFilters('survey-123')).toEqual({
+                properties: [
+                    {
+                        type: PropertyFilterType.HogQL,
+                        key: "event != 'survey sent' OR coalesce(properties.$survey_completed, true) != false",
+                    },
+                ],
                 events: [
                     {
                         id: SurveyEventName.SENT,
@@ -194,12 +200,6 @@ describe('survey utils', () => {
                                 key: SurveyEventProperties.SURVEY_ID,
                                 type: PropertyFilterType.Event,
                                 value: 'survey-123',
-                                operator: PropertyOperator.Exact,
-                            },
-                            {
-                                key: SurveyEventProperties.SURVEY_COMPLETED,
-                                type: PropertyFilterType.Event,
-                                value: true,
                                 operator: PropertyOperator.Exact,
                             },
                         ],

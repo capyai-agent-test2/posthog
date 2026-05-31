@@ -695,7 +695,8 @@ function mergeResponseFiltersIntoExistingFilters(
                     typeof property === 'object' &&
                     property !== null &&
                     'type' in property &&
-                    (property as { type?: unknown }).type === PropertyFilterType.Event
+                    (property as { type?: unknown }).type === PropertyFilterType.Event &&
+                    property.key !== SurveyEventProperties.SURVEY_COMPLETED
             )
         )
         return {
