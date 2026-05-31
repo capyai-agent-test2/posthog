@@ -274,7 +274,9 @@ export interface FunctionContentItem {
 export type MultiModalContentItem =
     | string
     | TextContentItem
+    | VercelSDKInputTextMessage
     | ImageContentItem
+    | VercelSDKInputImageMessage
     | FunctionContentItem
     | OpenAIImageURLMessage
     | OpenAIFileMessage

@@ -991,6 +991,25 @@ describe('AI observability utils', () => {
             expect(result[0].content).toEqual([{ type: 'input_text', text: 'What is the weather?' }])
         })
 
+        it('preserves OpenAI Responses input_image content type', () => {
+            const message = {
+                role: 'user',
+                content: [
+                    { type: 'input_text', text: 'What is in this image?' },
+                    { type: 'input_image', image_url: 'https://example.com/screenshot.png' },
+                ],
+            }
+
+            const result = normalizeMessage(message, 'user')
+
+            expect(result).toHaveLength(1)
+            expect(result[0].role).toBe('user')
+            expect(result[0].content).toEqual([
+                { type: 'input_text', text: 'What is in this image?' },
+                { type: 'input_image', image_url: 'https://example.com/screenshot.png' },
+            ])
+        })
+
         it('uses defaultRole when message has no role property', () => {
             const messageWithoutRole = {
                 type: 'output_text',
