@@ -88,7 +88,28 @@ export function useChart<TType extends ChartType = ChartType>({
 
         chartRef.current = new Chart(canvas, config) as Chart<TType>
 
+        let animationFrame: number | null = null
+        let resizeObserver: ResizeObserver | null = null
+
+        if (typeof ResizeObserver !== 'undefined' && canvas.parentElement) {
+            resizeObserver = new ResizeObserver(() => {
+                if (animationFrame !== null) {
+                    cancelAnimationFrame(animationFrame)
+                }
+                animationFrame = requestAnimationFrame(() => {
+                    chartRef.current?.resize()
+                    animationFrame = null
+                })
+            })
+            resizeObserver.observe(canvas.parentElement)
+        }
+
         return () => {
+            resizeObserver?.disconnect()
+            if (animationFrame !== null) {
+                cancelAnimationFrame(animationFrame)
+            }
+
             // Two different charts can exist:
             // 1. orphanedChart: A chart Chart.js tracks on this canvas that we DON'T have in our ref.
             //    This happens in React StrictMode (double-mount), HMR, or if chart creation succeeded
