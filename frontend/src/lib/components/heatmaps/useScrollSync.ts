@@ -34,14 +34,15 @@ export function findScrollableElement(target: EventTarget | null): Element | nul
     return null
 }
 
-export function collectScrollableElementBaselines(root: ParentNode = document): Map<Element, number> {
-    const baselines = new Map<Element, number>()
-    root.querySelectorAll('*').forEach((element) => {
-        if (isScrollableElement(element)) {
-            baselines.set(element, elementScrollTop(element))
-        }
-    })
-    return baselines
+export function captureScrollableElementBaseline(
+    target: EventTarget | null,
+    baselines: Map<Element, number>
+): Element | null {
+    const scrollableElement = findScrollableElement(target)
+    if (scrollableElement && !baselines.has(scrollableElement)) {
+        baselines.set(scrollableElement, elementScrollTop(scrollableElement))
+    }
+    return scrollableElement
 }
 
 export function useScrollSync(enabled: boolean = true): {
@@ -67,17 +68,17 @@ export function useScrollSync(enabled: boolean = true): {
         let rafId: number | undefined
         let lastScrollY = -1
         let nestedScrollDelta = 0
-        const nestedScrollBaselines = collectScrollableElementBaselines()
+        const nestedScrollBaselines = new Map<Element, number>()
+
+        const captureScrollBaseline = (event: Event): void => {
+            captureScrollableElementBaseline(event.target, nestedScrollBaselines)
+        }
 
         const onScroll = (event: Event): void => {
-            const scrollableElement = findScrollableElement(event.target)
+            const scrollableElement = captureScrollableElementBaseline(event.target, nestedScrollBaselines)
             if (!scrollableElement) {
                 nestedScrollDelta = 0
                 return
-            }
-
-            if (!nestedScrollBaselines.has(scrollableElement)) {
-                nestedScrollBaselines.set(scrollableElement, elementScrollTop(scrollableElement))
             }
 
             nestedScrollDelta =
@@ -97,10 +98,16 @@ export function useScrollSync(enabled: boolean = true): {
             rafId = requestAnimationFrame(onFrame)
         }
 
+        document.addEventListener('wheel', captureScrollBaseline, { capture: true, passive: true })
+        document.addEventListener('touchstart', captureScrollBaseline, { capture: true, passive: true })
+        document.addEventListener('mousedown', captureScrollBaseline, { capture: true, passive: true })
         document.addEventListener('scroll', onScroll, { capture: true, passive: true })
         rafId = requestAnimationFrame(onFrame)
 
         return () => {
+            document.removeEventListener('wheel', captureScrollBaseline, { capture: true })
+            document.removeEventListener('touchstart', captureScrollBaseline, { capture: true })
+            document.removeEventListener('mousedown', captureScrollBaseline, { capture: true })
             document.removeEventListener('scroll', onScroll, { capture: true })
             if (rafId !== undefined) {
                 cancelAnimationFrame(rafId)

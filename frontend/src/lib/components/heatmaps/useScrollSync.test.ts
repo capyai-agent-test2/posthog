@@ -1,4 +1,4 @@
-import { collectScrollableElementBaselines, findScrollableElement, isScrollableElement } from './useScrollSync'
+import { captureScrollableElementBaseline, findScrollableElement, isScrollableElement } from './useScrollSync'
 
 function setElementScrollMetrics(
     element: HTMLElement,
@@ -54,14 +54,14 @@ describe('useScrollSync helpers', () => {
         expect(findScrollableElement(child)).toBe(scrollable)
     })
 
-    it('collects scroll baselines for existing scroll containers', () => {
-        const root = document.createElement('div')
+    it('captures scroll baselines lazily for interacted scroll containers', () => {
+        const baselines = new Map<Element, number>()
         const scrollable = document.createElement('div')
         scrollable.dataset.overflowY = 'auto'
         setElementScrollMetrics(scrollable, 200, 100, 25)
-        root.appendChild(scrollable)
+        document.body.appendChild(scrollable)
 
-        const baselines = collectScrollableElementBaselines(root)
+        expect(captureScrollableElementBaseline(scrollable, baselines)).toBe(scrollable)
 
         expect(baselines.get(scrollable)).toBe(25)
     })
