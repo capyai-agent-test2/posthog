@@ -329,6 +329,9 @@ describe('InsightPageHeader', () => {
 
             const textarea = screen.getByPlaceholderText('Enter name')
             fireEvent.change(textarea, { target: { value: 'New Name' } })
+
+            expect(iLogic.values.insight.name).toBe('Original Name')
+
             fireEvent.blur(textarea)
 
             await waitFor(() => {

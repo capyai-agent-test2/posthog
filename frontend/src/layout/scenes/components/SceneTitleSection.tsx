@@ -446,20 +446,15 @@ export function SceneName({
         }
     }, [isLoading, forceEdit])
 
-    const debouncedOnBlurSave = useDebouncedCallback((value: string) => {
-        onChange?.(value)
-    }, renameDebounceMs)
-
     const debouncedOnChange = useDebouncedCallback((value: string) => {
         onChange?.(value)
     }, renameDebounceMs)
 
     useEffect(() => {
         return () => {
-            debouncedOnBlurSave.flush()
             debouncedOnChange.flush()
         }
-    }, [debouncedOnBlurSave, debouncedOnChange])
+    }, [debouncedOnChange])
 
     const handleBlur = (e: React.FocusEvent): void => {
         const relatedTarget = e.relatedTarget as HTMLElement | null
@@ -467,7 +462,7 @@ export function SceneName({
             return
         }
         if (saveOnBlur && !isGeneratingMetadata && name !== initialName) {
-            debouncedOnBlurSave(name || '')
+            onChange?.(name || '')
         }
         if (!forceEdit) {
             setIsEditing(false)
@@ -647,24 +642,19 @@ function SceneDescription({
         }
     }, [isLoading, forceEdit])
 
-    const debouncedOnBlurSaveDescription = useDebouncedCallback((value: string) => {
-        onChange?.(value)
-    }, renameDebounceMs)
-
     const debouncedOnDescriptionChange = useDebouncedCallback((value: string) => {
         onChange?.(value)
     }, renameDebounceMs)
 
     useEffect(() => {
         return () => {
-            debouncedOnBlurSaveDescription.flush()
             debouncedOnDescriptionChange.flush()
         }
-    }, [debouncedOnBlurSaveDescription, debouncedOnDescriptionChange])
+    }, [debouncedOnDescriptionChange])
 
     const handleBlur = (): void => {
         if (saveOnBlur && !isGeneratingMetadata && description !== initialDescription) {
-            debouncedOnBlurSaveDescription(description || '')
+            onChange?.(description || '')
         }
         if (!forceEdit) {
             setIsEditing(false)
