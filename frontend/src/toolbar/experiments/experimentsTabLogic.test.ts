@@ -100,6 +100,10 @@ describe('experimentsTabLogic', () => {
         theExperimentsTabLogic.mount()
     })
 
+    afterEach(() => {
+        document.body.innerHTML = ''
+    })
+
     describe('core assumptions', () => {
         it('mounts other logics', async () => {
             await expectLogic(theExperimentsTabLogic).toMount([router, experimentsLogic, toolbarConfigLogic])
@@ -200,29 +204,39 @@ describe('experimentsTabLogic', () => {
 
     describe('creating experiments', () => {
         it('can create a new experiment', async () => {
+            const title = document.createElement('h1')
+            title.innerHTML = 'Original title'
+            document.body.appendChild(title)
+
+            theExperimentsTabLogic.actions.newExperiment()
+            theExperimentsTabLogic.actions.inspectElementSelected(title, 'test', 0, 'h1')
+            theExperimentsTabLogic.actions.setExperimentFormValue('variants', {
+                ...theExperimentsTabLogic.values.experimentForm.variants,
+                test: {
+                    ...theExperimentsTabLogic.values.experimentForm.variants.test,
+                    transforms: [
+                        {
+                            selector: 'h1',
+                            html: 'Updated title',
+                        },
+                    ],
+                },
+            })
+            theExperimentsTabLogic.actions.applyVariant('test')
+            theExperimentsTabLogic.actions.setExperimentFormValue('name', 'New Test Experiment')
+
+            expect(title.innerHTML).toBe('Updated title')
+
             await expectLogic(theExperimentsTabLogic, () => {
-                theExperimentsTabLogic.actions.newExperiment()
-                theExperimentsTabLogic.actions.setExperimentFormValue('name', 'New Test Experiment')
                 theExperimentsTabLogic.actions.submitExperimentForm()
             })
+                .delay(0)
                 .toMatchValues({
-                    experimentForm: {
-                        name: 'New Test Experiment',
-                        variants: {
-                            control: {
-                                transforms: [],
-                                rollout_percentage: 50,
-                            },
-                            test: {
-                                is_new: true,
-                                transforms: [{}],
-                                rollout_percentage: 50,
-                            },
-                        },
-                        original_html_state: {},
-                    },
+                    selectedExperimentId: null,
                 })
-                .toDispatchActions(['newExperiment', 'setExperimentFormValue', 'submitExperimentForm'])
+                .toDispatchActions(['submitExperimentForm', 'applyVariant', 'selectExperiment'])
+
+            expect(title.innerHTML).toBe('Original title')
         })
     })
 

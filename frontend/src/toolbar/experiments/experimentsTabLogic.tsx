@@ -213,6 +213,7 @@ export const experimentsTabLogic = kea<experimentsTabLogicType>([
 
                     response = await res.json()
 
+                    actions.applyVariant('control')
                     experimentsLogic.actions.updateExperiment({ experiment: response })
                     actions.selectExperiment(null)
 
