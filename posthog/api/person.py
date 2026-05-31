@@ -1180,6 +1180,8 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
     ) -> dict[str, tuple[List, Optional[str], Optional[str], int]]:  # noqa: UP006
         filter = Filter(request=request, team=self.team)
         filter = prepare_actor_query_filter(filter)
+        if filter.filter_test_accounts:
+            filter = filter.simplify(self.team)
         entity = get_target_entity(filter)
 
         actors, serialized_actors, raw_count = TrendsActors(self.team, entity, filter).get_actors()

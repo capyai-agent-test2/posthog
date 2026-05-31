@@ -112,6 +112,43 @@ class TestTrendsPersons(ClickhouseTestMixin, APIBaseTest):
     def _get_actors(self, trends_query: TrendsQuery, **kwargs):
         return get_actors(trends_query=trends_query, team=self.team, **kwargs, includeRecordings=True)
 
+    def test_actors_query_applies_not_icontains_test_account_filters(self):
+        _create_person(
+            team_id=self.team.pk,
+            distinct_ids=["kept_person"],
+            properties={"email": "customer@example.com"},
+        )
+        _create_person(
+            team_id=self.team.pk,
+            distinct_ids=["filtered_person"],
+            properties={"email": "employee@posthog.com"},
+        )
+        _create_event(
+            event="$pageview",
+            distinct_id="kept_person",
+            timestamp="2023-05-01 16:00",
+            team=self.team,
+        )
+        _create_event(
+            event="$pageview",
+            distinct_id="filtered_person",
+            timestamp="2023-05-01 16:00",
+            team=self.team,
+        )
+        self.team.test_account_filters = [
+            {"key": "email", "value": "@posthog.com", "operator": "not_icontains", "type": "person"}
+        ]
+        self.team.save()
+        source_query = TrendsQuery(
+            series=[EventsNode(event="$pageview")],
+            dateRange=DateRange(date_from="2023-05-01", date_to="2023-05-01"),
+            filterTestAccounts=True,
+        )
+
+        result = self._get_actors(trends_query=source_query, day="2023-05-01")
+
+        self.assertEqual([get_distinct_id(row) for row in result], ["kept_person"])
+
     def _create_events(self):
         _create_person(
             team_id=self.team.pk,

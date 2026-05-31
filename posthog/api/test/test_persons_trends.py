@@ -183,6 +183,48 @@ class TestPersonTrends(ClickhouseTestMixin, APIBaseTest):
         event_response_next = self.client.get(event_response["next"]).json()
         self.assertEqual(len(event_response_next["results"][0]["people"]), 50)
 
+    def test_people_endpoint_applies_not_icontains_test_account_filters(self):
+        kept_person = _create_person(
+            team_id=self.team.pk,
+            distinct_ids=["kept_person"],
+            properties={"email": "customer@example.com"},
+        )
+        _create_person(
+            team_id=self.team.pk,
+            distinct_ids=["filtered_person"],
+            properties={"email": "employee@posthog.com"},
+        )
+        _create_event(
+            team=self.team,
+            event="sign up",
+            distinct_id="kept_person",
+            timestamp="2020-01-04T12:00:00Z",
+        )
+        _create_event(
+            team=self.team,
+            event="sign up",
+            distinct_id="filtered_person",
+            timestamp="2020-01-04T12:00:00Z",
+        )
+        self.team.test_account_filters = [
+            {"key": "email", "value": "@posthog.com", "operator": "not_icontains", "type": "person"}
+        ]
+        self.team.save()
+        flush_persons_and_events()
+
+        event_response = self.client.get(
+            f"/api/projects/{self.team.id}/persons/trends/",
+            data={
+                "date_from": "2020-01-04",
+                "date_to": "2020-01-04",
+                ENTITY_TYPE: "events",
+                ENTITY_ID: "sign up",
+                "filter_test_accounts": True,
+            },
+        ).json()
+
+        self.assertEqual([person["id"] for person in event_response["results"][0]["people"]], [str(kept_person.uuid)])
+
     def _create_people_interval_events(self):
         person1 = _create_person(team_id=self.team.pk, distinct_ids=["person1"])
         person2 = _create_person(team_id=self.team.pk, distinct_ids=["person2"])
