@@ -1387,6 +1387,42 @@ class TestComposeTicketAPI(APIBaseTest):
             format="json",
         )
 
+    def test_compose_allows_personal_api_key_with_ticket_write_scope(self, mock_on_commit):
+        personal_api_key = self.create_personal_api_key_with_scopes(["ticket:write"])
+        self.client.logout()
+
+        response = self.client.post(
+            f"/api/projects/{self.team.id}/conversations/tickets/compose/",
+            {
+                "recipient_email": "customer@test.com",
+                "email_config_id": str(self.email_config.id),
+                "message": "Hello!",
+            },
+            format="json",
+            headers={"authorization": f"Bearer {personal_api_key}"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert Ticket.objects.filter(id=response.json()["id"], team=self.team).exists()
+
+    def test_compose_rejects_personal_api_key_without_ticket_write_scope(self, mock_on_commit):
+        personal_api_key = self.create_personal_api_key_with_scopes(["ticket:read"])
+        self.client.logout()
+
+        response = self.client.post(
+            f"/api/projects/{self.team.id}/conversations/tickets/compose/",
+            {
+                "recipient_email": "customer@test.com",
+                "email_config_id": str(self.email_config.id),
+                "message": "Hello!",
+            },
+            format="json",
+            headers={"authorization": f"Bearer {personal_api_key}"},
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.json()["detail"] == "API key missing required scope 'ticket:write'"
+
     @parameterized.expand(
         [
             (
