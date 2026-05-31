@@ -3,7 +3,7 @@ import { useActions, useValues } from 'kea'
 import { MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { heatmapDataLogic } from 'lib/components/heatmaps/heatmapDataLogic'
-import { HeatmapAreaPoint } from 'lib/components/heatmaps/types'
+import { HeatmapAreaPoint, HeatmapFixedPositionMode, HeatmapJsData } from 'lib/components/heatmaps/types'
 import { useShiftKeyPressed } from 'lib/components/heatmaps/useShiftKeyPressed'
 import { cn } from 'lib/utils/css-classes'
 
@@ -23,14 +23,57 @@ const HEATMAP_CONFIG = {
     maxOpacity: 0.8,
 }
 
+function getHeatmapJsData(heatmapElements: HeatmapAreaPointWithCount[], width: number): HeatmapJsData {
+    const data = heatmapElements.map((element) => ({
+        x: Math.round(element.xPercentage * width),
+        y: Math.round(element.y),
+        value: element.count,
+    }))
+
+    return {
+        min: 0,
+        max: data.reduce((max, { value }) => Math.max(max, value), 0),
+        data,
+    }
+}
+
+type HeatmapAreaPointWithCount = {
+    count: number
+    xPercentage: number
+    targetFixed: boolean
+    y: number
+}
+
+export function getToolbarHeatmapJsData(
+    heatmapElements: HeatmapAreaPointWithCount[],
+    width: number,
+    heatmapFixedPositionMode: HeatmapFixedPositionMode
+): { scrolledHeatmapJsData: HeatmapJsData; fixedHeatmapJsData: HeatmapJsData } {
+    const scrolledElements =
+        heatmapFixedPositionMode === 'relative'
+            ? heatmapElements
+            : heatmapElements.filter((element) => !element.targetFixed)
+    const fixedElements =
+        heatmapFixedPositionMode === 'fixed' ? heatmapElements.filter((element) => element.targetFixed) : []
+
+    return {
+        scrolledHeatmapJsData: getHeatmapJsData(scrolledElements, width),
+        fixedHeatmapJsData: getHeatmapJsData(fixedElements, width),
+    }
+}
+
 function HeatmapMouseInfo({
     heatmapJsRef,
+    fixedHeatmapJsRef,
     containerRef,
+    fixedContainerRef,
     context,
     onHasValue,
 }: {
     heatmapJsRef: MutableRefObject<HeatmapJS<'value', 'x', 'y'> | undefined>
+    fixedHeatmapJsRef?: MutableRefObject<HeatmapJS<'value', 'x', 'y'> | undefined>
     containerRef: MutableRefObject<HTMLDivElement | null | undefined>
+    fixedContainerRef?: MutableRefObject<HTMLDivElement | null | undefined>
     context: 'in-app' | 'toolbar'
     onHasValue?: (hasValue: boolean) => void
 }): JSX.Element | null {
@@ -38,8 +81,11 @@ function HeatmapMouseInfo({
     const { heatmapTooltipLabel, rawHeatmapLoading } = useValues(heatmapDataLogic({ context }))
 
     const containerMousePosition = useMousePosition(containerRef?.current)
+    const fixedContainerMousePosition = useMousePosition(fixedContainerRef?.current)
     const viewportMousePosition = useMousePosition()
-    const value = heatmapJsRef.current?.getValueAt(containerMousePosition)
+    const value =
+        (heatmapJsRef.current?.getValueAt(containerMousePosition) ?? 0) +
+        (fixedHeatmapJsRef?.current?.getValueAt(fixedContainerMousePosition) ?? 0)
 
     const hasValue = !!(containerMousePosition && (value || shiftPressed))
 
@@ -96,7 +142,9 @@ export function HeatmapCanvas({
     const { setSelectedArea } = useActions(heatmapDataLogic({ context, exportToken }))
 
     const heatmapsJsRef = useRef<HeatmapJS<'value', 'x', 'y'>>()
+    const fixedHeatmapsJsRef = useRef<HeatmapJS<'value', 'x', 'y'>>()
     const heatmapsJsContainerRef = useRef<HTMLDivElement | null>()
+    const fixedHeatmapsJsContainerRef = useRef<HTMLDivElement | null>()
     const isToolbar = context === 'toolbar'
     const { innerRef, scrollYRef } = useScrollSync(isToolbar)
     const [hasValueUnderMouse, setHasValueUnderMouse] = useState(false)
@@ -117,17 +165,32 @@ export function HeatmapCanvas({
     }, [heatmapColorPalette])
 
     const heatmapJsDataRef = useRef(heatmapJsData)
-    heatmapJsDataRef.current = heatmapJsData
+    const fixedHeatmapJsDataRef = useRef(heatmapJsData)
     const heatmapJSColorGradientRef = useRef(heatmapJSColorGradient)
     heatmapJSColorGradientRef.current = heatmapJSColorGradient
+
+    const width = windowWidthOverride ?? windowWidth
+    const { scrolledHeatmapJsData: toolbarScrolledHeatmapJsData, fixedHeatmapJsData: toolbarFixedHeatmapJsData } =
+        useMemo(() => {
+            if (!isToolbar) {
+                return {
+                    scrolledHeatmapJsData: heatmapJsData,
+                    fixedHeatmapJsData: { min: 0, max: 0, data: [] },
+                }
+            }
+
+            return getToolbarHeatmapJsData(heatmapElements, width, heatmapFixedPositionMode)
+        }, [heatmapElements, heatmapFixedPositionMode, heatmapJsData, isToolbar, width])
+
+    heatmapJsDataRef.current = toolbarScrolledHeatmapJsData
+    fixedHeatmapJsDataRef.current = toolbarFixedHeatmapJsData
 
     const handleCanvasClick = useCallback(
         (e: React.MouseEvent<HTMLDivElement>): void => {
             const rect = e.currentTarget.getBoundingClientRect()
             const clickX = e.clientX - rect.left
-            const clickY = isToolbar ? e.clientY - rect.top + scrollYRef.current : e.clientY - rect.top
-
-            const width = windowWidthOverride ?? windowWidth
+            const viewportClickY = e.clientY - rect.top
+            const scrolledClickY = isToolbar ? viewportClickY + scrollYRef.current : viewportClickY
 
             // Find all elements within CLICK_RADIUS_PX of the click
             const nearbyElements: HeatmapAreaPoint[] = []
@@ -135,6 +198,10 @@ export function HeatmapCanvas({
 
             for (const element of heatmapElements) {
                 const visualX = element.xPercentage * width
+                const clickY =
+                    isToolbar && heatmapFixedPositionMode === 'fixed' && element.targetFixed
+                        ? viewportClickY
+                        : scrolledClickY
                 const distance = Math.sqrt(Math.pow(clickX - visualX, 2) + Math.pow(clickY - element.y, 2))
 
                 if (distance <= CLICK_RADIUS_PX) {
@@ -152,11 +219,11 @@ export function HeatmapCanvas({
                     points: nearbyElements,
                     expectedCount: totalCount,
                     clickX,
-                    clickY,
+                    clickY: scrolledClickY,
                 })
             }
         },
-        [heatmapElements, windowWidth, windowWidthOverride, setSelectedArea, isToolbar, scrollYRef]
+        [heatmapElements, width, setSelectedArea, isToolbar, scrollYRef, heatmapFixedPositionMode]
     )
 
     const setHeatmapContainer = useCallback((container: HTMLDivElement | null): void => {
@@ -180,11 +247,12 @@ export function HeatmapCanvas({
 
     useEffect(() => {
         try {
-            heatmapsJsRef.current?.setData(heatmapJsData)
+            heatmapsJsRef.current?.setData(toolbarScrolledHeatmapJsData)
+            fixedHeatmapsJsRef.current?.setData(toolbarFixedHeatmapJsData)
         } catch (e) {
             console.error('error setting data', e)
         }
-    }, [heatmapJsData])
+    }, [toolbarScrolledHeatmapJsData, toolbarFixedHeatmapJsData])
 
     useEffect(() => {
         if (!heatmapsJsContainerRef.current) {
@@ -196,7 +264,33 @@ export function HeatmapCanvas({
             container: heatmapsJsContainerRef.current,
             gradient: heatmapJSColorGradient,
         })
+        if (fixedHeatmapsJsContainerRef.current) {
+            fixedHeatmapsJsRef.current?.configure({
+                ...HEATMAP_CONFIG,
+                container: fixedHeatmapsJsContainerRef.current,
+                gradient: heatmapJSColorGradient,
+            })
+        }
     }, [heatmapJSColorGradient])
+
+    const setFixedHeatmapContainer = useCallback((container: HTMLDivElement | null): void => {
+        fixedHeatmapsJsContainerRef.current = container
+        if (!container) {
+            return
+        }
+
+        fixedHeatmapsJsRef.current = heatmapsJs.create({
+            ...HEATMAP_CONFIG,
+            container,
+            gradient: heatmapJSColorGradientRef.current,
+        })
+
+        try {
+            fixedHeatmapsJsRef.current.setData(fixedHeatmapJsDataRef.current)
+        } catch (e) {
+            console.error('error setting data', e)
+        }
+    }, [])
 
     if (!heatmapFilters.enabled) {
         return null
@@ -235,9 +329,14 @@ export function HeatmapCanvas({
                         ref={setHeatmapContainer}
                     />
                 </div>
+                {heatmapFixedPositionMode === 'fixed' && (
+                    <div className={cn('absolute inset-0', loadingClass)} ref={setFixedHeatmapContainer} />
+                )}
                 <HeatmapMouseInfo
                     heatmapJsRef={heatmapsJsRef}
+                    fixedHeatmapJsRef={fixedHeatmapsJsRef}
                     containerRef={heatmapsJsContainerRef}
+                    fixedContainerRef={fixedHeatmapsJsContainerRef}
                     context={context}
                     onHasValue={setHasValueUnderMouse}
                 />
