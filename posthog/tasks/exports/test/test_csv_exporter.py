@@ -38,6 +38,7 @@ from posthog.tasks.exports.csv_exporter import (
     UnexpectedEmptyJsonResponse,
     _convert_response_to_csv_data,
     _format_breakdown_value,
+    _get_legacy_breakdown_filter,
     _sanitize_formula_injection,
     add_query_params,
     sanitize_value_for_excel,
@@ -1920,3 +1921,32 @@ class TestSanitizeFormulaInjection:
             assert rows[0][0] == "'=SUM(A1:B1)"
         finally:
             os.unlink(path)
+
+
+class TestCSVExporterBreakdowns:
+    def test_convert_trends_formula_breakdown_response_adds_breakdown_column(self) -> None:
+        rows = list(
+            _convert_response_to_csv_data(
+                {
+                    "result": [
+                        {
+                            "label": "Pageviews (in thousands)",
+                            "action": None,
+                            "breakdown_value": "US",
+                            "aggregated_value": 12.3,
+                            "data": None,
+                        }
+                    ]
+                },
+                breakdown_filter={"breakdown": "$geoip_country_code", "breakdown_type": "event"},
+            )
+        )
+
+        assert rows == [{"series": "Pageviews (in thousands)", "$geoip_country_code": "US", "Total Sum": 12.3}]
+
+    def test_get_legacy_breakdown_filter_from_path(self) -> None:
+        breakdown_filter = _get_legacy_breakdown_filter(
+            {"path": "/api/projects/1/insights/trend/?breakdown=countrycode&breakdown_type=event"}
+        )
+
+        assert breakdown_filter == {"breakdown": "countrycode", "breakdown_type": "event"}

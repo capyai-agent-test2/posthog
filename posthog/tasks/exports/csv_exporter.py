@@ -239,6 +239,28 @@ def _get_breakdown_info(
     return breakdown_values, breakdowns, has_breakdown_columns
 
 
+def _get_legacy_breakdown_filter(resource: dict) -> Optional[dict]:
+    body = resource.get("body")
+    if isinstance(body, dict):
+        breakdown_filter = body.get("breakdownFilter")
+        if isinstance(breakdown_filter, dict):
+            return breakdown_filter
+
+    path = resource.get("path")
+    if not isinstance(path, str):
+        return None
+
+    query_params = dict(parse_qsl(urlparse(path).query, keep_blank_values=True))
+    breakdown = query_params.get("breakdown")
+    if not breakdown:
+        return None
+
+    return {
+        "breakdown": breakdown,
+        "breakdown_type": query_params.get("breakdown_type"),
+    }
+
+
 def _format_breakdown_value(breakdown_value: Any) -> str:
     """Format breakdown_value for CSV export in a type safe way."""
     if breakdown_value is None:
@@ -457,7 +479,7 @@ def get_from_insights_api(exported_asset: ExportedAsset, limit: int, resource: d
 
             raise unexpected_empty_json_response
 
-        csv_rows = list(_convert_response_to_csv_data(data))
+        csv_rows = list(_convert_response_to_csv_data(data, breakdown_filter=_get_legacy_breakdown_filter(resource)))
         total += len(csv_rows)
         yield from csv_rows
 
