@@ -51,4 +51,12 @@ describe('supportLogic', () => {
 
         expect(result).toEqual({ method: 'fetch', response })
     })
+
+    it('throws the fetch error when mobile fetch fails and Beacon is unavailable', async () => {
+        const error = new TypeError('Load failed')
+        global.fetch = jest.fn().mockRejectedValue(error)
+        Object.defineProperty(navigator, 'sendBeacon', { configurable: true, value: undefined })
+
+        await expect(submitZendeskRequestWithBeaconFallback('{"request":{}}')).rejects.toBe(error)
+    })
 })

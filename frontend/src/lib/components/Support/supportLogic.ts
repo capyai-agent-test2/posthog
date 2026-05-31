@@ -781,7 +781,7 @@ export const supportLogic = kea<supportLogicType>([
                     return
                 }
 
-                const json = await response.json()
+                const json = await result.response.json()
 
                 const zendesk_ticket_id = json.request.id
                 const zendesk_ticket_link = `https://posthoghelp.zendesk.com/agent/tickets/${zendesk_ticket_id}`
