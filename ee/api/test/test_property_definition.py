@@ -25,15 +25,28 @@ class TestPropertyDefinitionEnterpriseAPI(APIBaseTest):
         property = EnterprisePropertyDefinition.objects.create(
             team=self.team, name="a timestamp", property_type="DateTime"
         )
+        numeric_property = EnterprisePropertyDefinition.objects.create(
+            team=self.team, name="numeric property", property_type="Numeric", is_numerical=False
+        )
         response = self.client.get(f"/api/projects/@current/property_definitions/{property.id}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         assert response.json()["property_type"] == "DateTime"
 
+        numeric_response = self.client.get(f"/api/projects/@current/property_definitions/{numeric_property.id}")
+        self.assertEqual(numeric_response.status_code, status.HTTP_200_OK)
+        assert numeric_response.json()["is_numerical"] is True
+
         query_list_response = self.client.get(f"/api/projects/@current/property_definitions")
         self.assertEqual(query_list_response.status_code, status.HTTP_200_OK)
         matches = [p["name"] for p in query_list_response.json()["results"] if p["name"] == "a timestamp"]
         assert len(matches) == 1
+
+        numerical_query_response = self.client.get("/api/projects/@current/property_definitions/?is_numerical=true")
+        self.assertEqual(numerical_query_response.status_code, status.HTTP_200_OK)
+        numerical_matches = [p for p in numerical_query_response.json()["results"] if p["name"] == "numeric property"]
+        assert len(numerical_matches) == 1
+        assert numerical_matches[0]["is_numerical"] is True
 
     def test_errors_on_invalid_property_type(self):
         with pytest.raises(IntegrityError):

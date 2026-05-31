@@ -1,3 +1,5 @@
+from typing import Any
+
 from django.utils import timezone
 
 from loginas.utils import is_impersonated_session
@@ -57,6 +59,12 @@ class EnterprisePropertyDefinitionSerializer(TaggedItemSerializerMixin, serializ
             validated_data["hidden"] = False
 
         return validated_data
+
+    def to_representation(self, instance: EnterprisePropertyDefinition) -> dict[str, Any]:
+        representation = super().to_representation(instance)
+        if representation.get("property_type") == "Numeric":
+            representation["is_numerical"] = True
+        return representation
 
     def update(self, property_definition: EnterprisePropertyDefinition, validated_data: dict):
         # If setting hidden=True, ensure verified becomes false
