@@ -540,7 +540,7 @@ export const pageReportsLogic = kea<pageReportsLogicType>({
                 return [
                     {
                         kind: 'section',
-                        tileId: TileId.PAGE_REPORTS_COMBINED_METRICS_CHART,
+                        tileId: TileId.PAGE_REPORTS_COMBINED_METRICS_CHART_SECTION,
                         tiles: [
                             {
                                 kind: 'query',
