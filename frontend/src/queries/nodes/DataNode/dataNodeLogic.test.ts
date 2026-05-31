@@ -505,6 +505,45 @@ describe('dataNodeLogic', () => {
         )
     })
 
+    it('reloads when filtersOverride changes', async () => {
+        jest.useRealTimers()
+        const query = setLatestVersionsOnQuery({
+            kind: NodeKind.EventsQuery,
+            select: ['*', 'event', 'timestamp'],
+        })
+        mockedQuery.mockResolvedValueOnce({ results: [] }).mockResolvedValueOnce({ results: [] })
+
+        logic = dataNodeLogic({
+            key: 'filtersOverrideChanges',
+            query,
+            filtersOverride: { filterTestAccounts: false },
+        })
+        logic.mount()
+
+        await expectLogic(logic).toFinishAllListeners()
+        expect(performQuery).toHaveBeenCalledTimes(1)
+
+        dataNodeLogic({
+            key: 'filtersOverrideChanges',
+            query,
+            filtersOverride: { filterTestAccounts: true },
+        }).mount()
+
+        await expectLogic(logic).toFinishAllListeners()
+        expect(performQuery).toHaveBeenCalledTimes(2)
+        expect(performQuery).toHaveBeenLastCalledWith(
+            query,
+            expect.anything(),
+            'force_blocking',
+            expect.any(String),
+            expect.any(Function),
+            { filterTestAccounts: true },
+            undefined,
+            false,
+            undefined
+        )
+    })
+
     it('passes variablesOverride to api', async () => {
         const variablesOverride: Record<string, HogQLVariable> = {
             test_1: {

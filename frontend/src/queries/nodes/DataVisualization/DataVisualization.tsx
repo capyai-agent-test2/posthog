@@ -16,6 +16,7 @@ import { urls } from 'scenes/urls'
 import { insightVizDataCollectionId, insightVizDataNodeKey } from '~/queries/nodes/InsightViz/InsightViz'
 import {
     AnyResponseType,
+    DashboardFilter,
     DataVisualizationNode,
     HogQLQuery,
     HogQLQueryResponse,
@@ -57,6 +58,8 @@ export interface DataTableVisualizationProps {
     readOnly?: boolean
     embedded?: boolean
     exportContext?: ExportContext
+    /** Dashboard filters to override the ones in the query */
+    filtersOverride?: DashboardFilter | null
     /** Dashboard variables to override the ones in the query */
     variablesOverride?: Record<string, HogQLVariable> | null
     /** Attach ourselves to another logic, such as the scene logic */
@@ -72,6 +75,7 @@ export function DataTableVisualization({
     context,
     cachedResults,
     readOnly,
+    filtersOverride,
     variablesOverride,
     attachTo,
     editMode,
@@ -101,6 +105,7 @@ export function DataTableVisualization({
             applyDataVisualizationQueryUpdate(queryRef, setter, setQuery)
         },
         cachedResults,
+        filtersOverride,
         variablesOverride,
         limitContext: context?.limitContext,
     }
@@ -111,6 +116,7 @@ export function DataTableVisualization({
         cachedResults,
         loadPriority: insightProps.loadPriority,
         dataNodeCollectionId,
+        filtersOverride,
         variablesOverride,
         limitContext: context?.limitContext,
     }

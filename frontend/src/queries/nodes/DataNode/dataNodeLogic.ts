@@ -19,7 +19,7 @@ import posthog from 'posthog-js'
 
 import api, { ApiMethodOptions } from 'lib/api'
 import { dayjs } from 'lib/dayjs'
-import { shouldCancelQuery, uuid } from 'lib/utils'
+import { objectsEqual, shouldCancelQuery, uuid } from 'lib/utils'
 import { ConcurrencyController } from 'lib/utils/concurrencyController'
 import { UNSAVED_INSIGHT_MIN_REFRESH_INTERVAL_MINUTES } from 'scenes/insights/insightLogic'
 import { compareDataNodeQuery, haveVariablesOrFiltersChanged, validateQuery } from 'scenes/insights/utils/queryUtils'
@@ -231,17 +231,20 @@ export const dataNodeLogic = kea<dataNodeLogicType>([
         const hasQueryChanged = !compareDataNodeQuery(props.query, oldProps.query, {
             ignoreVisualizationOnlyChanges: true,
         })
+        const haveOverridesChanged =
+            !objectsEqual(props.filtersOverride ?? null, oldProps.filtersOverride ?? null) ||
+            !objectsEqual(props.variablesOverride ?? null, oldProps.variablesOverride ?? null)
         const queryVarsHaveChanged = haveVariablesOrFiltersChanged(props.query, oldProps.query)
 
         const queryStatus = (props.cachedResults?.query_status || null) as QueryStatus | null
-        if (hasQueryChanged && queryStatus?.complete === false) {
+        if ((hasQueryChanged || haveOverridesChanged) && queryStatus?.complete === false) {
             // If there is an incomplete query, load the data with the same query_id which should return its status
             // We need to force a refresh in this case
             const refreshType =
                 isInsightQueryNode(props.query) || isHogQLQuery(props.query) ? 'force_async' : 'force_blocking'
             actions.loadData(refreshType, queryStatus.id)
         } else if (
-            hasQueryChanged &&
+            (hasQueryChanged || haveOverridesChanged) &&
             props.autoLoad &&
             !(props.cachedResults && props.key.includes('dashboard')) && // Don't load data on dashboard if cached results are available
             (!props.cachedResults ||
@@ -252,7 +255,7 @@ export const dataNodeLogic = kea<dataNodeLogicType>([
         ) {
             // For normal loads, use appropriate refresh type
             let refreshType: RefreshType
-            if (queryVarsHaveChanged) {
+            if (queryVarsHaveChanged || haveOverridesChanged) {
                 refreshType =
                     isInsightQueryNode(props.query) || isHogQLQuery(props.query) ? 'force_async' : 'force_blocking'
             } else {

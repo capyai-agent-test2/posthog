@@ -8,7 +8,13 @@ import { CodeEditor } from 'lib/monaco/CodeEditor'
 
 import { dataNodeLogic } from '~/queries/nodes/DataNode/dataNodeLogic'
 import { OpenEditorButton } from '~/queries/nodes/Node/OpenEditorButton'
-import { AnyResponseType, DataNode as DataNodeType, DataTableNode } from '~/queries/schema/schema-general'
+import {
+    AnyResponseType,
+    DashboardFilter,
+    DataNode as DataNodeType,
+    DataTableNode,
+    HogQLVariable,
+} from '~/queries/schema/schema-general'
 
 interface DataNodeProps {
     query: DataNodeType
@@ -16,6 +22,8 @@ interface DataNodeProps {
     /* Cached Results are provided when shared or exported,
     the data node logic becomes read only implicitly */
     cachedResults?: AnyResponseType
+    filtersOverride?: DashboardFilter | null
+    variablesOverride?: Record<string, HogQLVariable> | null
     /** Attach ourselves to another logic, such as the scene logic */
     attachTo?: BuiltLogic | LogicWrapper
 }

@@ -24,6 +24,7 @@ import { teamLogic } from 'scenes/teamLogic'
 import { themeLogic } from '~/layout/navigation-3000/themeLogic'
 import {
     AnyResponseType,
+    DashboardFilter,
     ChartAxis,
     ChartSettings,
     ChartSettingsDisplay,
@@ -89,6 +90,8 @@ export interface DataVisualizationLogicProps {
     insightLoading?: boolean
     dashboardId?: DashboardType['id']
     loadPriority?: number
+    /** Dashboard filters to override the ones in the query */
+    filtersOverride?: DashboardFilter | null
     /** Dashboard variables to override the ones in the query */
     variablesOverride?: Record<string, HogQLVariable> | null
     limitContext?: 'posthog_ai'
@@ -388,6 +391,7 @@ export const dataVisualizationLogic = kea<dataVisualizationLogicType>([
                 query: props.query.source,
                 dataNodeCollectionId: props.dataNodeCollectionId,
                 loadPriority: props.loadPriority,
+                filtersOverride: props.filtersOverride,
                 variablesOverride: props.variablesOverride,
                 limitContext: props.limitContext,
             }),
@@ -404,6 +408,7 @@ export const dataVisualizationLogic = kea<dataVisualizationLogicType>([
                 query: props.query.source,
                 dataNodeCollectionId: props.dataNodeCollectionId,
                 loadPriority: props.loadPriority,
+                filtersOverride: props.filtersOverride,
                 variablesOverride: props.variablesOverride,
                 limitContext: props.limitContext,
             }),

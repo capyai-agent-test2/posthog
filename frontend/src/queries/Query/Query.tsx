@@ -141,6 +141,8 @@ export function Query<Q extends Node>(props: QueryProps<Q>): JSX.Element | null 
                 setQuery={setQuery as unknown as (query: DataTableNode) => void}
                 context={queryContext}
                 cachedResults={props.cachedResults}
+                filtersOverride={filtersOverride}
+                variablesOverride={variablesOverride}
                 uniqueKey={uniqueKey}
                 readOnly={readOnly}
                 dataAttr={dataAttr}
@@ -159,6 +161,7 @@ export function Query<Q extends Node>(props: QueryProps<Q>): JSX.Element | null 
                 readOnly={readOnly}
                 embedded={embedded}
                 editMode={!!editMode}
+                filtersOverride={props.filtersOverride}
                 variablesOverride={props.variablesOverride}
             />
         )
@@ -305,7 +308,15 @@ export function Query<Q extends Node>(props: QueryProps<Q>): JSX.Element | null 
             />
         )
     } else {
-        component = <DataNode attachTo={props.attachTo} query={query} cachedResults={props.cachedResults} />
+        component = (
+            <DataNode
+                attachTo={props.attachTo}
+                query={query}
+                cachedResults={props.cachedResults}
+                filtersOverride={filtersOverride}
+                variablesOverride={variablesOverride}
+            />
+        )
     }
 
     return (
