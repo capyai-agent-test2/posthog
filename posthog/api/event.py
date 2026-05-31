@@ -5,7 +5,6 @@ import random
 import urllib
 import builtins
 import dataclasses
-from datetime import datetime
 from typing import Any, Iterator, List, Optional, Union, cast  # noqa: UP035
 
 from django.conf import settings
@@ -191,16 +190,11 @@ class EventViewSet(
     def _build_next_url(
         self,
         request: request.Request,
-        last_event_timestamp: datetime,
-        order_by: list[str],
+        limit: int,
+        offset: int,
     ) -> str:
         params = request.GET.dict()
-        reverse = "-timestamp" in order_by
-        timestamp = last_event_timestamp.astimezone().isoformat()
-        if reverse:
-            params["before"] = timestamp
-        else:
-            params["after"] = timestamp
+        params["offset"] = str(offset + limit)
         return request.build_absolute_uri(f"{request.path}?{urllib.parse.urlencode(params)}")
 
     @extend_schema(
@@ -405,7 +399,7 @@ class EventViewSet(
 
             next_url: Optional[str] = None
             if not is_csv_request and len(query_result) > limit:
-                next_url = self._build_next_url(request, query_result[limit - 1]["timestamp"], order_by)
+                next_url = self._build_next_url(request, limit, offset)
             headers = None
             if settings.PATCH_EVENT_LIST_MAX_OFFSET > 0:
                 headers = {"X-PostHog-Warn": "https://posthog.com/docs/api/events"}
