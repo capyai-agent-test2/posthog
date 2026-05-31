@@ -27,9 +27,9 @@ export function getPersonColorIndex(identifier: string | null | undefined): numb
 }
 
 export type PersonPropType =
-    | { properties?: Record<string, any>; distinct_ids?: string[]; distinct_id?: never; id?: never }
-    | { properties?: Record<string, any>; distinct_ids?: never; distinct_id?: string; id?: never }
-    | { properties?: Record<string, any>; distinct_ids?: string[]; distinct_id?: string; id: string }
+    | { properties?: Record<string, any>; distinct_ids?: string[]; distinct_id?: never; id?: never; uuid?: string }
+    | { properties?: Record<string, any>; distinct_ids?: never; distinct_id?: string; id?: never; uuid?: string }
+    | { properties?: Record<string, any>; distinct_ids?: string[]; distinct_id?: string; id: string; uuid?: string }
 
 export interface PersonDisplayProps {
     person?: PersonPropType | null
@@ -135,8 +135,10 @@ export const asLink = (person?: PersonPropType | null): string | undefined => {
     if (!person?.properties) {
         return undefined
     }
-    return person.id
-        ? urls.personByUUID(person.id)
+    const uuid =
+        person.uuid && isUUIDLike(person.uuid) ? person.uuid : person.id && isUUIDLike(person.id) ? person.id : null
+    return uuid
+        ? urls.personByUUID(uuid)
         : person.distinct_id
           ? urls.personByDistinctId(person.distinct_id)
           : person.distinct_ids?.length

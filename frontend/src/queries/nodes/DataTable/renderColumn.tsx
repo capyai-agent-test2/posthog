@@ -12,7 +12,7 @@ import { LemonTag } from 'lib/lemon-ui/LemonTag/LemonTag'
 import { Link } from 'lib/lemon-ui/Link'
 import { Spinner } from 'lib/lemon-ui/Spinner/Spinner'
 import { Tooltip } from 'lib/lemon-ui/Tooltip'
-import { autoCaptureEventToDescription, isURL } from 'lib/utils'
+import { autoCaptureEventToDescription, isURL, isUUIDLike } from 'lib/utils'
 import { COUNTRY_CODE_TO_LONG_NAME, countryCodeToFlag } from 'lib/utils/geography/country'
 import { formatCurrency } from 'lib/utils/geography/currency'
 import { GroupActorDisplay } from 'scenes/persons/GroupActorDisplay'
@@ -325,14 +325,18 @@ export function renderColumn(
             displayProps.noPopover = false // If we are in an events list, the popover experience is better
         }
 
-        if (isPersonsNode(query.source) && personRecord.id) {
-            displayProps.href = urls.personByUUID(personRecord.id)
+        const personRecordUUID =
+            personRecord.uuid || (personRecord.id && isUUIDLike(personRecord.id) ? personRecord.id : undefined)
+
+        if (isPersonsNode(query.source) && personRecordUUID) {
+            displayProps.href = urls.personByUUID(personRecordUUID)
         }
 
         if (isActorsQuery(query.source) && value) {
             displayProps.person = value
-            displayProps.href = value.id
-                ? urls.personByUUID(value.id)
+            const actorUUID = value.uuid || (value.id && isUUIDLike(value.id) ? value.id : undefined)
+            displayProps.href = actorUUID
+                ? urls.personByUUID(actorUUID)
                 : value.distinct_ids?.[0]
                   ? urls.personByDistinctId(value.distinct_ids[0])
                   : undefined
