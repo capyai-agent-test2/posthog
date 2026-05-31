@@ -6,11 +6,12 @@ import { DashboardLayoutSize, DashboardTile, QueryBasedInsightModel, TileLayout 
 
 function textTileWithLayout(
     layouts: Record<DashboardLayoutSize, TileLayout>,
-    tileId: number = 1
+    tileId: number = 1,
+    body: string = 'test'
 ): DashboardTile<QueryBasedInsightModel> {
     return {
         id: tileId,
-        text: 'test',
+        text: { body },
         layouts: layouts,
     } as unknown as DashboardTile<QueryBasedInsightModel>
 }
@@ -84,6 +85,35 @@ describe('calculating tile layouts', () => {
         const tiles: DashboardTile<QueryBasedInsightModel>[] = [textTileWithLayout(layouts, 1)]
         const result = calculateLayouts(tiles)
         expect(result.xs?.[0]?.h).toBe(expectedXsH)
+    })
+
+    it('expands text card height on xs layout for longer mobile content', () => {
+        const longText = [
+            '# Leads overview',
+            '',
+            '_Note: This dashboard is currently shared publicly_',
+            'Leads are generated via a number of website assets including:',
+            '1. Content/whitepapers',
+            '2. Datasheet hub',
+            '3. OnDemand demo',
+            '4. Contact sales form',
+        ].join('\n')
+        const tiles: DashboardTile<QueryBasedInsightModel>[] = [
+            textTileWithLayout(
+                { sm: { i: '1', x: 0, y: 0, w: 12, h: 2 } } as Record<DashboardLayoutSize, TileLayout>,
+                1,
+                longText
+            ),
+            textTileWithLayout(
+                { sm: { i: '2', x: 0, y: 2, w: 12, h: 2 } } as Record<DashboardLayoutSize, TileLayout>,
+                2
+            ),
+        ]
+
+        const result = calculateLayouts(tiles)
+
+        expect(result.xs?.[0]?.h).toBe(5)
+        expect(result.xs?.[1]?.y).toBe(5)
     })
 
     it('xs follows final sm row-major order when some tiles have no stored sm layout', () => {
