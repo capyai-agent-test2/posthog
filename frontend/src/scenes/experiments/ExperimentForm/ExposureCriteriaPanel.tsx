@@ -8,7 +8,12 @@ import { ActionFilter } from 'scenes/insights/filters/ActionFilter/ActionFilter'
 import { MathAvailability } from 'scenes/insights/filters/ActionFilter/ActionFilterRow/ActionFilterRow'
 import { teamLogic } from 'scenes/teamLogic'
 
-import { ExperimentEventExposureConfig, ExperimentExposureCriteria, NodeKind } from '~/queries/schema/schema-general'
+import {
+    ExperimentEventExposureConfig,
+    ExperimentExposureCriteria,
+    ExperimentMetricType,
+    NodeKind,
+} from '~/queries/schema/schema-general'
 import type { Experiment, FilterType } from '~/types'
 
 import { SelectableCard } from '../components/SelectableCard'
@@ -19,6 +24,41 @@ const DEFAULT_EXPOSURE_CONFIG: ExperimentEventExposureConfig = {
     kind: NodeKind.ExperimentEventExposureConfig,
     event: '$feature_flag_called',
     properties: [],
+}
+
+function metricUsesDataWarehouse(metric: Experiment['metrics'][number]): boolean {
+    if (metric.kind === NodeKind.ExperimentTrendsQuery) {
+        return metric.count_query.series.some((series) => series.kind === NodeKind.DataWarehouseNode)
+    }
+
+    if (metric.kind === NodeKind.ExperimentFunnelsQuery) {
+        return metric.funnels_query.series.some((series) => series.kind === NodeKind.FunnelsDataWarehouseNode)
+    }
+
+    if (metric.kind === NodeKind.ExperimentMetric) {
+        switch (metric.metric_type) {
+            case ExperimentMetricType.MEAN:
+                return metric.source.kind === NodeKind.ExperimentDataWarehouseNode
+            case ExperimentMetricType.FUNNEL:
+                return metric.series.some((step) => step.kind === NodeKind.ExperimentDataWarehouseNode)
+            case ExperimentMetricType.RATIO:
+                return (
+                    metric.numerator.kind === NodeKind.ExperimentDataWarehouseNode ||
+                    metric.denominator.kind === NodeKind.ExperimentDataWarehouseNode
+                )
+            case ExperimentMetricType.RETENTION:
+                return (
+                    metric.start_event.kind === NodeKind.ExperimentDataWarehouseNode ||
+                    metric.completion_event.kind === NodeKind.ExperimentDataWarehouseNode
+                )
+        }
+    }
+
+    return false
+}
+
+function experimentUsesDataWarehouseMetrics(experiment: Experiment): boolean {
+    return [...(experiment.metrics || []), ...(experiment.metrics_secondary || [])].some(metricUsesDataWarehouse)
 }
 
 type ExposureCriteriaPanelProps = {
@@ -61,10 +101,12 @@ function ExposureCriteriaFields({
     experiment,
     onChange,
     hasFilters,
+    hasDataWarehouseMetrics,
 }: {
     experiment: Experiment
     onChange: ExposureCriteriaPanelProps['onChange']
     hasFilters: boolean
+    hasDataWarehouseMetrics: boolean
 }): JSX.Element {
     const isCustom = !!experiment.exposure_criteria?.exposure_config
 
@@ -142,10 +184,12 @@ function ExposureCriteriaFields({
             {/* Test Account Filtering */}
             <div>
                 <TestAccountFilterSwitch
-                    checked={hasFilters && !!experiment.exposure_criteria?.filterTestAccounts}
+                    checked={hasFilters && !hasDataWarehouseMetrics && !!experiment.exposure_criteria?.filterTestAccounts}
                     onChange={(checked: boolean) => {
                         onChange({ filterTestAccounts: checked })
                     }}
+                    disabled={hasDataWarehouseMetrics}
+                    disabledReason="Internal and test user filters are not supported for data warehouse experiment metrics."
                     bordered={false}
                     fullWidth
                     className="p-0"
@@ -160,6 +204,7 @@ export function ExposureCriteriaPanel({ experiment, onChange, compact }: Exposur
 
     const { currentTeam } = useValues(teamLogic)
     const hasFilters = (currentTeam?.test_account_filters || []).length > 0
+    const hasDataWarehouseMetrics = experimentUsesDataWarehouseMetrics(experiment)
 
     if (compact) {
         return (
@@ -254,10 +299,12 @@ export function ExposureCriteriaPanel({ experiment, onChange, compact }: Exposur
                 </div>
 
                 <TestAccountFilterSwitch
-                    checked={hasFilters && !!experiment.exposure_criteria?.filterTestAccounts}
+                    checked={hasFilters && !hasDataWarehouseMetrics && !!experiment.exposure_criteria?.filterTestAccounts}
                     onChange={(checked: boolean) => {
                         onChange({ filterTestAccounts: checked })
                     }}
+                    disabled={hasDataWarehouseMetrics}
+                    disabledReason="Internal and test user filters are not supported for data warehouse experiment metrics."
                     bordered={false}
                     fullWidth
                     labelClassName="text-secondary font-normal"
@@ -291,6 +338,7 @@ export function ExposureCriteriaPanel({ experiment, onChange, compact }: Exposur
                                     experiment={experiment}
                                     onChange={onChange}
                                     hasFilters={hasFilters}
+                                    hasDataWarehouseMetrics={hasDataWarehouseMetrics}
                                 />
                             </div>
                         ),

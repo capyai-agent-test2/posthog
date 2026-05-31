@@ -74,6 +74,31 @@ def get_exposure_config_params_for_builder(
     return (exposure_config, multiple_variant_handling, filter_test_accounts)
 
 
+def metric_uses_data_warehouse(
+    metric: ExperimentMeanMetric | ExperimentFunnelMetric | ExperimentRatioMetric | ExperimentRetentionMetric | None,
+) -> bool:
+    if metric is None:
+        return False
+
+    if isinstance(metric, ExperimentMeanMetric):
+        return isinstance(metric.source, ExperimentDataWarehouseNode)
+
+    if isinstance(metric, ExperimentFunnelMetric):
+        return any(isinstance(step, ExperimentDataWarehouseNode) for step in metric.series)
+
+    if isinstance(metric, ExperimentRatioMetric):
+        return isinstance(metric.numerator, ExperimentDataWarehouseNode) or isinstance(
+            metric.denominator, ExperimentDataWarehouseNode
+        )
+
+    if isinstance(metric, ExperimentRetentionMetric):
+        return isinstance(metric.start_event, ExperimentDataWarehouseNode) or isinstance(
+            metric.completion_event, ExperimentDataWarehouseNode
+        )
+
+    return False
+
+
 class ExperimentQueryBuilder:
     def __init__(
         self,
@@ -102,7 +127,7 @@ class ExperimentQueryBuilder:
         self.date_range_query = date_range_query
         self.entity_key = entity_key
         self.exposure_config = exposure_config
-        self.filter_test_accounts = filter_test_accounts
+        self.filter_test_accounts = filter_test_accounts and not metric_uses_data_warehouse(metric)
         self.multiple_variant_handling = multiple_variant_handling
         self.breakdowns = breakdowns or []
         self.breakdown_injector = BreakdownInjector(self.breakdowns, metric) if metric else None
