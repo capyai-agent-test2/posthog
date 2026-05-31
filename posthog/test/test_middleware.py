@@ -13,6 +13,7 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.test import (
     Client as DjangoClient,
     RequestFactory,
+    SimpleTestCase,
 )
 from django.urls import reverse
 
@@ -25,7 +26,7 @@ from social_core.exceptions import AuthCanceled, AuthFailed, AuthMissingParamete
 
 from posthog.api.test.test_organization import create_organization
 from posthog.api.test.test_team import create_team
-from posthog.middleware import per_request_logging_context_middleware
+from posthog.middleware import AllowIPMiddleware, per_request_logging_context_middleware
 from posthog.models import Cohort
 from posthog.models.organization import Organization
 from posthog.models.team import Team
@@ -36,6 +37,16 @@ from products.actions.backend.models.action import Action
 from products.dashboards.backend.models.dashboard import Dashboard
 from products.feature_flags.backend.models.feature_flag import FeatureFlag
 from products.product_analytics.backend.models.insight import Insight
+
+
+class TestAllowIPMiddleware(SimpleTestCase):
+    @override_settings(ALLOWED_IP_BLOCKS=["192.168.0.0/24"], BLOCKED_GEOIP_REGIONS=[])
+    def test_array_config_endpoint_is_always_allowed(self) -> None:
+        request = RequestFactory().get("/array/phc_12345/config", REMOTE_ADDR="10.0.0.1")
+        response = AllowIPMiddleware(lambda _request: HttpResponse(status=404))(request)
+
+        assert response.status_code == 404
+        assert b"PostHog is not available" not in response.content
 
 
 def _social_auth_backend() -> BaseAuth:
