@@ -820,7 +820,19 @@ export const dashboardLogic = kea<dashboardLogicType>([
                     return null
                 },
                 [dashboardsModel.actionTypes.updateDashboardSuccess]: (state, { dashboard }) => {
-                    return state && dashboard && state.id === dashboard.id ? dashboard : state
+                    if (!state || !dashboard || state.id !== dashboard.id) {
+                        return state
+                    }
+
+                    const localLayoutsByTileId = new Map(state.tiles.map((tile) => [tile.id, tile.layouts]))
+
+                    return {
+                        ...dashboard,
+                        tiles: dashboard.tiles.map((tile) => ({
+                            ...tile,
+                            layouts: localLayoutsByTileId.get(tile.id) ?? tile.layouts,
+                        })),
+                    }
                 },
                 [insightsModel.actionTypes.renameInsightSuccess]: (
                     state,

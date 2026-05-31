@@ -375,6 +375,48 @@ describe('dashboardLogic', () => {
             )
         })
 
+        it('preserves unsaved layout changes after a text tile update', async () => {
+            await expectLogic(logic).toFinishAllListeners()
+
+            const initialDashboard = logic.values.dashboard
+            expect(initialDashboard).not.toBeNull()
+
+            const textTile = initialDashboard!.tiles.find((tile) => tile.text)
+            expect(textTile).toBeTruthy()
+
+            const currentLayouts = logic.values.layouts
+            const modifiedLayouts: any = {
+                ...currentLayouts,
+                sm: currentLayouts.sm?.map((layout) =>
+                    layout.i === String(textTile!.id) ? { ...layout, x: (layout.x ?? 0) + 1 } : layout
+                ),
+            }
+
+            await expectLogic(logic, () => {
+                logic.actions.updateLayouts(modifiedLayouts)
+            }).toFinishAllListeners()
+
+            const modifiedTileLayouts = logic.values.dashboard?.tiles.find((tile) => tile.id === textTile!.id)?.layouts
+            expect(modifiedTileLayouts).not.toEqual(textTile!.layouts)
+
+            await expectLogic(logic, () => {
+                dashboardsModel.actions.updateDashboardSuccess({
+                    ...initialDashboard!,
+                    tiles: initialDashboard!.tiles.map((tile) =>
+                        tile.id === textTile!.id && tile.text
+                            ? { ...tile, text: { ...tile.text, body: 'Updated text' } }
+                            : tile
+                    ),
+                })
+            })
+                .toFinishAllListeners()
+                .toMatchValues({ hasUnsavedLayoutChanges: true })
+
+            const updatedTextTile = logic.values.dashboard?.tiles.find((tile) => tile.id === textTile!.id)
+            expect(updatedTextTile?.text?.body).toEqual('Updated text')
+            expect(updatedTextTile?.layouts).toEqual(modifiedTileLayouts)
+        })
+
         it('saving after filter change calls api', async () => {
             await expectLogic(logic).toFinishAllListeners()
 
