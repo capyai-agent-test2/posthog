@@ -39,11 +39,10 @@ export function FunnelConversionWindowFilter({ insightProps }: Pick<EditorFilter
                 <Tooltip
                     title={
                         <>
-                            Limit to {aggregationTargetLabel.plural}{' '}
-                            {querySource?.aggregation_group_type_index != null ? 'that' : 'who'} converted within a
-                            specific time frame. {capitalizeFirstLetter(aggregationTargetLabel.plural)}{' '}
-                            {querySource?.aggregation_group_type_index != null ? 'that' : 'who'} do not convert in this
-                            time frame will be considered as drop-offs.
+                            Limit later funnel steps to events that happen within this time frame after the first step.{' '}
+                            {capitalizeFirstLetter(aggregationTargetLabel.plural)}{' '}
+                            {querySource?.aggregation_group_type_index != null ? 'that' : 'who'} have not reached the
+                            next step are counted as drop-offs, even if their conversion window is still open.
                         </>
                     }
                 >
