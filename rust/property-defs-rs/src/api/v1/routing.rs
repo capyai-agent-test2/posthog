@@ -87,12 +87,12 @@ async fn project_property_definitions_handler(
     }))
 }
 
-fn parse_query_string_list(raw: &str, delimiter: char) -> Vec<String> {
+fn parse_query_string_list(raw: &str, delimiters: &[char]) -> Vec<String> {
     if let Ok(values) = serde_json::from_str::<Vec<String>>(raw) {
         return values;
     }
 
-    raw.split(delimiter)
+    raw.split(delimiters)
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .collect()
@@ -163,7 +163,7 @@ fn parse_request(params: HashMap<String, String>) -> Params {
     // DIVERGES FROM DJANGO API: the new Rust API will accept lists as space-separated query param values
     let properties: Vec<String> = params
         .get("properties")
-        .map(|raw| parse_query_string_list(raw, ','))
+        .map(|raw| parse_query_string_list(raw, &[',', ' ']))
         .unwrap_or_default();
 
     let is_numerical = params
@@ -179,7 +179,7 @@ fn parse_request(params: HashMap<String, String>) -> Params {
     // DIVERGES FROM DJANGO API: the new Rust API will accept lists as space-separated query param values
     let excluded_properties = params
         .get("excluded_properties")
-        .map(|raw| parse_query_string_list(raw, ' '))
+        .map(|raw| parse_query_string_list(raw, &[' ']))
         .unwrap_or_default();
 
     // NOTE: this is calculated using the User model in the Django app, so probably easiest to
@@ -197,7 +197,7 @@ fn parse_request(params: HashMap<String, String>) -> Params {
     // https://github.com/PostHog/posthog/blob/master/posthog/taxonomy/property_definition_api.py#L214
     let event_names = params
         .get("event_names")
-        .map(|raw| parse_query_string_list(raw, ' '))
+        .map(|raw| parse_query_string_list(raw, &[' ']))
         .unwrap_or_default();
 
     let limit: i64 = params.get("limit").map_or(DEFAULT_QUERY_LIMIT, |s| {
@@ -247,6 +247,19 @@ mod tests {
         let params = parse_request(HashMap::from([(
             "properties".to_string(),
             "revenue,test_property".to_string(),
+        )]));
+
+        assert_eq!(
+            params.properties,
+            vec!["revenue".to_string(), "test_property".to_string()]
+        );
+    }
+
+    #[test]
+    fn parse_request_accepts_legacy_space_separated_properties() {
+        let params = parse_request(HashMap::from([(
+            "properties".to_string(),
+            "revenue test_property".to_string(),
         )]));
 
         assert_eq!(
