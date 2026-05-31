@@ -156,11 +156,19 @@ class TestPropertyDefinitionAPI(APIBaseTest):
         assert len(db_results) == 6
 
     def test_list_numerical_property_definitions(self):
+        PropertyDefinition.objects.create(team=self.team, name="numeric_property_type", property_type="Numeric")
+
         response = self.client.get(f"/api/projects/{self.team.pk}/property_definitions/?is_numerical=true")
         assert response.status_code == status.HTTP_200_OK
-        assert response.json()["count"] == 3
+        assert response.json()["count"] == 4
 
-        assert sorted([_i["name"] for _i in response.json()["results"]]) == ["app_rating", "purchase", "purchase_value"]
+        assert sorted([_i["name"] for _i in response.json()["results"]]) == [
+            "app_rating",
+            "numeric_property_type",
+            "purchase",
+            "purchase_value",
+        ]
+        assert next(_i for _i in response.json()["results"] if _i["name"] == "numeric_property_type")["is_numerical"]
 
     def test_pagination_of_property_definitions(self):
         PropertyDefinition.objects.bulk_create(

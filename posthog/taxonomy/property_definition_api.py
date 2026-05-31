@@ -187,7 +187,7 @@ class QueryContext:
         if is_numerical:
             return dataclasses.replace(
                 self,
-                numerical_filter="AND is_numerical = true AND NOT name = ANY(ARRAY['distinct_id', 'timestamp'])",
+                numerical_filter="AND (is_numerical = true OR property_type = 'Numeric') AND NOT name = ANY(ARRAY['distinct_id', 'timestamp'])",
             )
         else:
             return self
@@ -486,6 +486,12 @@ class PropertyDefinitionSerializer(TaggedItemSerializerMixin, serializers.ModelS
                 raise serializers.ValidationError("A property cannot be both hidden and verified")
 
         return validated_data
+
+    def to_representation(self, instance: PropertyDefinition) -> dict[str, Any]:
+        representation = super().to_representation(instance)
+        if representation.get("property_type") == "Numeric":
+            representation["is_numerical"] = True
+        return representation
 
     def update(self, property_definition: PropertyDefinition, validated_data: dict):
         # If setting hidden=True, ensure verified becomes false
