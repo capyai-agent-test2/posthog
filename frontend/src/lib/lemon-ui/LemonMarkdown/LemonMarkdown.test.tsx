@@ -1,8 +1,26 @@
 import React from 'react'
 
-import { extractTextFromChildren, slugifyHeading } from './LemonMarkdown'
+import { extractTextFromChildren, normalizeLatexMathDelimiters, slugifyHeading } from './LemonMarkdown'
 
 describe('LemonMarkdown utilities', () => {
+    describe('normalizeLatexMathDelimiters', () => {
+        it.each([
+            [
+                'Mobile users: \\( \\frac{118}{598} \\times 100 \\approx 19.73\\% \\)',
+                'Mobile users: $ \\frac{118}{598} \\times 100 \\approx 19.73\\% $',
+            ],
+            ['\\[ x = \\frac{-b}{2a} \\]', '$$ x = \\frac{-b}{2a} $$'],
+        ])('converts Latex delimiters in "%s"', (input, expected) => {
+            expect(normalizeLatexMathDelimiters(input)).toBe(expected)
+        })
+
+        it('does not convert Latex delimiters inside code spans or code blocks', () => {
+            expect(
+                normalizeLatexMathDelimiters('Inline `\\( x \\)`\n\n```text\n\\[ y \\]\n```\n\nOutside \\( z \\)')
+            ).toBe('Inline `\\( x \\)`\n\n```text\n\\[ y \\]\n```\n\nOutside $ z $')
+        })
+    })
+
     describe('slugifyHeading', () => {
         it.each([
             ['Hello World', 'hello-world'],

@@ -1,9 +1,12 @@
 import './LemonMarkdown.scss'
+import 'katex/dist/katex.min.css'
 
 import clsx from 'clsx'
 import React, { memo, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
+import rehypeKatex from 'rehype-katex'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
 
 import { CodeSnippet, getLanguage, Language } from 'lib/components/CodeSnippet'
 import { RichContentMention } from 'lib/components/RichContentEditor/RichContentNodeMention'
@@ -40,6 +43,65 @@ export interface LemonMarkdownProps {
 }
 
 const HEADING_TAGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const
+
+export function normalizeLatexMathDelimiters(markdown: string): string {
+    let normalized = ''
+    let inlineCodeTicks = 0
+    let fencedCodeTicks = ''
+    let atLineStart = true
+
+    for (let index = 0; index < markdown.length; index++) {
+        const currentCharacter = markdown[index]
+        const nextCharacter = markdown[index + 1]
+        const remainingLine = markdown.slice(index)
+        const fenceMatch = remainingLine.match(/^([ \t]*)(`{3,}|~{3,})/)
+
+        if (atLineStart && !inlineCodeTicks && fenceMatch) {
+            const fence = fenceMatch[2]
+            if (!fencedCodeTicks) {
+                fencedCodeTicks = fence
+            } else if (fence[0] === fencedCodeTicks[0] && fence.length >= fencedCodeTicks.length) {
+                fencedCodeTicks = ''
+            }
+            normalized += fenceMatch[1] + fence
+            index += fenceMatch[0].length - 1
+            atLineStart = false
+            continue
+        }
+
+        if (!fencedCodeTicks && currentCharacter === '`') {
+            let tickCount = 1
+            while (markdown[index + tickCount] === '`') {
+                tickCount++
+            }
+            inlineCodeTicks = inlineCodeTicks === tickCount ? 0 : inlineCodeTicks || tickCount
+            normalized += '`'.repeat(tickCount)
+            index += tickCount - 1
+            atLineStart = false
+            continue
+        }
+
+        if (!fencedCodeTicks && !inlineCodeTicks && currentCharacter === '\\') {
+            if (nextCharacter === '(' || nextCharacter === ')') {
+                normalized += '$'
+                index++
+                atLineStart = false
+                continue
+            }
+            if (nextCharacter === '[' || nextCharacter === ']') {
+                normalized += '$$'
+                index++
+                atLineStart = false
+                continue
+            }
+        }
+
+        normalized += currentCharacter
+        atLineStart = currentCharacter === '\n'
+    }
+
+    return normalized
+}
 
 /** Generate a URL-safe slug from heading text content. */
 export function slugifyHeading(text: string): string {
@@ -159,11 +221,17 @@ const LemonMarkdownRenderer = memo(function LemonMarkdownRenderer({
         }),
         [disableDocsRedirect, lowKeyHeadings, wrapCode, generateHeadingIds, renderMermaid]
     )
+    const normalizedChildren = useMemo(() => normalizeLatexMathDelimiters(children), [children])
 
     return (
         /* eslint-disable-next-line react/forbid-elements */
-        <ReactMarkdown components={components} remarkPlugins={[remarkGfm, remarkMentions]} skipHtml>
-            {children}
+        <ReactMarkdown
+            components={components}
+            remarkPlugins={[remarkGfm, remarkMath, remarkMentions]}
+            rehypePlugins={[rehypeKatex]}
+            skipHtml
+        >
+            {normalizedChildren}
         </ReactMarkdown>
     )
 })
