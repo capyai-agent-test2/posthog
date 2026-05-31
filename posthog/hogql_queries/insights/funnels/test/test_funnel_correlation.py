@@ -12,6 +12,7 @@ from posthog.test.base import (
     snapshot_clickhouse_queries,
 )
 from unittest import skip
+from unittest.mock import patch
 
 from rest_framework.exceptions import ValidationError
 
@@ -30,6 +31,8 @@ from posthog.schema import (
     PersonPropertyFilter,
     PropertyOperator,
 )
+
+from posthog.hogql.constants import MAX_BYTES_BEFORE_EXTERNAL_GROUP_BY
 
 from posthog.hogql_queries.insights.funnels.funnel_correlation_query_runner import (
     EventContingencyTable,
@@ -104,6 +107,29 @@ class TestClickhouseFunnelCorrelation(ClickhouseTestMixin, APIBaseTest):
             funnelCorrelationPropertyValues=funnelCorrelationPropertyValues,
         )
         return [str(row[0]) for row in serialized_actors]
+
+    def test_funnel_correlation_spills_large_group_bys_to_disk(self):
+        query = FunnelsQuery(
+            series=[EventsNode(event="user signed up"), EventsNode(event="paid")],
+            dateRange=DateRange(date_from="2020-01-01", date_to="2020-01-14"),
+        )
+        actors_query = FunnelsActorsQuery(source=query)
+        correlation_query = FunnelCorrelationQuery(
+            source=actors_query,
+            funnelCorrelationType=FunnelCorrelationResultsType.EVENTS,
+        )
+
+        with patch(
+            "posthog.hogql_queries.insights.funnels.funnel_correlation_query_runner.execute_hogql_query"
+        ) as mock_execute_hogql_query:
+            mock_execute_hogql_query.return_value.results = [
+                [FunnelCorrelationQueryRunner.TOTAL_IDENTIFIER, 1, 1],
+            ]
+
+            FunnelCorrelationQueryRunner(query=correlation_query, team=self.team)._calculate_internal()
+
+        settings = mock_execute_hogql_query.call_args.kwargs["settings"]
+        self.assertEqual(settings.max_bytes_before_external_group_by, MAX_BYTES_BEFORE_EXTERNAL_GROUP_BY)
 
     def test_funnel_correlation_with_events_and_hogql_aggregation(self):
         # When the funnel aggregates by a custom HogQL expression, the correlation

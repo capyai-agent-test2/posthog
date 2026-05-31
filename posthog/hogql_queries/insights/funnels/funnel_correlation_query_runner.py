@@ -22,7 +22,7 @@ from posthog.schema import (
 )
 
 from posthog.hogql import ast
-from posthog.hogql.constants import LimitContext
+from posthog.hogql.constants import MAX_BYTES_BEFORE_EXTERNAL_GROUP_BY, HogQLGlobalSettings, LimitContext
 from posthog.hogql.parser import parse_expr, parse_select
 from posthog.hogql.printer import to_printed_hogql
 from posthog.hogql.property import property_to_expr
@@ -236,6 +236,9 @@ class FunnelCorrelationQueryRunner(AnalyticsQueryRunner[FunnelCorrelationRespons
             timings=self.timings,
             modifiers=self.modifiers,
             limit_context=self.limit_context,
+            settings=HogQLGlobalSettings(
+                max_bytes_before_external_group_by=MAX_BYTES_BEFORE_EXTERNAL_GROUP_BY,
+            ),
         )
         assert response.results
 
