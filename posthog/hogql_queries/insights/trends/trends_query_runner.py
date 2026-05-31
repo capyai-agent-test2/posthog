@@ -43,7 +43,7 @@ from posthog.schema import (
 )
 
 from posthog.hogql import ast
-from posthog.hogql.constants import MAX_SELECT_RETURNED_ROWS, LimitContext
+from posthog.hogql.constants import MAX_SELECT_RETURNED_ROWS, LimitContext, get_breakdown_limit_for_context
 from posthog.hogql.query import execute_hogql_query
 from posthog.hogql.timings import HogQLTimings
 
@@ -493,6 +493,9 @@ class TrendsQueryRunner(AnalyticsQueryRunner[TrendsQueryResponse]):
                             result["order"] = formula_idx
 
                         final_result.extend(formula_results)
+
+                if self.breakdown_enabled:
+                    final_result = self._limit_formula_breakdown_results(final_result)
         else:
             for series_results in returned_results:
                 for item in series_results:
@@ -519,6 +522,92 @@ class TrendsQueryRunner(AnalyticsQueryRunner[TrendsQueryResponse]):
             final_result = self._filter_weekend_buckets(final_result)
 
         return final_result, has_more
+
+    def _limit_formula_breakdown_results(self, results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        breakdown_limit = self._formula_breakdown_limit()
+
+        limited_results: list[dict[str, Any]] = []
+        grouped_results: dict[tuple[int, Any], list[dict[str, Any]]] = {}
+        for result in results:
+            grouped_results.setdefault((result.get("order", 0), result.get("compare_label")), []).append(result)
+
+        for group in grouped_results.values():
+            ordered_group = sorted(group, key=self._formula_breakdown_result_sort_key)
+            visible_results = ordered_group[:breakdown_limit]
+            hidden_results = ordered_group[breakdown_limit:]
+            limited_results.extend(visible_results)
+
+            if not hidden_results:
+                continue
+
+            other_result = deepcopy(hidden_results[0])
+            other_result["label"] = hidden_results[0]["label"]
+            other_result["breakdown_value"] = self._other_breakdown_value(hidden_results[0].get("breakdown_value"))
+
+            if other_result.get("data") is not None:
+                data_length = len(other_result.get("data") or [])
+                other_data = [0.0] * data_length
+                for hidden_result in hidden_results:
+                    other_data = [
+                        value + hidden_value
+                        for value, hidden_value in zip(other_data, hidden_result.get("data") or [], strict=False)
+                    ]
+                other_result["data"] = other_data
+                other_result["count"] = float(sum(other_data))
+            else:
+                other_result["aggregated_value"] = float(
+                    sum(hidden_result.get("aggregated_value") or 0 for hidden_result in hidden_results)
+                )
+                other_result["count"] = 0
+
+            limited_results.append(other_result)
+
+        return limited_results
+
+    def _formula_breakdown_limit(self) -> int:
+        if self._trends_display.display_type == ChartDisplayType.WORLD_MAP:
+            return 250
+
+        breakdown_filter = self.query.breakdownFilter
+        breakdown_limit = breakdown_filter.breakdown_limit if breakdown_filter else None
+        limit = breakdown_limit or get_breakdown_limit_for_context(self.limit_context)
+
+        if (
+            breakdown_filter is not None
+            and breakdown_filter.breakdown_type == "cohort"
+            and isinstance(breakdown_filter.breakdown, list)
+        ):
+            limit = max(limit, len(breakdown_filter.breakdown))
+
+        return limit
+
+    @staticmethod
+    def _formula_breakdown_result_sort_key(result: dict[str, Any]) -> tuple[int, float, float, Any, str]:
+        breakdown_value = result.get("breakdown_value")
+        breakdown_order = TrendsQueryRunner._breakdown_value_sort_order(breakdown_value)
+
+        return (
+            breakdown_order,
+            -(result.get("aggregated_value") or sum(result.get("data") or [])),
+            -(result.get("count") or 0),
+            result.get("data"),
+            repr(breakdown_value),
+        )
+
+    @staticmethod
+    def _breakdown_value_sort_order(breakdown_value: Any) -> int:
+        if isinstance(breakdown_value, list):
+            if BREAKDOWN_OTHER_STRING_LABEL in breakdown_value:
+                return 2
+            if BREAKDOWN_NULL_STRING_LABEL in breakdown_value:
+                return 1
+            return 0
+
+        if breakdown_value == BREAKDOWN_OTHER_STRING_LABEL:
+            return 2
+        if breakdown_value == BREAKDOWN_NULL_STRING_LABEL:
+            return 1
+        return 0
 
     def build_series_response(
         self, response: HogQLQueryResponse, series: SeriesWithExtras, series_count: int
@@ -990,11 +1079,16 @@ class TrendsQueryRunner(AnalyticsQueryRunner[TrendsQueryResponse]):
             keys = ["breakdown_value"] if has_breakdown else ["compare_label"]
 
             all_breakdown_values = set()
+            result_indexes: list[dict[Any, dict[str, Any]]] = []
             for result in results:
+                result_index = {}
                 if isinstance(result, list):
                     for item in result:
                         data = itemgetter(*keys)(item)
-                        all_breakdown_values.add(tuple(data) if isinstance(data, list) else data)
+                        lookup_key = tuple(data) if isinstance(data, list) else data
+                        all_breakdown_values.add(lookup_key)
+                        result_index[lookup_key] = item
+                result_indexes.append(result_index)
 
             # sort the results so that the breakdown values are in the correct order
             sorted_breakdown_values = natsorted(list(all_breakdown_values), alg=ns.IGNORECASE)
@@ -1008,19 +1102,19 @@ class TrendsQueryRunner(AnalyticsQueryRunner[TrendsQueryResponse]):
                 )
 
                 any_result: Optional[dict[str, Any]] = None
-                for result in results:
-                    matching_result = [item for item in result if itemgetter(*keys)(item) == breakdown_value]
+                for result_index in result_indexes:
+                    matching_result = result_index.get(single_or_multiple_breakdown_value)
                     if matching_result:
-                        any_result = matching_result[0]
+                        any_result = matching_result
                         break
                 if not any_result:
                     continue
                 row_results = []
-                for result in results:
-                    matching_result = [item for item in result if itemgetter(*keys)(item) == breakdown_value]
+                for _result, result_index in zip(results, result_indexes, strict=False):
+                    matching_result = result_index.get(single_or_multiple_breakdown_value)
                     if matching_result:
                         # Create a deep copy of the matching result to avoid modifying shared data
-                        row_results.append(deepcopy(matching_result[0]))
+                        row_results.append(deepcopy(matching_result))
                     else:
                         data_source = results[0][0] if results and results[0] else {}
                         data_length = len(data_source.get("data") or any_result.get("data") or [])
@@ -1330,3 +1424,9 @@ class TrendsQueryRunner(AnalyticsQueryRunner[TrendsQueryResponse]):
             or isinstance(breakdown, list)
             and BREAKDOWN_OTHER_STRING_LABEL in breakdown
         )
+
+    def _other_breakdown_value(self, breakdown: Any) -> str | list[str]:
+        if isinstance(breakdown, list):
+            return [BREAKDOWN_OTHER_STRING_LABEL] * len(breakdown)
+
+        return BREAKDOWN_OTHER_STRING_LABEL

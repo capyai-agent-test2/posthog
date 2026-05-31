@@ -14,7 +14,7 @@ from posthog.schema import (
 )
 
 from posthog.hogql import ast
-from posthog.hogql.constants import LimitContext, get_breakdown_limit_for_context
+from posthog.hogql.constants import MAX_SELECT_RETURNED_ROWS, LimitContext, get_breakdown_limit_for_context
 from posthog.hogql.parser import parse_expr, parse_select
 from posthog.hogql.property import action_to_expr, property_to_expr
 from posthog.hogql.timings import HogQLTimings
@@ -604,6 +604,9 @@ class TrendsQueryBuilder(DataWarehouseInsightQueryMixin):
         breakdown_filter = self.query.breakdownFilter
         breakdown_limit = breakdown_filter.breakdown_limit if breakdown_filter else None
         limit = breakdown_limit or get_breakdown_limit_for_context(self.limit_context)
+
+        if self.query.trendsFilter and self.query.trendsFilter.formulaNodes:
+            limit = MAX_SELECT_RETURNED_ROWS
 
         # Cohorts are a user-picked, enumerable set — a smaller limit would push declared
         # cohorts into "Other", which crashes the label lookup in `build_series_response`.
