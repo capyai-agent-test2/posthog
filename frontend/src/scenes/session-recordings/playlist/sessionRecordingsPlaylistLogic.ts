@@ -495,6 +495,14 @@ export function convertLegacyFiltersToUniversalFilters(
     }
 }
 
+export function normalizeSavedFilterToUniversalFilters(
+    filters: Partial<RecordingUniversalFilters> | LegacyRecordingFilters | null | undefined
+): RecordingUniversalFilters {
+    return filters && 'filter_group' in filters
+        ? ({ ...DEFAULT_RECORDING_FILTERS, ...filters } as RecordingUniversalFilters)
+        : convertLegacyFiltersToUniversalFilters({}, filters ?? {})
+}
+
 function combineLegacyRecordingFilters(
     simpleFilters: LegacyRecordingFilters,
     advancedFilters: LegacyRecordingFilters

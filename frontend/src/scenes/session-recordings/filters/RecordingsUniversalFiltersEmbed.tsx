@@ -71,6 +71,7 @@ import { playlistFiltersLogic } from '../playlist/playlistFiltersLogic'
 import { createPlaylist, stripSessionIds, updatePlaylist } from '../playlist/playlistUtils'
 import {
     defaultRecordingDurationFilter,
+    normalizeSavedFilterToUniversalFilters,
     sessionRecordingsPlaylistLogic,
 } from '../playlist/sessionRecordingsPlaylistLogic'
 import { sessionRecordingEventUsageLogic } from '../sessionRecordingEventUsageLogic'
@@ -646,7 +647,7 @@ const ReplayFiltersTab = ({
         }
 
         if (pendingFilterApplication.filters) {
-            setFilters(stripSessionIds(pendingFilterApplication.filters as Partial<RecordingUniversalFilters>))
+            setFilters(stripSessionIds(normalizeSavedFilterToUniversalFilters(pendingFilterApplication.filters)))
             setAppliedSavedFilter(pendingFilterApplication)
             setActiveFilterTab('filters')
         }
@@ -705,7 +706,7 @@ const ReplayFiltersTab = ({
                                 onClick={() =>
                                     setFilters(
                                         stripSessionIds(
-                                            appliedSavedFilter.filters as Partial<RecordingUniversalFilters>
+                                            normalizeSavedFilterToUniversalFilters(appliedSavedFilter.filters)
                                         )
                                     )
                                 }

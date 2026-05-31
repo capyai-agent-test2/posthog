@@ -17,6 +17,7 @@ import {
     convertLegacyFiltersToUniversalFilters,
     convertUniversalFiltersToRecordingsQuery,
     getDefaultFilters,
+    normalizeSavedFilterToUniversalFilters,
     sessionRecordingsPlaylistLogic,
 } from './sessionRecordingsPlaylistLogic'
 
@@ -1059,6 +1060,54 @@ describe('sessionRecordingsPlaylistLogic', () => {
                 order: 'start_time',
                 order_direction: 'DESC',
             })
+        })
+    })
+
+    describe('normalizeSavedFilterToUniversalFilters', () => {
+        it('converts legacy saved filters with event criteria to visible universal filters', () => {
+            const result = normalizeSavedFilterToUniversalFilters({
+                events: [
+                    {
+                        id: '$rageclick',
+                        type: 'events',
+                        order: 0,
+                    },
+                ],
+            })
+
+            expect(result.filter_group.values[0]).toMatchObject({
+                type: 'AND',
+                values: [
+                    {
+                        id: '$rageclick',
+                        type: 'events',
+                        order: 0,
+                    },
+                ],
+            })
+        })
+
+        it('keeps existing universal saved filters and fills missing defaults', () => {
+            const result = normalizeSavedFilterToUniversalFilters({
+                filter_group: {
+                    type: FilterLogicalOperator.And,
+                    values: [],
+                },
+            })
+
+            expect(result).toMatchObject({
+                date_from: DEFAULT_RECORDING_FILTERS.date_from,
+                filter_group: {
+                    type: 'AND',
+                    values: [],
+                },
+            })
+        })
+
+        it('returns default filters for missing saved filter payloads', () => {
+            expect(normalizeSavedFilterToUniversalFilters(undefined)).toEqual(
+                convertLegacyFiltersToUniversalFilters({}, {})
+            )
         })
     })
 

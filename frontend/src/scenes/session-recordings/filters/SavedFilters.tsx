@@ -31,6 +31,7 @@ import {
 import { sessionRecordingSavedFiltersLogic } from '../filters/sessionRecordingSavedFiltersLogic'
 import { playlistFiltersLogic } from '../playlist/playlistFiltersLogic'
 import { stripSessionIds } from '../playlist/playlistUtils'
+import { normalizeSavedFilterToUniversalFilters } from '../playlist/sessionRecordingsPlaylistLogic'
 import { SavedFiltersEmptyState, SavedFiltersLoadingState } from './SavedFiltersStates'
 
 export function isPlaylistRecordingsCounts(x: unknown): x is PlaylistRecordingsCounts {
@@ -151,7 +152,7 @@ export function SavedFilters({
                         <div
                             onClick={() => {
                                 if (filter && filter.filters) {
-                                    setFilters(stripSessionIds(filter.filters))
+                                    setFilters(stripSessionIds(normalizeSavedFilterToUniversalFilters(filter.filters)))
                                     setActiveFilterTab('filters')
                                     setAppliedSavedFilter(filter)
                                 }
