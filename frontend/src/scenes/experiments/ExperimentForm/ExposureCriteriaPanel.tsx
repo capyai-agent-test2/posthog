@@ -26,7 +26,13 @@ const DEFAULT_EXPOSURE_CONFIG: ExperimentEventExposureConfig = {
     properties: [],
 }
 
-function metricUsesDataWarehouse(metric: Experiment['metrics'][number]): boolean {
+type ExperimentMetricLike = Experiment['metrics'][number]
+
+function metricUsesDataWarehouse(metric: ExperimentMetricLike | null | undefined): boolean {
+    if (!metric) {
+        return false
+    }
+
     if (metric.kind === NodeKind.ExperimentTrendsQuery) {
         return metric.count_query.series.some((series) => series.kind === NodeKind.DataWarehouseNode)
     }
@@ -58,7 +64,13 @@ function metricUsesDataWarehouse(metric: Experiment['metrics'][number]): boolean
 }
 
 function experimentUsesDataWarehouseMetrics(experiment: Experiment): boolean {
-    return [...(experiment.metrics || []), ...(experiment.metrics_secondary || [])].some(metricUsesDataWarehouse)
+    const sharedMetricQueries = (experiment.saved_metrics || []).map(
+        (savedMetric: { query?: ExperimentMetricLike }) => savedMetric.query
+    )
+
+    return [...(experiment.metrics || []), ...(experiment.metrics_secondary || []), ...sharedMetricQueries].some(
+        metricUsesDataWarehouse
+    )
 }
 
 type ExposureCriteriaPanelProps = {
