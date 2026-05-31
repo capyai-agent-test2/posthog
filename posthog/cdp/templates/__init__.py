@@ -24,6 +24,7 @@ from .engage.template_engage import (
     TemplateEngageMigrator,
     template as engage,
 )
+from .geoip.template_geoip import template as geoip
 from .gleap.template_gleap import template as gleap
 from .google_cloud_storage.template_google_cloud_storage import (
     TemplateGoogleCloudStorageMigrator,
@@ -106,6 +107,7 @@ HOG_FUNCTION_TEMPLATES = [
     gleap,
     google_cloud_storage,
     google_pubsub,
+    geoip,
     hubspot,
     hubspot_event,
     intercom,
