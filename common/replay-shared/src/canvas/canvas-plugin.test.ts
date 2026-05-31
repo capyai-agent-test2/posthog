@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import { canvasMutation } from 'posthog-js/rrweb'
-import { EventType, IncrementalSource, eventWithTime } from 'posthog-js/rrweb-types'
+import type { eventWithTime } from 'posthog-js/rrweb-types'
 
 import { CanvasReplayerPlugin } from './canvas-plugin'
 
@@ -11,6 +11,23 @@ jest.mock('posthog-js/rrweb', () => ({
     canvasMutation: jest.fn().mockResolvedValue(undefined),
     Replayer: jest.fn(),
 }))
+
+jest.mock('posthog-js/rrweb-types', () => ({
+    EventType: {
+        IncrementalSnapshot: 3,
+    },
+    IncrementalSource: {
+        CanvasMutation: 9,
+    },
+}))
+
+const EventType = {
+    IncrementalSnapshot: 3,
+} as const
+
+const IncrementalSource = {
+    CanvasMutation: 9,
+} as const
 
 // Polyfill APIs not available in jsdom
 globalThis.createImageBitmap = jest.fn().mockResolvedValue({})
@@ -35,6 +52,11 @@ describe('CanvasReplayerPlugin', () => {
     let mockTarget: HTMLCanvasElement
 
     beforeEach(() => {
+        jest.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) => {
+            const blob = new Blob(['test'], { type: 'image/webp' })
+            setTimeout(() => callback?.(blob), 0)
+        })
+
         // Create mock canvas
         mockCanvas = document.createElement('canvas')
         mockCanvas.width = 300
@@ -358,6 +380,45 @@ describe('CanvasReplayerPlugin', () => {
                 plugin.destroy()
                 plugin.destroy()
             }).not.toThrow()
+        })
+
+        it('keeps the active canvas image URL until the plugin is destroyed', async () => {
+            ;(window.getComputedStyle as jest.Mock).mockReturnValue({
+                width: '',
+                height: '',
+                display: 'block',
+                getPropertyValue: jest.fn(() => ''),
+            })
+            ;(URL.createObjectURL as jest.Mock).mockReturnValue('blob:active-url')
+            mockCanvas.toBlob = jest.fn((callback) => {
+                const blob = new Blob(['test'], { type: 'image/webp' })
+                setTimeout(() => callback?.(blob), 0)
+            })
+
+            const event = {
+                type: EventType.IncrementalSnapshot as const,
+                data: {
+                    source: IncrementalSource.CanvasMutation as const,
+                    id: 1,
+                    type: 0,
+                    commands: [],
+                },
+                timestamp: 1000,
+            }
+
+            const plugin = CanvasReplayerPlugin([event])
+
+            plugin.onBuild?.(mockCanvas, { id: 1, replayer: mockReplayer } as any)
+            plugin.handler!(event, false, { replayer: mockReplayer } as any)
+
+            await new Promise((resolve) => setTimeout(resolve, 10))
+            mockImage.dispatchEvent(new Event('load'))
+
+            expect(URL.revokeObjectURL).not.toHaveBeenCalledWith('blob:active-url')
+
+            plugin.destroy()
+
+            expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:active-url')
         })
     })
 

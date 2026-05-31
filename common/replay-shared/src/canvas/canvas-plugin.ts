@@ -312,7 +312,6 @@ export const CanvasReplayerPlugin = (
                                 parent.replaceChild(img, originalCanvas)
                             }
 
-                            finalizeUrl(data.id, url)
                             controllerById.delete(data.id)
                         },
                         { signal: controller.signal }
