@@ -159,6 +159,33 @@ const tileLayoutsFromDashboard = (
     return tileIdToLayouts
 }
 
+const preserveCurrentInsightTiles = (
+    currentDashboard: DashboardType<QueryBasedInsightModel>,
+    updatedDashboard: DashboardType<QueryBasedInsightModel>
+): DashboardType<QueryBasedInsightModel> => {
+    const currentInsightByTileId = new Map<number, QueryBasedInsightModel>()
+    currentDashboard.tiles.forEach((tile) => {
+        if (tile.insight) {
+            currentInsightByTileId.set(tile.id, tile.insight)
+        }
+    })
+
+    return {
+        ...updatedDashboard,
+        tiles: updatedDashboard.tiles.map((tile) => {
+            const currentInsight = currentInsightByTileId.get(tile.id)
+            if (!currentInsight || !tile.insight || currentInsight.short_id !== tile.insight.short_id) {
+                return tile
+            }
+
+            return {
+                ...tile,
+                insight: currentInsight,
+            }
+        }),
+    }
+}
+
 export const dashboardLogic = kea<dashboardLogicType>([
     path(['scenes', 'dashboard', 'dashboardLogic']),
     connect(() => ({
@@ -820,7 +847,9 @@ export const dashboardLogic = kea<dashboardLogicType>([
                     return null
                 },
                 [dashboardsModel.actionTypes.updateDashboardSuccess]: (state, { dashboard }) => {
-                    return state && dashboard && state.id === dashboard.id ? dashboard : state
+                    return state && dashboard && state.id === dashboard.id
+                        ? preserveCurrentInsightTiles(state, dashboard)
+                        : state
                 },
                 [insightsModel.actionTypes.renameInsightSuccess]: (
                     state,
