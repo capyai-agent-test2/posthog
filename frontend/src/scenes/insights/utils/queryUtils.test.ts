@@ -58,6 +58,29 @@ describe('syncSelectedVariablesToQuery', () => {
             { variableId: 'region-id', code_name: 'region' },
         ])
     })
+
+    it('remaps stale selected variable ids by code name', () => {
+        expect(
+            syncSelectedVariablesToQuery(
+                'SELECT * FROM events WHERE product = {variables.product}',
+                AVAILABLE_VARIABLES,
+                [
+                    { variableId: 'deleted-product-id', code_name: 'product', value: 'mobile' },
+                    { variableId: 'product-id', code_name: 'product', value: 'web' },
+                ]
+            )
+        ).toEqual([{ variableId: 'product-id', code_name: 'product', value: 'mobile' }])
+    })
+
+    it('keeps selected variables while variables are still loading', () => {
+        expect(
+            syncSelectedVariablesToQuery(
+                'SELECT * FROM events',
+                [],
+                [{ variableId: 'product-id', code_name: 'product', value: 'mobile' }]
+            )
+        ).toEqual([{ variableId: 'product-id', code_name: 'product', value: 'mobile' }])
+    })
 })
 
 describe('hasInvalidRegexFilter', () => {

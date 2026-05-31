@@ -2204,12 +2204,13 @@ export const sqlEditorLogic = kea<sqlEditorLogicType>([
             const insightShortIdFromUrl = searchParams.open_insight || hashParams.insight
             const hasFiltersHashParam = hasOwnProperty(hashParams, 'filters')
             const hasVariablesHashParam = hasOwnProperty(hashParams, 'variables')
-            const shouldApplyFiltersFromUrl =
-                hasFiltersHashParam ||
-                (!!(searchParams.open_query || hashParams.q) &&
-                    !draftIdFromUrl &&
-                    !viewIdFromUrl &&
-                    !insightShortIdFromUrl)
+            const isOpeningUnsavedQuery =
+                !!(searchParams.open_query || hashParams.q) &&
+                !draftIdFromUrl &&
+                !viewIdFromUrl &&
+                !insightShortIdFromUrl
+            const shouldApplyFiltersFromUrl = hasFiltersHashParam || isOpeningUnsavedQuery
+            const shouldApplyVariablesFromUrl = hasVariablesHashParam || isOpeningUnsavedQuery
             const filtersFromUrl = hasFiltersHashParam ? parseFiltersFromUrl(hashParams.filters) : undefined
             const variablesFromUrl = hasVariablesHashParam ? parseVariablesFromUrl(hashParams.variables) : undefined
             const applyFiltersFromUrl = (sourceQuery: DataVisualizationNode): DataVisualizationNode => {
@@ -2226,7 +2227,7 @@ export const sqlEditorLogic = kea<sqlEditorLogicType>([
                 }
             }
             const applyVariablesFromUrl = (sourceQuery: DataVisualizationNode): DataVisualizationNode => {
-                if (!hasVariablesHashParam) {
+                if (!shouldApplyVariablesFromUrl) {
                     return sourceQuery
                 }
 
@@ -2281,7 +2282,7 @@ export const sqlEditorLogic = kea<sqlEditorLogicType>([
                     normalizeFiltersForUrl(values.sourceQuery.source.filters) ?? {}
                 )
             const shouldSyncVariables =
-                hasVariablesHashParam &&
+                shouldApplyVariablesFromUrl &&
                 !equal(variablesForSourceQuery ?? {}, values.sourceQuery.source.variables ?? {})
 
             if (

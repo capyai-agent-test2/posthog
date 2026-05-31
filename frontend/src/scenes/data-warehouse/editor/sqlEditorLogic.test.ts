@@ -443,6 +443,49 @@ describe('sqlEditorLogic', () => {
         expect(router.values.hashParams.variables).toBeUndefined()
     })
 
+    it('clears variables when opening an unsaved query URL without variables', async () => {
+        const variables: Record<string, HogQLVariable> = {
+            'variable-id': {
+                variableId: 'variable-id',
+                code_name: 'unused',
+                value: 'mobile',
+            },
+        }
+
+        logic = sqlEditorLogic({
+            tabId: TAB_ID,
+            monaco: createMockMonaco(),
+            editor: createMockEditor(),
+        })
+        logic.mount()
+
+        logic.actions.createTab('SELECT * FROM events')
+        await expectLogic(logic).toDispatchActions(['createTab', 'updateTab'])
+
+        logic.actions.setSourceQuery({
+            ...logic.values.sourceQuery,
+            source: {
+                ...logic.values.sourceQuery.source,
+                variables,
+            },
+        })
+        await new Promise((resolve) => setTimeout(resolve, 0))
+
+        router.actions.push(urls.sqlEditor(), undefined, {
+            q: 'SELECT count() FROM events',
+        })
+
+        await expectLogic(logic)
+            .toDispatchActions(['setSourceQuery', 'createTab', 'updateTab'])
+            .toMatchValues({
+                sourceQuery: partial({
+                    source: partial({
+                        variables: {},
+                    }),
+                }),
+            })
+    })
+
     describe('title section', () => {
         it('shows loading view title when opening a view from URL before view loads', async () => {
             logic = sqlEditorLogic({

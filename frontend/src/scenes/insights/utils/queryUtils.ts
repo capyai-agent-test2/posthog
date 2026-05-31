@@ -58,15 +58,35 @@ export const syncSelectedVariablesToQuery = (
     selectedVariables: HogQLVariable[]
 ): HogQLVariable[] => {
     const queryCodeNames = Array.from(new Set(getVariablesFromQuery(query ?? '')))
-    const variablesByCodeName = new Map(variables.map((variable) => [variable.code_name, variable]))
+    if (!variables.length) {
+        return selectedVariables
+    }
 
-    const syncedVariables = [...selectedVariables]
-    const selectedVariableIds = new Set(selectedVariables.map((variable) => variable.variableId))
+    const variablesByCodeName = new Map(variables.map((variable) => [variable.code_name, variable]))
+    const variablesById = new Map(variables.map((variable) => [variable.id, variable]))
+
+    const syncedVariables: HogQLVariable[] = []
+    const selectedVariableCodeNames = new Set<string>()
+
+    selectedVariables.forEach((selectedVariable) => {
+        const variable =
+            variablesById.get(selectedVariable.variableId) ?? variablesByCodeName.get(selectedVariable.code_name)
+        if (!variable || selectedVariableCodeNames.has(variable.code_name)) {
+            return
+        }
+
+        syncedVariables.push({
+            ...selectedVariable,
+            variableId: variable.id,
+            code_name: variable.code_name,
+        })
+        selectedVariableCodeNames.add(variable.code_name)
+    })
 
     queryCodeNames.forEach((codeName) => {
         const variable = variablesByCodeName.get(codeName)
 
-        if (!variable || selectedVariableIds.has(variable.id)) {
+        if (!variable || selectedVariableCodeNames.has(variable.code_name)) {
             return
         }
 
@@ -74,6 +94,7 @@ export const syncSelectedVariablesToQuery = (
             variableId: variable.id,
             code_name: variable.code_name,
         })
+        selectedVariableCodeNames.add(variable.code_name)
     })
 
     return syncedVariables
