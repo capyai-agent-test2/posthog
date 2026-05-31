@@ -58,16 +58,36 @@ export const syncSelectedVariablesToQuery = (
     selectedVariables: HogQLVariable[]
 ): HogQLVariable[] => {
     const queryCodeNames = Array.from(new Set(getVariablesFromQuery(query ?? '')))
-    const queryCodeNamesSet = new Set(queryCodeNames)
-    const variablesByCodeName = new Map(variables.map((variable) => [variable.code_name, variable]))
+    if (!variables.length) {
+        return selectedVariables
+    }
 
-    const syncedVariables = selectedVariables.filter((variable) => queryCodeNamesSet.has(variable.code_name))
-    const selectedVariableIds = new Set(syncedVariables.map((variable) => variable.variableId))
+    const variablesByCodeName = new Map(variables.map((variable) => [variable.code_name, variable]))
+    const variablesById = new Map(variables.map((variable) => [variable.id, variable]))
+
+    const syncedVariables: HogQLVariable[] = []
+    const selectedVariableCodeNames = new Set<string>()
+
+    selectedVariables.forEach((selectedVariable) => {
+        const variable =
+            variablesById.get(selectedVariable.variableId) ?? variablesByCodeName.get(selectedVariable.code_name)
+        const codeName = variable?.code_name ?? selectedVariable.code_name
+        if (selectedVariableCodeNames.has(codeName)) {
+            return
+        }
+
+        syncedVariables.push({
+            ...selectedVariable,
+            variableId: variable?.id ?? selectedVariable.variableId,
+            code_name: codeName,
+        })
+        selectedVariableCodeNames.add(codeName)
+    })
 
     queryCodeNames.forEach((codeName) => {
         const variable = variablesByCodeName.get(codeName)
 
-        if (!variable || selectedVariableIds.has(variable.id)) {
+        if (!variable || selectedVariableCodeNames.has(variable.code_name)) {
             return
         }
 
@@ -75,6 +95,7 @@ export const syncSelectedVariablesToQuery = (
             variableId: variable.id,
             code_name: variable.code_name,
         })
+        selectedVariableCodeNames.add(variable.code_name)
     })
 
     return syncedVariables
