@@ -427,12 +427,14 @@ export function SceneName({
 }: SceneNameProps): JSX.Element {
     const [name, setName] = useState(initialName)
     const [prevInitialName, setPrevInitialName] = useState(initialName)
+    const [isEditing, setIsEditing] = useState(forceEdit)
     if (initialName !== prevInitialName) {
         setPrevInitialName(initialName)
-        setName(initialName)
+        if (!isEditing || name === prevInitialName) {
+            setName(initialName)
+        }
     }
 
-    const [isEditing, setIsEditing] = useState(forceEdit)
     const containerRef = useRef<HTMLDivElement>(null)
 
     const textClasses =
@@ -614,7 +616,7 @@ type SceneDescriptionProps = {
     isGeneratingMetadata?: boolean
 }
 
-function SceneDescription({
+export function SceneDescription({
     description: initialDescription,
     markdown = false,
     isLoading = false,
@@ -628,12 +630,13 @@ function SceneDescription({
 }: SceneDescriptionProps): JSX.Element | null {
     const [description, setDescription] = useState(initialDescription)
     const [prevInitialDescription, setPrevInitialDescription] = useState(initialDescription)
+    const [isEditing, setIsEditing] = useState(forceEdit)
     if (initialDescription !== prevInitialDescription) {
         setPrevInitialDescription(initialDescription)
-        setDescription(initialDescription)
+        if (!isEditing || description === prevInitialDescription) {
+            setDescription(initialDescription)
+        }
     }
-
-    const [isEditing, setIsEditing] = useState(forceEdit)
 
     const textClasses = 'text-sm my-0 select-auto'
 
