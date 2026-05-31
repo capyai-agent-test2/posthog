@@ -1,4 +1,5 @@
 import { cleanup } from '@testing-library/react'
+import ChartDataLabels from 'chartjs-plugin-datalabels'
 
 import { ChartEvent, InteractionItem } from 'lib/Chart'
 
@@ -158,8 +159,8 @@ describe('LineGraph', () => {
     })
 
     describe('Data labels', () => {
-        const hasChartPlugins = (chart: Awaited<ReturnType<typeof waitForChart>>): boolean =>
-            (((chart.config as any).plugins ?? []) as unknown[]).length > 0
+        const hasDataLabelsPlugin = (chart: Awaited<ReturnType<typeof waitForChart>>): boolean =>
+            (((chart.config as any).plugins ?? []) as unknown[]).some((plugin) => plugin === ChartDataLabels)
 
         it('does not load the data labels plugin when values on series are hidden', async () => {
             renderInsight({
@@ -168,7 +169,7 @@ describe('LineGraph', () => {
 
             const chart = await waitForChart()
 
-            expect(hasChartPlugins(chart)).toBe(false)
+            expect(hasDataLabelsPlugin(chart)).toBe(false)
         })
 
         it('loads the data labels plugin when values on series are shown', async () => {
@@ -180,7 +181,7 @@ describe('LineGraph', () => {
 
             const chart = await waitForChart()
 
-            expect(hasChartPlugins(chart)).toBe(true)
+            expect(hasDataLabelsPlugin(chart)).toBe(true)
         })
     })
 
