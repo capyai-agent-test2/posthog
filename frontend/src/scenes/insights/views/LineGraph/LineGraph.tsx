@@ -1268,11 +1268,13 @@ export function LineGraph_({
                 options.indexAxis = 'y'
             }
 
+            const dataLabelPlugins = showValuesOnSeries === true || datalabelFormatter ? [ChartDataLabels] : []
+
             return {
                 type: (isBar ? GraphType.Bar : type) as ChartType,
                 data: { labels: displayLabels, datasets: processedDatasets },
                 options,
-                plugins: [ChartDataLabels, ...(showTrendLines ? [chartTrendline as any] : [])],
+                plugins: [...dataLabelPlugins, ...(showTrendLines ? [chartTrendline as any] : [])],
             }
         },
         deps: [

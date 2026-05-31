@@ -157,6 +157,33 @@ describe('LineGraph', () => {
         })
     })
 
+    describe('Data labels', () => {
+        const hasChartPlugins = (chart: Awaited<ReturnType<typeof waitForChart>>): boolean =>
+            (((chart.config as any).plugins ?? []) as unknown[]).length > 0
+
+        it('does not load the data labels plugin when values on series are hidden', async () => {
+            renderInsight({
+                query: buildTrendsQuery(),
+            })
+
+            const chart = await waitForChart()
+
+            expect(hasChartPlugins(chart)).toBe(false)
+        })
+
+        it('loads the data labels plugin when values on series are shown', async () => {
+            renderInsight({
+                query: buildTrendsQuery({
+                    trendsFilter: { display: ChartDisplayType.ActionsBar, showValuesOnSeries: true },
+                }),
+            })
+
+            const chart = await waitForChart()
+
+            expect(hasChartPlugins(chart)).toBe(true)
+        })
+    })
+
     describe('onChartClick', () => {
         // Stacked bar geometry (canvas coords, y=0 at top):
         //   Email (dataset 2):      top=50,  base=150, center=100
