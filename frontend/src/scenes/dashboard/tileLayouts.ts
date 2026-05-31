@@ -15,6 +15,8 @@ export interface TileLayout {
 
 const MIN_TILE_HEIGHT_ROWS = 2
 const MIN_TEXT_TILE_HEIGHT_ROWS = 1
+const MOBILE_TEXT_TILE_CHARS_PER_LINE = 36
+const MOBILE_TEXT_TILE_LINES_PER_ROW = 2
 
 export interface DuplicateLayoutResult {
     duplicateLayouts: { sm?: TileLayout }
@@ -170,8 +172,12 @@ export const calculateLayouts = (
                 defaultH = 1
             }
             const xsSmH = breakpoint === 'xs' ? tile.layouts?.sm?.h : undefined
+            const xsTextH = breakpoint === 'xs' && isTextTile ? estimateTextTileMobileHeightRows(tile.text) : undefined
             const realW = Math.min(w || defaultW, columnCount)
-            const realH = h || (typeof xsSmH === 'number' && xsSmH > 0 ? xsSmH : undefined) || defaultH
+            const realH = Math.max(
+                h || (typeof xsSmH === 'number' && xsSmH > 0 ? xsSmH : undefined) || defaultH,
+                xsTextH || 0
+            )
             const minH = isTextTile || isButtonTile ? MIN_TEXT_TILE_HEIGHT_ROWS : MIN_TILE_HEIGHT_ROWS
             const minW = isTextTile || isButtonTile ? 1 : 2
 
@@ -244,4 +250,24 @@ export const calculateLayouts = (
     }
 
     return allLayouts
+}
+
+function estimateTextTileMobileHeightRows(text: DashboardTile<QueryBasedInsightModel>['text']): number {
+    const body = typeof text === 'string' ? text : text?.body
+
+    if (!body) {
+        return 0
+    }
+
+    const estimatedLineCount = body.split('\n').reduce((lineCount, line) => {
+        const trimmedLine = line.trim()
+
+        if (!trimmedLine) {
+            return lineCount
+        }
+
+        return lineCount + Math.max(1, Math.ceil(trimmedLine.length / MOBILE_TEXT_TILE_CHARS_PER_LINE))
+    }, 0)
+
+    return Math.ceil(estimatedLineCount / MOBILE_TEXT_TILE_LINES_PER_ROW)
 }
