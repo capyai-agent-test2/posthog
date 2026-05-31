@@ -158,6 +158,8 @@ export function Seekbar(): JSX.Element {
                             }
                             timestampFormat={timestampFormat}
                             startTime={sessionPlayerData.start}
+                            thumbRef={thumbRef}
+                            thumbLeftPos={thumbLeftPos}
                             showPreviewFrame={!!allowPreviewScrubbing}
                         />
                     ) : null}
