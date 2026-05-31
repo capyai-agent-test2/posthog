@@ -41,6 +41,9 @@ import { HogQLDropdown } from '../HogQLDropdown/HogQLDropdown'
 import { taxonomicFilterLogic } from '../TaxonomicFilter/taxonomicFilterLogic'
 import { TZLabel } from '../TZLabel'
 
+const DEFINITION_POPOVER_MAX_WIDTH_PX = 320
+const DEFINITION_POPOVER_VIEWPORT_PADDING_PX = 16
+
 export function PropertyStatusControl({
     verified,
     hidden,
@@ -727,6 +730,12 @@ export function ControlledDefinitionPopover({
     const isDataWarehouseFunnelWidePopover =
         group.type === TaxonomicFilterGroupType.DataWarehouse && !!definitionPopoverRenderer
 
+    const highlightedItemRight = highlightedItemElement?.getBoundingClientRect().right
+    const placeLeft =
+        highlightedItemRight !== undefined &&
+        highlightedItemRight + DEFINITION_POPOVER_MAX_WIDTH_PX + DEFINITION_POPOVER_VIEWPORT_PADDING_PX >
+            window.innerWidth
+
     const defaultView = <DefinitionView group={group} />
     const customView = definitionPopoverRenderer?.({ item, group, defaultView }) ?? defaultView
 
@@ -756,8 +765,8 @@ export function ControlledDefinitionPopover({
                     {state === DefinitionPopoverState.Edit ? <DefinitionEdit /> : customView}
                 </DefinitionPopover.Wrapper>
             }
-            placement="right"
-            fallbackPlacements={['left']}
+            placement={placeLeft ? 'left' : 'right'}
+            fallbackPlacements={placeLeft ? ['right'] : ['left']}
             middleware={[hide()]} // Hide the definition popover when the reference is off-screen
         />
     )
