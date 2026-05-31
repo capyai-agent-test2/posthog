@@ -1,4 +1,5 @@
-import { ReplayPlugin, playerConfig } from 'posthog-js/rrweb'
+import type { ReplayPlugin, playerConfig } from 'posthog-js/rrweb'
+import type { inputData } from 'posthog-js/rrweb-types'
 
 import { PLACEHOLDER_SVG_DATA_IMAGE_URL } from '../mobile/transformer/shared'
 
@@ -70,6 +71,58 @@ const shopifyShorthandCSSFix =
 export const COMMON_REPLAYER_CONFIG: Partial<playerConfig> = {
     triggerFocus: false,
     insertStyleRules: [defaultStyleRules, shopifyShorthandCSSFix],
+}
+
+const NUMERIC_INPUT_VALUE_REGEX = /^[-+]?(\d+|\d*\.\d+)([eE][-+]?\d+)?$/
+const RRWEB_EVENT_TYPE_INCREMENTAL_SNAPSHOT = 3
+const RRWEB_INCREMENTAL_SOURCE_INPUT = 5
+
+function isNonNumericValue(value: string | null): value is string {
+    return !!value && !NUMERIC_INPUT_VALUE_REGEX.test(value)
+}
+
+function showNonNumericNumberInputValue(input: HTMLInputElement, value: string | null): void {
+    if (input.type !== 'number' || !isNonNumericValue(value)) {
+        return
+    }
+
+    input.type = 'text'
+    input.value = value
+    input.setAttribute('value', value)
+}
+
+export const FormControlReplayerPlugin: ReplayPlugin = {
+    onBuild: (node) => {
+        if (node.nodeName === 'SELECT') {
+            const selectElement = node as HTMLSelectElement
+            const value = selectElement.getAttribute('value')
+            if (value !== null) {
+                selectElement.value = value
+            }
+        }
+
+        if (node.nodeName === 'INPUT') {
+            const inputElement = node as HTMLInputElement
+            showNonNumericNumberInputValue(inputElement, inputElement.getAttribute('value'))
+        }
+    },
+
+    handler: (event, _isSync, { replayer }) => {
+        if (
+            event.type !== RRWEB_EVENT_TYPE_INCREMENTAL_SNAPSHOT ||
+            event.data.source !== RRWEB_INCREMENTAL_SOURCE_INPUT
+        ) {
+            return
+        }
+
+        const data = event.data as inputData
+        const node = replayer.getMirror().getNode(data.id)
+        if (node?.nodeName !== 'INPUT') {
+            return
+        }
+
+        showNonNumericNumberInputValue(node as HTMLInputElement, data.text)
+    },
 }
 
 export { AudioMuteReplayerPlugin } from './audio-mute-plugin'

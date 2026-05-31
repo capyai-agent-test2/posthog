@@ -26,6 +26,7 @@ import {
     COMMON_REPLAYER_CONFIG,
     CanvasReplayerPlugin,
     CorsPlugin,
+    FormControlReplayerPlugin,
     createHLSPlayerPlugin,
 } from '@posthog/replay-shared'
 
@@ -1267,7 +1268,7 @@ export const sessionRecordingPlayerLogic = kea<sessionRecordingPlayerLogicType>(
             }
 
             const hlsPlugin = createHLSPlayerPlugin()
-            const plugins: ReplayPlugin[] = [hlsPlugin]
+            const plugins: ReplayPlugin[] = [hlsPlugin, FormControlReplayerPlugin]
 
             // We don't want non-cloud products to talk to our proxy as it likely won't work, but we _do_ want local testing to work
             if (values.preflight?.cloud || window.location.hostname === 'localhost') {

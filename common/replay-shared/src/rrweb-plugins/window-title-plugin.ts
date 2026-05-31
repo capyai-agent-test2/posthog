@@ -1,5 +1,9 @@
-import { ReplayPlugin } from 'posthog-js/rrweb'
-import { EventType, IncrementalSource, eventWithTime } from 'posthog-js/rrweb-types'
+import type { ReplayPlugin } from 'posthog-js/rrweb'
+import type { eventWithTime } from 'posthog-js/rrweb-types'
+
+const RRWEB_EVENT_TYPE_FULL_SNAPSHOT = 2
+const RRWEB_EVENT_TYPE_INCREMENTAL_SNAPSHOT = 3
+const RRWEB_INCREMENTAL_SOURCE_MUTATION = 0
 
 type Node = {
     id: number
@@ -36,14 +40,17 @@ export const WindowTitlePlugin = (cb: (windowId: string, title: string) => void)
         handler: async (e: eventWithTime, isSync) => {
             if ('windowId' in e && e.windowId && isSync) {
                 const windowId = e.windowId as string
-                if (e.type === EventType.FullSnapshot) {
+                if (e.type === RRWEB_EVENT_TYPE_FULL_SNAPSHOT) {
                     titleElementIds.clear()
                     const el = extractTitleTextEl(e.data.node as Node)
                     if (windowId && el && el.textContent) {
                         titleElementIds.add(el.id)
                         cb(windowId, el.textContent)
                     }
-                } else if (e.type === EventType.IncrementalSnapshot && e.data.source === IncrementalSource.Mutation) {
+                } else if (
+                    e.type === RRWEB_EVENT_TYPE_INCREMENTAL_SNAPSHOT &&
+                    e.data.source === RRWEB_INCREMENTAL_SOURCE_MUTATION
+                ) {
                     e.data.texts.forEach(({ id, value }) => {
                         if (titleElementIds.has(id) && value) {
                             cb(windowId, value)
