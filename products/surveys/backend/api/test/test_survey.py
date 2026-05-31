@@ -4388,6 +4388,101 @@ class TestSurveyQuestionValidationWithEnterpriseFeatures(APIBaseTest):
         assert response.status_code == status.HTTP_400_BAD_REQUEST, response_data
         assert response_data["detail"] == "You need to upgrade to PostHog Enterprise to use white labelling"
 
+    def test_create_survey_with_custom_styling_requires_feature(self):
+        self.organization.available_product_features = []
+        self.organization.save()
+
+        response = self.client.post(
+            f"/api/projects/{self.team.id}/surveys/",
+            data={
+                "name": "Styled survey",
+                "type": "popover",
+                "questions": [{"type": "open", "question": "What do you think?"}],
+                "appearance": {"backgroundColor": "#ffffff"},
+            },
+            format="json",
+        )
+        response_data = response.json()
+        assert response.status_code == status.HTTP_400_BAD_REQUEST, response_data
+        assert response_data["detail"] == "You need to upgrade to PostHog Enterprise to use survey styling"
+
+    def test_create_survey_with_default_styling_does_not_require_feature(self):
+        self.organization.available_product_features = []
+        self.organization.save()
+
+        response = self.client.post(
+            f"/api/projects/{self.team.id}/surveys/",
+            data={
+                "name": "Default styled survey",
+                "type": "popover",
+                "questions": [{"type": "open", "question": "What do you think?"}],
+                "appearance": {"backgroundColor": "#eeeded", "submitButtonColor": "black"},
+            },
+            format="json",
+        )
+        response_data = response.json()
+        assert response.status_code == status.HTTP_201_CREATED, response_data
+
+    def test_update_survey_with_custom_styling_requires_feature(self):
+        self.organization.available_product_features = []
+        self.organization.save()
+        survey = Survey.objects.create(
+            team=self.team,
+            created_by=self.user,
+            name="Basic survey",
+            type="popover",
+            questions=[{"type": "open", "question": "What do you think?"}],
+        )
+
+        response = self.client.patch(
+            f"/api/projects/{self.team.id}/surveys/{survey.id}/",
+            data={"appearance": {"backgroundColor": "#ffffff"}},
+            format="json",
+        )
+        response_data = response.json()
+        assert response.status_code == status.HTTP_400_BAD_REQUEST, response_data
+        assert response_data["detail"] == "You need to upgrade to PostHog Enterprise to use survey styling"
+
+    def test_update_survey_with_existing_styling_does_not_require_feature(self):
+        self.organization.available_product_features = []
+        self.organization.save()
+        survey = Survey.objects.create(
+            team=self.team,
+            created_by=self.user,
+            name="Styled survey",
+            type="popover",
+            questions=[{"type": "open", "question": "What do you think?"}],
+            appearance={"backgroundColor": "#ffffff"},
+        )
+
+        response = self.client.patch(
+            f"/api/projects/{self.team.id}/surveys/{survey.id}/",
+            data={"appearance": {"backgroundColor": "#ffffff", "thankYouMessageHeader": "Thanks!"}},
+            format="json",
+        )
+        response_data = response.json()
+        assert response.status_code == status.HTTP_200_OK, response_data
+
+    def test_create_survey_with_custom_styling_available(self):
+        self.organization.available_product_features = [
+            {"key": AvailableFeature.SURVEYS_STYLING, "name": AvailableFeature.SURVEYS_STYLING}
+        ]
+        self.organization.save()
+
+        response = self.client.post(
+            f"/api/projects/{self.team.id}/surveys/",
+            data={
+                "name": "Styled survey",
+                "type": "popover",
+                "questions": [{"type": "open", "question": "What do you think?"}],
+                "appearance": {"backgroundColor": "#ffffff"},
+            },
+            format="json",
+        )
+        response_data = response.json()
+        assert response.status_code == status.HTTP_201_CREATED, response_data
+        assert response_data["appearance"]["backgroundColor"] == "#ffffff"
+
 
 class TestSurveyWithActions(APIBaseTest):
     def test_can_use_actions_with_properties(self):

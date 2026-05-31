@@ -48,7 +48,7 @@ from posthog.api.utils import action
 from posthog.clickhouse.client import sync_execute
 from posthog.clickhouse.query_tagging import Feature, tag_queries
 from posthog.cloud_utils import is_cloud
-from posthog.constants import SURVEY_TARGETING_FLAG_PREFIX, AvailableFeature
+from posthog.constants import DEFAULT_SURVEY_APPEARANCE, SURVEY_TARGETING_FLAG_PREFIX, AvailableFeature
 from posthog.event_usage import report_user_action
 from posthog.helpers.trigram_search import (
     DESCRIPTION_SCORE_WEIGHT,
@@ -108,6 +108,30 @@ DEFAULT_BASE_LANGUAGE = "en"
 # Sentinel keys we explicitly reject — these used to appear in customer data and never
 # resolved to anything in the SDK. Block them at the API so they don't keep accumulating.
 REJECTED_TRANSLATION_KEYS = frozenset({"default", "original", "base"})
+SURVEY_STYLING_APPEARANCE_FIELDS = frozenset(
+    {
+        "backgroundColor",
+        "borderColor",
+        "borderRadius",
+        "boxPadding",
+        "boxShadow",
+        "disabledButtonOpacity",
+        "fontFamily",
+        "inputBackground",
+        "inputTextColor",
+        "maxWidth",
+        "placeholder",
+        "position",
+        "ratingButtonActiveColor",
+        "ratingButtonColor",
+        "submitButtonColor",
+        "submitButtonTextColor",
+        "tabPosition",
+        "textColor",
+        "textSubtleColor",
+        "zIndex",
+    }
+)
 
 
 def _normalize_language_code(raw: str) -> str:
@@ -813,6 +837,19 @@ class SurveySerializerCreateUpdateOnly(serializers.ModelSerializer):
         data["conditions"] = get_survey_conditions_with_actions(instance)
         return data
 
+    def _get_existing_appearance_value(self, key: str) -> Any:
+        if self.instance is not None:
+            existing_appearance = getattr(self.instance, "appearance", None)
+            if isinstance(existing_appearance, dict) and key in existing_appearance:
+                return existing_appearance.get(key)
+        return DEFAULT_SURVEY_APPEARANCE.get(key)
+
+    def _has_new_survey_styling(self, appearance: dict[str, Any]) -> bool:
+        for key in SURVEY_STYLING_APPEARANCE_FIELDS:
+            if key in appearance and appearance.get(key) != self._get_existing_appearance_value(key):
+                return True
+        return False
+
     def validate_appearance(self, value):
         if value is None:
             return value
@@ -844,13 +881,16 @@ class SurveySerializerCreateUpdateOnly(serializers.ModelSerializer):
         if survey_white_label is not None and not isinstance(survey_white_label, bool):
             raise serializers.ValidationError("whiteLabel must be a boolean")
 
-        # Check if the organization has the white labelling feature available
-        use_survey_white_labelling = self.context["get_organization"]().is_feature_available(
-            AvailableFeature.WHITE_LABELLING
-        )
+        organization = self.context["get_organization"]()
+        use_survey_white_labelling = organization.is_feature_available(AvailableFeature.WHITE_LABELLING)
 
         if survey_white_label and not use_survey_white_labelling:
             raise serializers.ValidationError("You need to upgrade to PostHog Enterprise to use white labelling")
+
+        if self._has_new_survey_styling(value) and not organization.is_feature_available(
+            AvailableFeature.SURVEYS_STYLING
+        ):
+            raise serializers.ValidationError("You need to upgrade to PostHog Enterprise to use survey styling")
 
         return value
 
