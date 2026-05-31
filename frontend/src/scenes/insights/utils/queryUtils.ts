@@ -71,16 +71,17 @@ export const syncSelectedVariablesToQuery = (
     selectedVariables.forEach((selectedVariable) => {
         const variable =
             variablesById.get(selectedVariable.variableId) ?? variablesByCodeName.get(selectedVariable.code_name)
-        if (!variable || selectedVariableCodeNames.has(variable.code_name)) {
+        const codeName = variable?.code_name ?? selectedVariable.code_name
+        if (selectedVariableCodeNames.has(codeName)) {
             return
         }
 
         syncedVariables.push({
             ...selectedVariable,
-            variableId: variable.id,
-            code_name: variable.code_name,
+            variableId: variable?.id ?? selectedVariable.variableId,
+            code_name: codeName,
         })
-        selectedVariableCodeNames.add(variable.code_name)
+        selectedVariableCodeNames.add(codeName)
     })
 
     queryCodeNames.forEach((codeName) => {

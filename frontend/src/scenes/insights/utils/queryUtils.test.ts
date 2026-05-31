@@ -81,6 +81,19 @@ describe('syncSelectedVariablesToQuery', () => {
             )
         ).toEqual([{ variableId: 'product-id', code_name: 'product', value: 'mobile' }])
     })
+
+    it('keeps selected variables absent from the current variable page', () => {
+        expect(
+            syncSelectedVariablesToQuery(
+                'SELECT * FROM events WHERE region = {variables.region}',
+                [{ id: 'region-id', code_name: 'region' }],
+                [{ variableId: 'product-id', code_name: 'product', value: 'mobile' }]
+            )
+        ).toEqual([
+            { variableId: 'product-id', code_name: 'product', value: 'mobile' },
+            { variableId: 'region-id', code_name: 'region' },
+        ])
+    })
 })
 
 describe('hasInvalidRegexFilter', () => {
