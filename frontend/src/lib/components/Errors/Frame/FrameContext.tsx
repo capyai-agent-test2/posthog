@@ -24,8 +24,13 @@ export function FrameContext({
     return (
         <div className="overflow-x-auto [&_span]:!whitespace-pre">
             <div className="w-fit min-w-full">
-                {lines.map(({ highlight, ...line }) => (
-                    <FrameContextLine key={line.number} lines={[line]} language={language} highlight={highlight} />
+                {lines.map(({ highlight, ...line }, index) => (
+                    <FrameContextLine
+                        key={`${line.number}-${index}`}
+                        lines={[line]}
+                        language={language}
+                        highlight={highlight}
+                    />
                 ))}
             </div>
         </div>
