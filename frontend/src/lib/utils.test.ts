@@ -374,6 +374,9 @@ describe('lib/utils', () => {
                 expect(dateFilterToText('-1mStart', '-1mEnd', 'default', dateMapping, true)).toEqual(
                     'February 1 - February 29, 2012'
                 )
+                expect(dateFilterToText('mStart', null, 'default', dateMapping, true)).toEqual(
+                    'March 1 - March 2, 2012'
+                )
                 expect(dateFilterToText('-180d', null, 'default', dateMapping, true)).toEqual(
                     'September 4, 2011 - March 2, 2012'
                 )
