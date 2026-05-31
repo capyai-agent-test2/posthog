@@ -427,6 +427,7 @@ function ActiveFieldEditor({
                     <HogQLEditor
                         value={value}
                         onChange={(v) => onChange(v)}
+                        syncKey={field.key}
                         metadataSource={{
                             kind: NodeKind.HogQLQuery,
                             query: `SELECT * FROM ${field.tableName ?? tableName}`,

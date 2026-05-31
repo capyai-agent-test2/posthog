@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Link } from '@posthog/lemon-ui'
 
@@ -22,6 +22,7 @@ export interface HogQLEditorProps {
     /** When true, show a hint about using `AS column_name` or `-- column_name` to make
      * long expressions readable as a breakdown/column label. */
     showBreakdownLabelHint?: boolean
+    syncKey?: string
 }
 
 // Hint is only helpful once the expression is long enough to look unreadable as a column header.
@@ -48,11 +49,19 @@ export function HogQLEditor({
     submitText,
     placeholder,
     showBreakdownLabelHint,
+    syncKey,
 }: HogQLEditorProps): JSX.Element {
     const [bufferedValue, setBufferedValue] = useState(value ?? '')
+    const lastValueRef = useRef(value ?? '')
+    const lastSyncKeyRef = useRef(syncKey)
     useEffect(() => {
-        setBufferedValue(value ?? '')
-    }, [value])
+        const nextValue = value ?? ''
+        if (syncKey !== lastSyncKeyRef.current || bufferedValue === lastValueRef.current) {
+            setBufferedValue(nextValue)
+        }
+        lastValueRef.current = nextValue
+        lastSyncKeyRef.current = syncKey
+    }, [bufferedValue, syncKey, value])
 
     const shouldShowBreakdownLabelHint =
         showBreakdownLabelHint &&
