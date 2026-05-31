@@ -1,5 +1,6 @@
 import { expectLogic } from 'kea-test-utils'
 
+import api from 'lib/api'
 import { sessionRecordingsListPropertiesLogic } from 'scenes/session-recordings/playlist/sessionRecordingsListPropertiesLogic'
 
 import { useMocks } from '~/mocks/jest'
@@ -103,6 +104,10 @@ describe('sessionRecordingsListPropertiesLogic', () => {
         logic.mount()
     })
 
+    afterEach(() => {
+        jest.restoreAllMocks()
+    })
+
     it('loads properties', async () => {
         await expectLogic(logic, () => {
             logic.actions.loadPropertiesForSessions(mockSessons)
@@ -112,6 +117,20 @@ describe('sessionRecordingsListPropertiesLogic', () => {
             recordingProperties: EXPECTED_RECORDING_PROPERTIES,
             recordingPropertiesById: EXPECTED_RECORDING_PROPERTIES_BY_ID,
         })
+    })
+
+    it('loads deterministic first-event properties for session metadata', async () => {
+        const queryHogQLSpy = jest.spyOn(api, 'queryHogQL').mockResolvedValue({ results: [] } as any)
+
+        await expectLogic(logic, () => {
+            logic.actions.loadPropertiesForSessions(mockSessons)
+        }).toDispatchActions(['loadPropertiesForSessionsSuccess'])
+
+        const query = queryHogQLSpy.mock.calls[0][0]
+        expect(query).toContain('argMin(properties.$geoip_country_code, timestamp) as $geoip_country_code')
+        expect(query).toContain('argMin(properties.$geoip_subdivision_1_name, timestamp) as $geoip_subdivision_1_name')
+        expect(query).toContain('argMin(properties.$geoip_city_name, timestamp) as $geoip_city_name')
+        expect(query).not.toContain('any(properties.$geoip_country_code)')
     })
 
     it('does not loads cached properties', async () => {
