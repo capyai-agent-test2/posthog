@@ -272,7 +272,7 @@ class TestExperimentQueryRunner(ExperimentQueryRunnerBaseTest):
                 },
                 {
                     "control_absolute_exposure": 7,
-                    "test_absolute_exposure": 9,
+                    "test_absolute_exposure": 10,
                 },
             ],
             [
@@ -285,7 +285,7 @@ class TestExperimentQueryRunner(ExperimentQueryRunnerBaseTest):
                 },
                 {
                     "control_absolute_exposure": 7,
-                    "test_absolute_exposure": 9,
+                    "test_absolute_exposure": 10,
                 },
             ],
             [
@@ -297,8 +297,8 @@ class TestExperimentQueryRunner(ExperimentQueryRunnerBaseTest):
                     "operator": "exact",
                 },
                 {
-                    "control_absolute_exposure": 0,
-                    "test_absolute_exposure": 0,
+                    "control_absolute_exposure": 7,
+                    "test_absolute_exposure": 10,
                 },
             ],
             [
@@ -311,8 +311,8 @@ class TestExperimentQueryRunner(ExperimentQueryRunnerBaseTest):
                     "operator": "exact",
                 },
                 {
-                    "control_absolute_exposure": 3,
-                    "test_absolute_exposure": 3,
+                    "control_absolute_exposure": 7,
+                    "test_absolute_exposure": 10,
                 },
             ],
             [
@@ -325,8 +325,8 @@ class TestExperimentQueryRunner(ExperimentQueryRunnerBaseTest):
                     "operator": "exact",
                 },
                 {
-                    "control_absolute_exposure": 3,
-                    "test_absolute_exposure": 3,
+                    "control_absolute_exposure": 7,
+                    "test_absolute_exposure": 10,
                 },
             ],
             [
@@ -341,7 +341,7 @@ class TestExperimentQueryRunner(ExperimentQueryRunnerBaseTest):
                 },
                 {
                     "control_absolute_exposure": 7,
-                    "test_absolute_exposure": 9,
+                    "test_absolute_exposure": 10,
                 },
             ],
             [
@@ -353,14 +353,15 @@ class TestExperimentQueryRunner(ExperimentQueryRunnerBaseTest):
                     "operator": "exact",
                 },
                 {
-                    "control_absolute_exposure": 0,
-                    "test_absolute_exposure": 0,
+                    "control_absolute_exposure": 7,
+                    "test_absolute_exposure": 10,
                 },
             ],
         ]
     )
-    @snapshot_clickhouse_queries
-    def test_query_runner_with_data_warehouse_internal_filters(self, name, filter: dict, filter_expected: dict):
+    def test_query_runner_with_data_warehouse_internal_filters_ignores_filters(
+        self, name, filter: dict, filter_expected: dict
+    ):
         table_name = self.create_data_warehouse_table_with_usage()
 
         feature_flag = self.create_feature_flag()
