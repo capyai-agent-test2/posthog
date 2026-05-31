@@ -1,4 +1,5 @@
 import { cleanup } from '@testing-library/react'
+import ChartDataLabels from 'chartjs-plugin-datalabels'
 
 import { ChartEvent, InteractionItem } from 'lib/Chart'
 
@@ -154,6 +155,33 @@ describe('LineGraph', () => {
 
             const firstTickLabel = chart.axes.x.tickLabel(0)
             expect(firstTickLabel).toBe('Jun 10')
+        })
+    })
+
+    describe('Data labels', () => {
+        const hasDataLabelsPlugin = (chart: Awaited<ReturnType<typeof waitForChart>>): boolean =>
+            (((chart.config as any).plugins ?? []) as unknown[]).some((plugin) => plugin === ChartDataLabels)
+
+        it('does not load the data labels plugin when values on series are hidden', async () => {
+            renderInsight({
+                query: buildTrendsQuery(),
+            })
+
+            const chart = await waitForChart()
+
+            expect(hasDataLabelsPlugin(chart)).toBe(false)
+        })
+
+        it('loads the data labels plugin when values on series are shown', async () => {
+            renderInsight({
+                query: buildTrendsQuery({
+                    trendsFilter: { display: ChartDisplayType.ActionsBar, showValuesOnSeries: true },
+                }),
+            })
+
+            const chart = await waitForChart()
+
+            expect(hasDataLabelsPlugin(chart)).toBe(true)
         })
     })
 
