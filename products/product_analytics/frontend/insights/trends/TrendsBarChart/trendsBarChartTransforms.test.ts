@@ -173,7 +173,7 @@ describe('getTrendsBarAggregatedValue', () => {
         { result: { aggregated_value: 3 }, expected: 3 },
         { result: { aggregated_value: '4.5' }, expected: 4.5 },
         { result: { aggregated_value: undefined, count: 6 }, expected: 6 },
-        { result: { aggregated_value: Number.NaN, count: '7' }, expected: 7 },
+        { result: { aggregated_value: Number.NaN, count: '7' }, expected: 0 },
         { result: { aggregated_value: Number.POSITIVE_INFINITY, count: undefined }, expected: 0 },
     ])('returns $expected for $result', ({ result, expected }) => {
         expect(getTrendsBarAggregatedValue(makeResult(result))).toBe(expected)

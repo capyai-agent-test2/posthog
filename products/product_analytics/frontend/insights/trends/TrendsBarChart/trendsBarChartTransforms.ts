@@ -30,6 +30,7 @@ export function getTrendsBarAggregatedValue(result: TrendsBarResultLike): number
         if (Number.isFinite(aggregatedValue)) {
             return aggregatedValue
         }
+        return 0
     }
 
     const count = Number(result.count)
