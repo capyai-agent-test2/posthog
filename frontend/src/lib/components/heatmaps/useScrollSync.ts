@@ -101,6 +101,7 @@ export function useScrollSync(enabled: boolean = true): {
         document.addEventListener('wheel', captureScrollBaseline, { capture: true, passive: true })
         document.addEventListener('touchstart', captureScrollBaseline, { capture: true, passive: true })
         document.addEventListener('mousedown', captureScrollBaseline, { capture: true, passive: true })
+        document.addEventListener('keydown', captureScrollBaseline, { capture: true, passive: true })
         document.addEventListener('scroll', onScroll, { capture: true, passive: true })
         rafId = requestAnimationFrame(onFrame)
 
@@ -108,6 +109,7 @@ export function useScrollSync(enabled: boolean = true): {
             document.removeEventListener('wheel', captureScrollBaseline, { capture: true })
             document.removeEventListener('touchstart', captureScrollBaseline, { capture: true })
             document.removeEventListener('mousedown', captureScrollBaseline, { capture: true })
+            document.removeEventListener('keydown', captureScrollBaseline, { capture: true })
             document.removeEventListener('scroll', onScroll, { capture: true })
             if (rafId !== undefined) {
                 cancelAnimationFrame(rafId)
