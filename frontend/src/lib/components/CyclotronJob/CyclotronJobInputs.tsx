@@ -277,14 +277,17 @@ function DictionaryField({
     const [entries, setEntries] = useState<[string, any][]>(() => Object.entries(value))
     const prevFilteredEntriesRef = useRef<[string, any][]>(entries)
 
-    useEffect(() => {
+    const commitEntries = (newEntries: [string, any][], inputOverrides: Partial<CyclotronJobInputType> = {}): void => {
+        setEntries(newEntries)
+
         // NOTE: Filter out all empty entries as fetch will throw if passed in
-        const filteredEntries = entries.filter(
+        const filteredEntries = newEntries.filter(
             ([key, val]) => key.trim() !== '' || typeof val !== 'string' || val.trim() !== ''
         )
 
         // Compare with previous filtered entries to avoid unnecessary updates
-        if (objectsEqual(filteredEntries, prevFilteredEntriesRef.current)) {
+        const hasInputOverrides = Object.keys(inputOverrides).length > 0
+        if (objectsEqual(filteredEntries, prevFilteredEntriesRef.current) && !hasInputOverrides) {
             return
         }
 
@@ -292,11 +295,11 @@ function DictionaryField({
         prevFilteredEntriesRef.current = filteredEntries
 
         const val = Object.fromEntries(filteredEntries)
-        onChange?.({ ...input, value: val }) // oxlint-disable-line react-hooks/exhaustive-deps
-    }, [entries, onChange])
+        onChange?.({ ...input, ...inputOverrides, value: val })
+    }
 
     const handleEnableIncludeObject = (): void => {
-        setEntries((prev) => [[EXTEND_OBJECT_KEY, '{event.properties}'], ...prev])
+        commitEntries([[EXTEND_OBJECT_KEY, '{event.properties}'], ...entries])
     }
 
     return (
@@ -314,11 +317,9 @@ function DictionaryField({
                             disabled={key === EXTEND_OBJECT_KEY}
                             className="flex-1 min-w-60"
                             onChange={(key) => {
-                                setEntries((prev) => {
-                                    const newEntries = [...prev]
-                                    newEntries[index] = [key, newEntries[index][1]]
-                                    return newEntries
-                                })
+                                const newEntries = [...entries]
+                                newEntries[index] = [key, newEntries[index][1]]
+                                commitEntries(newEntries)
                             }}
                             placeholder="Key"
                         />
@@ -328,15 +329,9 @@ function DictionaryField({
                         className="overflow-hidden flex-2"
                         input={{ ...input, value: val }}
                         onChange={(val) => {
-                            if (val.templating) {
-                                onChange?.({ ...input, templating: val.templating })
-                            }
-
-                            setEntries((prev) => {
-                                const newEntries = [...prev]
-                                newEntries[index] = [newEntries[index][0], val.value ?? '']
-                                return newEntries
-                            })
+                            const newEntries = [...entries]
+                            newEntries[index] = [newEntries[index][0], val.value ?? '']
+                            commitEntries(newEntries, val.templating ? { templating: val.templating } : {})
                         }}
                         templating={templating}
                         sampleGlobalsWithInputs={sampleGlobalsWithInputs}
@@ -346,11 +341,9 @@ function DictionaryField({
                         icon={<IconX />}
                         size="small"
                         onClick={() => {
-                            setEntries((prev) => {
-                                const newEntries = [...prev]
-                                newEntries.splice(index, 1)
-                                return newEntries
-                            })
+                            const newEntries = [...entries]
+                            newEntries.splice(index, 1)
+                            commitEntries(newEntries)
                         }}
                     />
                 </div>
@@ -360,7 +353,7 @@ function DictionaryField({
                 size="small"
                 type="secondary"
                 onClick={() => {
-                    setEntries((prev) => [...prev, ['', '']])
+                    commitEntries([...entries, ['', '']])
                 }}
             >
                 Add entry
