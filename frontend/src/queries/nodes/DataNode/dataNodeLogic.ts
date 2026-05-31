@@ -421,8 +421,8 @@ export const dataNodeLogic = kea<dataNodeLogicType>([
                                 props.refresh,
                                 undefined,
                                 undefined,
-                                undefined,
-                                undefined,
+                                props.filtersOverride,
+                                props.variablesOverride,
                                 false,
                                 props.limitContext
                             )) ?? null
@@ -467,8 +467,8 @@ export const dataNodeLogic = kea<dataNodeLogicType>([
                                 props.refresh,
                                 undefined,
                                 undefined,
-                                undefined,
-                                undefined,
+                                props.filtersOverride,
+                                props.variablesOverride,
                                 false,
                                 props.limitContext
                             )) ?? null
@@ -501,8 +501,8 @@ export const dataNodeLogic = kea<dataNodeLogicType>([
                                 props.refresh,
                                 undefined,
                                 undefined,
-                                undefined,
-                                undefined,
+                                props.filtersOverride,
+                                props.variablesOverride,
                                 false,
                                 props.limitContext
                             )) ?? null

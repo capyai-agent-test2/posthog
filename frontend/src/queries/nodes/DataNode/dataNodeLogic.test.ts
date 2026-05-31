@@ -106,6 +106,10 @@ describe('dataNodeLogic', () => {
             results: results,
             hasMore: true,
         })
+        const filtersOverride: DashboardFilter = { filterTestAccounts: true }
+        const variablesOverride: Record<string, HogQLVariable> = {
+            test: { variableId: 'test', code_name: 'test', value: 'value' },
+        }
 
         logic = dataNodeLogic({
             key: testUniqueKey,
@@ -113,6 +117,8 @@ describe('dataNodeLogic', () => {
                 kind: NodeKind.EventsQuery,
                 select: ['*', 'event', 'timestamp'],
             }),
+            filtersOverride,
+            variablesOverride,
         })
         logic.mount()
         await expectLogic(logic)
@@ -177,6 +183,21 @@ describe('dataNodeLogic', () => {
             }),
             response: partial({ results: [...results2, ...results] }),
         })
+        expect(performQuery).toHaveBeenLastCalledWith(
+            setLatestVersionsOnQuery({
+                kind: NodeKind.EventsQuery,
+                select: ['*', 'event', 'timestamp'],
+                after: '2022-12-24T17:00:41.165000Z',
+            }),
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            filtersOverride,
+            variablesOverride,
+            false,
+            undefined
+        )
 
         // higlights new rows
         expect(Array.from(logic.values.highlightedRows)).toEqual([results2[0]])
@@ -222,6 +243,10 @@ describe('dataNodeLogic', () => {
             results: results,
             hasMore: true,
         })
+        const filtersOverride: DashboardFilter = { filterTestAccounts: true }
+        const variablesOverride: Record<string, HogQLVariable> = {
+            test: { variableId: 'test', code_name: 'test', value: 'value' },
+        }
 
         logic = dataNodeLogic({
             key: testUniqueKey,
@@ -229,6 +254,8 @@ describe('dataNodeLogic', () => {
                 kind: NodeKind.EventsQuery,
                 select: ['*', 'event', 'timestamp'],
             }),
+            filtersOverride,
+            variablesOverride,
         })
         logic.mount()
         await expectLogic(logic)
@@ -287,6 +314,22 @@ describe('dataNodeLogic', () => {
             }),
             response: partial({ results: [...results, ...results2] }),
         })
+        expect(performQuery).toHaveBeenLastCalledWith(
+            setLatestVersionsOnQuery({
+                kind: NodeKind.EventsQuery,
+                select: ['*', 'event', 'timestamp'],
+                before: '2022-12-24T17:00:41.165000Z',
+                limit: 100,
+            }),
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            filtersOverride,
+            variablesOverride,
+            false,
+            undefined
+        )
     })
 
     it('can load next data for PersonsNode', async () => {
