@@ -8,7 +8,7 @@ import { SetupTaskId, globalSetupLogic } from 'lib/components/ProductSetup'
 import { uuid } from 'lib/utils'
 
 import type { ModelOption } from '../modelPickerLogic'
-import { llmProviderKeysLogic } from '../settings/llmProviderKeysLogic'
+import { llmProviderKeysLogic, normalizeLLMProvider } from '../settings/llmProviderKeysLogic'
 import { llmPlaygroundModelLogic } from './llmPlaygroundModelLogic'
 import { llmPlaygroundPromptsLogic, type Message, type PromptConfig } from './llmPlaygroundPromptsLogic'
 import type { llmPlaygroundRunLogicType } from './llmPlaygroundRunLogicType'
@@ -308,9 +308,14 @@ export const llmPlaygroundRunLogic = kea<llmPlaygroundRunLogicType>([
                     try {
                         startTime = performance.now()
 
-                        const selectedModel = (values.effectiveModelOptions as ModelOption[]).find(
-                            (m) => m.id === prompt.model
-                        )
+                        const resolvedProviderKey =
+                            resolveProviderKeyForPrompt(prompt, values.effectiveModelOptions, values.providerKeys) ??
+                            values.providerKeys.find((key) => key.id === values.activeProviderKeyId)
+                        providerKeyId = resolvedProviderKey?.id ?? null
+                        const selectedModel =
+                            (values.effectiveModelOptions as ModelOption[]).find(
+                                (m) => m.id === prompt.model && (!providerKeyId || m.providerKeyId === providerKeyId)
+                            ) ?? (values.effectiveModelOptions as ModelOption[]).find((m) => m.id === prompt.model)
                         if (!selectedModel?.provider) {
                             lemonToast.error('Selected model not found in available models')
                             responseText = '**Error:** Selected model not available.'
@@ -319,10 +324,15 @@ export const llmPlaygroundRunLogic = kea<llmPlaygroundRunLogicType>([
                             return
                         }
 
-                        providerKeyId =
-                            resolveProviderKeyForPrompt(prompt, values.effectiveModelOptions, values.providerKeys)
-                                ?.id ?? values.activeProviderKeyId
-                        selectedModelProvider = selectedModel.provider.toLowerCase()
+                        const normalizedModelProvider = normalizeLLMProvider(selectedModel.provider)
+                        selectedModelProvider = resolvedProviderKey?.provider ?? normalizedModelProvider ?? ''
+                        if (!selectedModelProvider) {
+                            lemonToast.error('Selected model provider not found')
+                            responseText = '**Error:** Selected model provider not available.'
+                            responseHasError = true
+                            upsertLiveItem()
+                            return
+                        }
 
                         const requestData: Record<string, unknown> = {
                             system: prompt.systemPrompt,

@@ -90,6 +90,55 @@ describe('llmPlaygroundRunLogic', () => {
         streamSpy.mockRestore()
     })
 
+    it('sends the selected provider key provider when model ids overlap', async () => {
+        useMocks({
+            get: {
+                '/api/llm_proxy/models/': (req: any) => {
+                    const providerKeyId = req.url.searchParams.get('provider_key_id')
+                    if (providerKeyId === 'openai-key') {
+                        return [200, [{ id: 'gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', description: '' }]]
+                    }
+                    if (providerKeyId === 'azure-key') {
+                        return [200, [{ id: 'gpt-4.1', name: 'GPT-4.1', provider: 'Azure OpenAI', description: '' }]]
+                    }
+                    return [200, [{ id: 'gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI', description: '' }]]
+                },
+                '/api/environments/:team_id/llm_analytics/evaluation_config/': {
+                    active_provider_key: null,
+                },
+                '/api/environments/:team_id/llm_analytics/provider_keys/': {
+                    results: [
+                        { id: 'openai-key', provider: 'openai', state: 'ok' },
+                        { id: 'azure-key', provider: 'azure_openai', state: 'ok' },
+                    ],
+                },
+            },
+        })
+        const streamSpy = jest.spyOn(api, 'stream').mockImplementation(async (_url, options: any) => {
+            options.onMessage?.({ data: JSON.stringify({ type: 'text', text: 'ok' }) })
+        })
+
+        const logic = llmPlaygroundRunLogic()
+        logic.mount()
+        await expectLogic(logic).toFinishAllListeners()
+
+        llmPlaygroundPromptsLogic.actions.setModel('gpt-4.1', 'azure-key')
+        llmPlaygroundPromptsLogic.actions.setMessages([{ role: 'user', content: 'hello' }])
+        llmPlaygroundRunLogic.actions.submitPrompt()
+
+        await expectLogic(logic).toFinishAllListeners()
+
+        expect(streamSpy).toHaveBeenCalledTimes(1)
+        expect(streamSpy.mock.calls[0][1]?.data).toMatchObject({
+            model: 'gpt-4.1',
+            provider: 'azure_openai',
+            provider_key_id: 'azure-key',
+        })
+
+        logic.unmount()
+        streamSpy.mockRestore()
+    })
+
     it('surfaces backend error message and captures exception when stream fails with ApiError', async () => {
         const apiError = new ApiError('fallback message', 400, undefined, {
             error: 'Thinking is not supported for this model',
