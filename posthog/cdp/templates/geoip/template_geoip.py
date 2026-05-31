@@ -34,7 +34,7 @@ if (event.properties?.$geoip_disable or empty(event.properties?.$ip)) {
 }
 
 let ip := event.properties.$ip
-if (ip == '127.0.0.1') {
+if (ip == '127.0.0.1' or startsWith(ip, '192.168.')) {
     print('spoofing ip for local development', ip)
     ip := '89.160.20.129'
 }
