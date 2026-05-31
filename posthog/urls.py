@@ -45,6 +45,7 @@ from posthog.demo.legacy import demo_route
 from posthog.models import User
 from posthog.models.instance_setting import get_instance_setting
 from posthog.oauth2_urls import urlpatterns as oauth2_urls
+from posthog.remote_config import config_endpoint, config_js_endpoint
 from posthog.temporal.codec_server import decode_payloads
 
 from products.data_warehouse.backend.api.public_source_configs import PublicSourceConfigViewSet
@@ -385,6 +386,8 @@ urlpatterns = [
         sharing.SharingViewerPageViewSet.as_view({"get": "retrieve"}),
     ),
     path("site_app/<int:id>/<str:token>/<str:hash>/", site_app.get_site_app),
+    path("array/<str:token>/config", config_endpoint),
+    path("array/<str:token>/config.js", config_js_endpoint),
     re_path(r"^demo.*", login_required(demo_route)),
     path("", include((oauth2_urls, "oauth2_provider"), namespace="oauth2_provider")),
     # ingestion
