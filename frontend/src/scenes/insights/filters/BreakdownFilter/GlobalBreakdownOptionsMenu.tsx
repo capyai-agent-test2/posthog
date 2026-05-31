@@ -9,10 +9,9 @@ import { Tooltip } from 'lib/lemon-ui/Tooltip'
 import { insightLogic } from 'scenes/insights/insightLogic'
 import { insightVizDataLogic } from 'scenes/insights/insightVizDataLogic'
 
-import { taxonomicBreakdownFilterLogic } from './taxonomicBreakdownFilterLogic'
+import { MAX_BREAKDOWN_LIMIT, taxonomicBreakdownFilterLogic } from './taxonomicBreakdownFilterLogic'
 
 const MIN_BREAKDOWN_LIMIT = 1
-const MAX_BREAKDOWN_LIMIT = 1000
 
 export const GlobalBreakdownOptionsMenu = (): JSX.Element | null => {
     const { insightProps } = useValues(insightLogic)

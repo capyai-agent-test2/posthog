@@ -23,6 +23,10 @@ import { isCohortBreakdown, isMultipleBreakdownType, isURLNormalizeable } from '
 
 // Kept in sync with the `@maxItems` on `BreakdownFilter.breakdowns` in schema-general.ts.
 const MAX_TRENDS_BREAKDOWNS = 3
+export const MAX_BREAKDOWN_LIMIT = 1000
+
+const clampBreakdownLimit = (value: number | undefined): number | undefined =>
+    value === undefined ? undefined : Math.min(value, MAX_BREAKDOWN_LIMIT)
 
 export type TaxonomicBreakdownFilterLogicProps = {
     insightProps: InsightLogicProps
@@ -119,7 +123,7 @@ export const taxonomicBreakdownFilterLogic = kea<taxonomicBreakdownFilterLogicTy
         localBreakdownLimit: [
             undefined as number | undefined,
             {
-                setBreakdownLimit: (_, { value }) => value,
+                setBreakdownLimit: (_, { value }) => clampBreakdownLimit(value),
             },
         ],
         localNormalizeBreakdownURL: [
@@ -228,7 +232,8 @@ export const taxonomicBreakdownFilterLogic = kea<taxonomicBreakdownFilterLogicTy
         ],
         breakdownLimit: [
             (s) => [s.breakdownFilter, s.localBreakdownLimit],
-            (breakdownFilter, localBreakdownLimit) => localBreakdownLimit || breakdownFilter?.breakdown_limit || 25,
+            (breakdownFilter, localBreakdownLimit) =>
+                localBreakdownLimit || clampBreakdownLimit(breakdownFilter?.breakdown_limit) || 25,
         ],
         // Cohort breakdowns are over a user-picked set, so there's nothing to truncate
         // and no long-tail to bucket as "Other". The global options panel is empty in that case.
@@ -496,7 +501,7 @@ export const taxonomicBreakdownFilterLogic = kea<taxonomicBreakdownFilterLogicTy
 
             props.updateBreakdownFilter?.({
                 ...values.breakdownFilter,
-                breakdown_limit: value,
+                breakdown_limit: clampBreakdownLimit(value),
             })
         },
         setNormalizeBreakdownURL: ({ normalizeBreakdownURL, breakdown, breakdownType }) => {

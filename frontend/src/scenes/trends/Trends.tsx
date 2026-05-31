@@ -6,6 +6,7 @@ import { LemonButton } from '@posthog/lemon-ui'
 import { FEATURE_FLAGS } from 'lib/constants'
 import { featureFlagLogic } from 'lib/logic/featureFlagLogic'
 import { WrappingLoadingSkeleton } from 'lib/ui/WrappingLoadingSkeleton/WrappingLoadingSkeleton'
+import { MAX_BREAKDOWN_LIMIT } from 'scenes/insights/filters/BreakdownFilter/taxonomicBreakdownFilterLogic'
 import { insightLogic } from 'scenes/insights/insightLogic'
 import { BoldNumber } from 'scenes/insights/views/BoldNumber'
 import { InsightsTable } from 'scenes/insights/views/InsightsTable/InsightsTable'
@@ -73,6 +74,8 @@ export function TrendInsight({ view, context, embedded, inSharedMode, editMode }
     const { display, series, breakdownFilter, hasBreakdownMore, breakdownValuesLoading, isLifecycle, isStickiness } =
         useValues(trendsDataLogic(insightProps))
     const { updateBreakdownFilter } = useActions(trendsDataLogic(insightProps))
+    const currentBreakdownLimit = Math.min(breakdownFilter?.breakdown_limit || 25, MAX_BREAKDOWN_LIMIT)
+    const nextBreakdownLimit = Math.min(currentBreakdownLimit * 2, MAX_BREAKDOWN_LIMIT)
 
     const commonProps = {
         showPersonsModal,
@@ -188,20 +191,25 @@ export function TrendInsight({ view, context, embedded, inSharedMode, editMode }
                 hasBreakdownMore && (
                     <div className="p-4">
                         <div className="text-secondary">
-                            Breakdown limited to {breakdownFilter.breakdown_limit || 25} - more available
+                            Breakdown limited to {currentBreakdownLimit} - more available
                             <LemonButton
                                 onClick={() =>
                                     updateBreakdownFilter({
                                         ...breakdownFilter,
-                                        breakdown_limit: (breakdownFilter.breakdown_limit || 25) * 2,
+                                        breakdown_limit: nextBreakdownLimit,
                                     })
                                 }
                                 loading={breakdownValuesLoading}
+                                disabledReason={
+                                    nextBreakdownLimit === currentBreakdownLimit
+                                        ? `Breakdown limit is capped at ${MAX_BREAKDOWN_LIMIT}`
+                                        : undefined
+                                }
                                 size="xsmall"
                                 type="secondary"
                                 className="inline-block ml-2"
                             >
-                                Set to {(breakdownFilter.breakdown_limit || 25) * 2}
+                                Set to {nextBreakdownLimit}
                             </LemonButton>
                         </div>
                     </div>
