@@ -198,13 +198,11 @@ export const variablesLogic = kea<variablesLogicType>([
             },
         ],
         variablesForInsight: [
-            (s) => [s.variables, s.internalSelectedVariables, s.queryVariableCodeNames],
-            (variables, internalSelectedVariables, queryVariableCodeNames): Variable[] => {
+            (s) => [s.variables, s.internalSelectedVariables],
+            (variables, internalSelectedVariables): Variable[] => {
                 if (!variables.length || !internalSelectedVariables.length) {
                     return []
                 }
-
-                const queryCodeNames = new Set(queryVariableCodeNames)
 
                 return internalSelectedVariables
                     .map(({ variableId, value, isNull }) => {
@@ -216,7 +214,6 @@ export const variablesLogic = kea<variablesLogicType>([
                         return undefined
                     })
                     .filter((variable): variable is Variable => variable !== undefined)
-                    .filter((variable) => queryCodeNames.has(variable.code_name))
             },
         ],
         showVariablesBar: [

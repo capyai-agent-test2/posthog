@@ -13,6 +13,7 @@ import {
     DataTableNode,
     DataVisualizationNode,
     HogQLFilters,
+    HogQLVariable,
     HogQLQuery,
     NodeKind,
 } from '~/queries/schema/schema-general'
@@ -366,6 +367,80 @@ describe('sqlEditorLogic', () => {
         await new Promise((resolve) => setTimeout(resolve, 0))
 
         expect(router.values.hashParams.filters).toEqual(filters)
+    })
+
+    it('restores variables from the URL hash', async () => {
+        const variables: Record<string, HogQLVariable> = {
+            'variable-id': {
+                variableId: 'variable-id',
+                code_name: 'unused',
+                value: 'mobile',
+            },
+        }
+
+        logic = sqlEditorLogic({
+            tabId: TAB_ID,
+            monaco: createMockMonaco(),
+            editor: createMockEditor(),
+        })
+        logic.mount()
+
+        router.actions.push(urls.sqlEditor(), undefined, {
+            q: 'SELECT * FROM events',
+            variables,
+        })
+
+        await expectLogic(logic)
+            .toDispatchActions(['setSourceQuery', 'createTab', 'updateTab'])
+            .toMatchValues({
+                sourceQuery: partial({
+                    source: partial({
+                        variables,
+                    }),
+                }),
+            })
+    })
+
+    it('syncs variables to the URL hash and removes them after reset', async () => {
+        const variables: Record<string, HogQLVariable> = {
+            'variable-id': {
+                variableId: 'variable-id',
+                code_name: 'unused',
+                value: 'mobile',
+            },
+        }
+
+        logic = sqlEditorLogic({
+            tabId: TAB_ID,
+            monaco: createMockMonaco(),
+            editor: createMockEditor(),
+        })
+        logic.mount()
+
+        logic.actions.createTab('SELECT * FROM events')
+        await expectLogic(logic).toDispatchActions(['createTab', 'updateTab'])
+
+        logic.actions.setSourceQuery({
+            ...logic.values.sourceQuery,
+            source: {
+                ...logic.values.sourceQuery.source,
+                variables,
+            },
+        })
+        await new Promise((resolve) => setTimeout(resolve, 0))
+
+        expect(router.values.hashParams.variables).toEqual(variables)
+
+        logic.actions.setSourceQuery({
+            ...logic.values.sourceQuery,
+            source: {
+                ...logic.values.sourceQuery.source,
+                variables: {},
+            },
+        })
+        await new Promise((resolve) => setTimeout(resolve, 0))
+
+        expect(router.values.hashParams.variables).toBeUndefined()
     })
 
     describe('title section', () => {

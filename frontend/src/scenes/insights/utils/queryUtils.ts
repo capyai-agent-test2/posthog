@@ -58,11 +58,10 @@ export const syncSelectedVariablesToQuery = (
     selectedVariables: HogQLVariable[]
 ): HogQLVariable[] => {
     const queryCodeNames = Array.from(new Set(getVariablesFromQuery(query ?? '')))
-    const queryCodeNamesSet = new Set(queryCodeNames)
     const variablesByCodeName = new Map(variables.map((variable) => [variable.code_name, variable]))
 
-    const syncedVariables = selectedVariables.filter((variable) => queryCodeNamesSet.has(variable.code_name))
-    const selectedVariableIds = new Set(syncedVariables.map((variable) => variable.variableId))
+    const syncedVariables = [...selectedVariables]
+    const selectedVariableIds = new Set(selectedVariables.map((variable) => variable.variableId))
 
     queryCodeNames.forEach((codeName) => {
         const variable = variablesByCodeName.get(codeName)

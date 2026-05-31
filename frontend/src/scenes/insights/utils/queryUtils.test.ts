@@ -29,7 +29,7 @@ describe('filterVariablesReferencedInQuery', () => {
 })
 
 describe('syncSelectedVariablesToQuery', () => {
-    it('removes stale selected variables while preserving values for ones still in use', () => {
+    it('keeps selected variables while preserving values for ones still in use', () => {
         expect(
             syncSelectedVariablesToQuery(
                 'SELECT * FROM events WHERE timestamp >= {variables.date}',
@@ -39,10 +39,13 @@ describe('syncSelectedVariablesToQuery', () => {
                     { variableId: 'product-id', code_name: 'product', value: 'mobile' },
                 ]
             )
-        ).toEqual([{ variableId: 'date-id', code_name: 'date', value: '2026-01-01' }])
+        ).toEqual([
+            { variableId: 'date-id', code_name: 'date', value: '2026-01-01' },
+            { variableId: 'product-id', code_name: 'product', value: 'mobile' },
+        ])
     })
 
-    it('adds newly referenced variables once, in query order', () => {
+    it('keeps selected variables and adds newly referenced variables once, in query order', () => {
         expect(
             syncSelectedVariablesToQuery(
                 'SELECT * FROM events WHERE product = {variables.product} AND region = {variables.region} AND product = {variables.product}',
@@ -50,6 +53,7 @@ describe('syncSelectedVariablesToQuery', () => {
                 [{ variableId: 'date-id', code_name: 'date', value: '2026-01-01' }]
             )
         ).toEqual([
+            { variableId: 'date-id', code_name: 'date', value: '2026-01-01' },
             { variableId: 'product-id', code_name: 'product' },
             { variableId: 'region-id', code_name: 'region' },
         ])
