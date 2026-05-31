@@ -1,4 +1,10 @@
-import { getTooltipPosition } from './useInsightTooltip'
+import {
+    cleanupTooltip,
+    ensureTooltip,
+    getTooltipPosition,
+    positionTooltipAt,
+    resetTooltipPosition,
+} from './useInsightTooltip'
 
 const canvasBounds = {
     left: 100,
@@ -42,5 +48,29 @@ describe('getTooltipPosition', () => {
         })
 
         expect(position.left).toBe(792)
+    })
+})
+
+describe('manual tooltip positioning', () => {
+    afterEach(() => {
+        cleanupTooltip('tooltip-id')
+    })
+
+    it('clears viewport height limits from previous auto-positioned tooltips', () => {
+        const [, tooltipElement] = ensureTooltip('tooltip-id')
+        tooltipElement.style.maxHeight = '584px'
+
+        positionTooltipAt('tooltip-id', 100, 200)
+
+        expect(tooltipElement.style.maxHeight).toBe('')
+    })
+
+    it('clears viewport height limits when resetting manual position', () => {
+        const [, tooltipElement] = ensureTooltip('tooltip-id')
+        tooltipElement.style.maxHeight = '584px'
+
+        resetTooltipPosition('tooltip-id')
+
+        expect(tooltipElement.style.maxHeight).toBe('')
     })
 })

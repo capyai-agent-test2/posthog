@@ -419,6 +419,7 @@ export function positionTooltipAt(id: string, left: number, top: number): void {
     hover.element.style.position = 'absolute'
     hover.element.style.left = `${left}px`
     hover.element.style.top = `${top}px`
+    hover.element.style.maxHeight = ''
 }
 
 export function resetTooltipPosition(id: string): void {
@@ -427,6 +428,7 @@ export function resetTooltipPosition(id: string): void {
     }
     hover.element.style.left = ''
     hover.element.style.top = ''
+    hover.element.style.maxHeight = ''
 }
 
 export function measureTooltip(id: string): DOMRect | null {
