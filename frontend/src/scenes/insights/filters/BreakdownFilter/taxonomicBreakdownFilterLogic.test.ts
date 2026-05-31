@@ -1223,6 +1223,27 @@ describe('taxonomicBreakdownFilterLogic', () => {
             })
         })
 
+        it('normalizes large initial breakdown limits', async () => {
+            logic = taxonomicBreakdownFilterLogic(
+                makeProps({
+                    breakdownFilter: {
+                        breakdown: 'prop',
+                        breakdown_type: 'event',
+                        breakdown_limit: 6400,
+                    },
+                })
+            )
+
+            logic.mount()
+
+            expect(logic.values.breakdownLimit).toBe(1000)
+            expect(updateBreakdownFilter).toHaveBeenCalledWith({
+                breakdown: 'prop',
+                breakdown_type: 'event',
+                breakdown_limit: 1000,
+            })
+        })
+
         it('setBreakdownHideOtherAggregation: updates correctly', async () => {
             logic = taxonomicBreakdownFilterLogic(makeProps({ breakdownFilter: {} }))
             logic.mount()

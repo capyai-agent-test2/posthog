@@ -1,4 +1,17 @@
-import { actions, connect, defaults, kea, key, listeners, path, props, reducers, selectors } from 'kea'
+import {
+    actions,
+    afterMount,
+    connect,
+    defaults,
+    kea,
+    key,
+    listeners,
+    path,
+    props,
+    propsChanged,
+    reducers,
+    selectors,
+} from 'kea'
 
 import {
     breakdownFilterToTaxonomicFilterType,
@@ -27,6 +40,9 @@ export const MAX_BREAKDOWN_LIMIT = 1000
 
 const clampBreakdownLimit = (value: number | undefined): number | undefined =>
     value === undefined ? undefined : Math.min(value, MAX_BREAKDOWN_LIMIT)
+
+const isBreakdownLimitOverMax = (value: number | undefined): boolean =>
+    value !== undefined && value > MAX_BREAKDOWN_LIMIT
 
 export type TaxonomicBreakdownFilterLogicProps = {
     insightProps: InsightLogicProps
@@ -575,6 +591,25 @@ export const taxonomicBreakdownFilterLogic = kea<taxonomicBreakdownFilterLogicTy
             })
         },
     })),
+    afterMount(({ props }) => {
+        if (isBreakdownLimitOverMax(props.breakdownFilter.breakdown_limit)) {
+            props.updateBreakdownFilter?.({
+                ...props.breakdownFilter,
+                breakdown_limit: MAX_BREAKDOWN_LIMIT,
+            })
+        }
+    }),
+    propsChanged(({ props }, oldProps) => {
+        if (
+            props.breakdownFilter !== oldProps.breakdownFilter &&
+            isBreakdownLimitOverMax(props.breakdownFilter.breakdown_limit)
+        ) {
+            props.updateBreakdownFilter?.({
+                ...props.breakdownFilter,
+                breakdown_limit: MAX_BREAKDOWN_LIMIT,
+            })
+        }
+    }),
 ])
 
 function updateNestedBreakdown(
