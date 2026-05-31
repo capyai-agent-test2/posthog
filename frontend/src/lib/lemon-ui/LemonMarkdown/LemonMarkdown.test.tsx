@@ -19,6 +19,14 @@ describe('LemonMarkdown utilities', () => {
                 normalizeLatexMathDelimiters('Inline `\\( x \\)`\n\n```text\n\\[ y \\]\n```\n\nOutside \\( z \\)')
             ).toBe('Inline `\\( x \\)`\n\n```text\n\\[ y \\]\n```\n\nOutside $ z $')
         })
+
+        it('does not convert Latex delimiters inside indented code blocks', () => {
+            expect(
+                normalizeLatexMathDelimiters(
+                    'Before \\( x \\)\n\n    \\( code \\)\n\t\\[ tabbed \\]\n\nAfter \\[ y \\]'
+                )
+            ).toBe('Before $ x $\n\n    \\( code \\)\n\t\\[ tabbed \\]\n\nAfter $$ y $$')
+        })
     })
 
     describe('slugifyHeading', () => {

@@ -55,6 +55,7 @@ export function normalizeLatexMathDelimiters(markdown: string): string {
         const nextCharacter = markdown[index + 1]
         const remainingLine = markdown.slice(index)
         const fenceMatch = remainingLine.match(/^([ \t]*)(`{3,}|~{3,})/)
+        const indentedCodeBlockMatch = remainingLine.match(/^(?: {4}|\t)[^\n]*(?:\n|$)/)
 
         if (atLineStart && !inlineCodeTicks && fenceMatch) {
             const fence = fenceMatch[2]
@@ -66,6 +67,13 @@ export function normalizeLatexMathDelimiters(markdown: string): string {
             normalized += fenceMatch[1] + fence
             index += fenceMatch[0].length - 1
             atLineStart = false
+            continue
+        }
+
+        if (atLineStart && !inlineCodeTicks && !fencedCodeTicks && indentedCodeBlockMatch) {
+            normalized += indentedCodeBlockMatch[0]
+            index += indentedCodeBlockMatch[0].length - 1
+            atLineStart = true
             continue
         }
 
