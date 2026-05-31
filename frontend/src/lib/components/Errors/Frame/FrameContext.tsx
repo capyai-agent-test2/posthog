@@ -3,6 +3,16 @@ import { Language } from 'lib/components/CodeSnippet'
 import { ErrorTrackingStackFrameContext } from '../types'
 import { FrameContextLine } from './FrameContextLine'
 
+type OrderedFrameContextLine = ErrorTrackingStackFrameContext['line'] & { highlight: boolean }
+
+export function getOrderedFrameContextLines(context: ErrorTrackingStackFrameContext): OrderedFrameContextLine[] {
+    return [
+        ...context.before.map((line) => ({ ...line, highlight: false })),
+        { ...context.line, highlight: true },
+        ...context.after.map((line) => ({ ...line, highlight: false })),
+    ].sort((a, b) => a.number - b.number)
+}
+
 export function FrameContext({
     context,
     language,
@@ -10,13 +20,13 @@ export function FrameContext({
     context: ErrorTrackingStackFrameContext
     language: Language
 }): JSX.Element {
-    const { before, line, after } = context
+    const lines = getOrderedFrameContextLines(context)
     return (
         <div className="overflow-x-auto [&_span]:!whitespace-pre">
             <div className="w-fit min-w-full">
-                <FrameContextLine lines={before} language={language} />
-                <FrameContextLine lines={[line]} language={language} highlight />
-                <FrameContextLine lines={after} language={language} />
+                {lines.map(({ highlight, ...line }) => (
+                    <FrameContextLine key={line.number} lines={[line]} language={language} highlight={highlight} />
+                ))}
             </div>
         </div>
     )
