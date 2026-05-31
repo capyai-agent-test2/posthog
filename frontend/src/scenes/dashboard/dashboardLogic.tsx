@@ -180,7 +180,13 @@ const preserveCurrentInsightTiles = (
 
             return {
                 ...tile,
-                insight: currentInsight,
+                insight: {
+                    ...tile.insight,
+                    query: currentInsight.query,
+                    result: currentInsight.result,
+                    query_status: currentInsight.query_status,
+                    last_refresh: currentInsight.last_refresh,
+                },
             }
         }),
     }

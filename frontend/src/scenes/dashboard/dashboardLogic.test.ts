@@ -1328,10 +1328,22 @@ describe('dashboardLogic', () => {
             dashboardsModel.actions.updateDashboardSuccess({
                 ...dashboards[9],
                 name: 'Renamed dashboard',
+                tiles: dashboards[9].tiles.map((tile) =>
+                    tile.insight
+                        ? {
+                              ...tile,
+                              insight: {
+                                  ...tile.insight,
+                                  name: 'Updated insight title',
+                              },
+                          }
+                        : tile
+                ),
             })
             await expectLogic(logic).toFinishAllListeners()
 
             expect(logic.values.dashboard?.name).toEqual('Renamed dashboard')
+            expect(logic.values.insightTiles[0].insight?.name).toEqual('Updated insight title')
             const query = logic.values.insightTiles[0].insight?.query as InsightVizNode<TrendsQuery> | undefined
             expect(query?.source?.dateRange?.date_from).toEqual('-1d')
             expect(query?.source?.interval).toEqual('hour')
