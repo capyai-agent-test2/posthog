@@ -1887,9 +1887,9 @@ class TestSessionRecordings(APIBaseTest, ClickhouseTestMixin, QueryMatchingTest)
                 [],  # must NOT be in results
             ),
             (
-                "recording_outside_date_range_is_excluded",
+                "recording_outside_date_range_is_included",
                 # Create a recording from 10 days ago, request with date_from=-3d
-                # The recording doesn't match the date filter, so should NOT be included
+                # The concrete recording link should load even when the list filters are narrower
                 {
                     "recordings": [
                         {"session_id": "recent_session", "days_ago": 1},
@@ -1898,12 +1898,12 @@ class TestSessionRecordings(APIBaseTest, ClickhouseTestMixin, QueryMatchingTest)
                     "date_from": "-3d",
                     "session_recording_id": "old_session",
                 },
-                ["recent_session"],  # must be in results
-                ["old_session"],  # must NOT be in results - doesn't match date filter
+                ["recent_session", "old_session"],  # concrete link must be in results despite date filter
+                [],
             ),
         ]
     )
-    def test_session_recording_id_respects_filters(
+    def test_session_recording_id_loads_concrete_recording(
         self,
         _name: str,
         config: dict,
@@ -1911,13 +1911,7 @@ class TestSessionRecordings(APIBaseTest, ClickhouseTestMixin, QueryMatchingTest)
         must_not_be_in_results: list[str],
     ):
         """
-        Test that session_recording_id only includes recordings that match the current filters.
-
-        A recording should be prepended to results if:
-        - It matches all filters (date range, properties, etc.) but is on a different page
-
-        A recording should NOT be included if:
-        - It doesn't match the filters (e.g., outside date range)
+        Test that session_recording_id prepends the concrete recording even when list filters hide it.
         """
         base_time = now()
 
