@@ -199,6 +199,26 @@ describe('LLMMessageDisplay', () => {
         expect(container.querySelector('.react-json-view')).toBeNull()
     })
 
+    it('renders OpenAI Responses input_image content parts as images', () => {
+        const imageUrl = 'https://example.com/screenshot.png'
+        const message: CompatMessage = {
+            role: 'user',
+            content: [
+                { type: 'input_text', text: 'What is in this image?' },
+                { type: 'input_image', image_url: imageUrl },
+            ],
+        }
+
+        render(
+            <Provider>
+                <LLMMessageDisplay message={message} show />
+            </Provider>
+        )
+
+        expect(screen.getByText('What is in this image?')).toBeInTheDocument()
+        expect(screen.getByAltText('User sent image')).toHaveAttribute('src', imageUrl)
+    })
+
     it('preserves order across mixed text and function items in a single assistant message', async () => {
         const message: CompatMessage = {
             role: 'assistant',

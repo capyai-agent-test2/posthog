@@ -29,6 +29,7 @@ import {
     isOpenAIAudioMessage,
     isOpenAIFileMessage,
     isOpenAIImageURLMessage,
+    isVercelSDKInputImageMessage,
     looksLikeXml,
     parsePartialJSON,
     parseToolArgumentsForDisplay,
@@ -382,7 +383,11 @@ function renderContentItem(item: MultiModalContentItem, searchQuery?: string): J
         return <HighlightedJSONViewer src={item} name={null} collapsed={5} searchQuery={searchQuery} />
     }
 
-    if (item.type === 'text' && 'text' in item && typeof item.text === 'string') {
+    if (
+        (item.type === 'text' || item.type === 'input_text' || item.type === 'output_text') &&
+        'text' in item &&
+        typeof item.text === 'string'
+    ) {
         return searchQuery?.trim() ? (
             <SearchHighlight string={item.text} substring={searchQuery} className="whitespace-pre-wrap" />
         ) : (
@@ -392,6 +397,10 @@ function renderContentItem(item: MultiModalContentItem, searchQuery?: string): J
 
     if (item.type === 'image' && 'image' in item && typeof item.image === 'string') {
         return <ImageMessageDisplay message={{ content: { type: 'image', image: item.image } }} />
+    }
+
+    if (isVercelSDKInputImageMessage(item)) {
+        return <ImageMessageDisplay message={{ content: { type: 'image', image: item.image_url } }} />
     }
 
     if (isOpenAIImageURLMessage(item)) {
