@@ -317,6 +317,36 @@ export const SUPPORT_KIND_TO_SUBJECT = {
     support: 'Support Ticket',
 }
 
+const ZENDESK_REQUEST_URL = 'https://posthoghelp.zendesk.com/api/v2/requests.json'
+
+type ZendeskRequestResult = { method: 'fetch'; response: Response } | { method: 'beacon' }
+
+export function submitZendeskRequestWithBeaconFallback(zendeskRequestBody: string): Promise<ZendeskRequestResult> {
+    return fetch(ZENDESK_REQUEST_URL, {
+        method: 'POST',
+        body: zendeskRequestBody,
+        headers: { 'Content-Type': 'application/json' },
+    })
+        .then((response) => {
+            return { method: 'fetch', response } as const
+        })
+        .catch((error) => {
+            if (submitZendeskRequestWithBeacon(zendeskRequestBody)) {
+                return { method: 'beacon' } as const
+            }
+
+            throw error
+        })
+}
+
+function submitZendeskRequestWithBeacon(zendeskRequestBody: string): boolean {
+    if (typeof navigator === 'undefined' || typeof navigator.sendBeacon !== 'function') {
+        return false
+    }
+
+    return navigator.sendBeacon(ZENDESK_REQUEST_URL, new Blob([zendeskRequestBody], { type: 'application/json' }))
+}
+
 export type SupportTicketTargetArea =
     | (typeof TARGET_AREA_TO_NAME_GENERAL)[number]['value']
     | (typeof TARGET_AREA_TO_NAME_PRODUCTS)[number]['value']
@@ -705,56 +735,36 @@ export const supportLogic = kea<supportLogicType>([
             try {
                 const zendeskRequestBody = JSON.stringify(payload, undefined, 4)
 
-                // First attempt with standard fetch (unchanged from original)
-                const response = await fetch('https://posthoghelp.zendesk.com/api/v2/requests.json', {
-                    method: 'POST',
-                    body: zendeskRequestBody,
-                    headers: { 'Content-Type': 'application/json' },
-                })
+                const result = await submitZendeskRequestWithBeaconFallback(zendeskRequestBody)
 
-                // If the fetch request fails, try the Beacon API as a fallback
-                if (!response.ok) {
-                    console.warn('Fetch attempt to submit support ticket failed, trying Beacon API as fallback')
-
-                    // Detect Firefox
-                    const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1
-
-                    // Try Beacon API
-                    const beaconSuccess = navigator.sendBeacon(
-                        'https://posthoghelp.zendesk.com/api/v2/requests.json',
-                        zendeskRequestBody
-                    )
-
-                    if (beaconSuccess) {
-                        // Track success
-                        const properties = {
-                            zendesk_ticket_uuid,
-                            kind,
-                            target_area,
-                            message,
-                            submission_method: 'beacon',
-                            browser: isFirefox ? 'firefox' : 'other',
-                        }
-                        posthog.capture('support_ticket', properties)
-                        lemonToast.success(
-                            "Got the message! If we have follow-up information for you, we'll reply via email."
-                        )
-                        // Only close and reset the form on success
-                        actions.closeSupportForm()
-                        actions.resetSendSupportRequest()
-                        return
+                if (result.method === 'beacon') {
+                    const properties = {
+                        zendesk_ticket_uuid,
+                        kind,
+                        target_area,
+                        message,
+                        submission_method: 'beacon',
+                        browser: navigator.userAgent.toLowerCase().includes('firefox') ? 'firefox' : 'other',
                     }
+                    posthog.capture('support_ticket', properties)
+                    lemonToast.success(
+                        "Got the message! If we have follow-up information for you, we'll reply via email."
+                    )
+                    actions.closeSupportForm()
+                    actions.resetSendSupportRequest()
+                    return
+                }
 
-                    // If both fetch and beacon fail, show the original error message
+                if (!result.response.ok) {
                     const error = new Error(`There was an error creating the support ticket with zendesk.`)
                     const extra: Record<string, any> = { zendeskBody: zendeskRequestBody }
                     Object.entries(payload).forEach(([key, value]) => {
                         extra[`payload_${key}`] = value
                     })
-                    const body = await response.text()
+                    const body = await result.response.text()
                     const contexts = {
                         response: {
-                            status_code: response.status,
+                            status_code: result.response.status,
                             data: body,
                             body_size: body?.length,
                         },
