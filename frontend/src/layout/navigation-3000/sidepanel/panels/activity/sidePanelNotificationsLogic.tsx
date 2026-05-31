@@ -90,6 +90,25 @@ export interface ChangelogFlagPayload {
     email?: string
 }
 
+export function markLegacyNotificationsRead(
+    current: ChangesResponse | null,
+    legacyNotifications: HumanizedActivityLogItem[]
+): ChangesResponse | null {
+    const hasUnread = legacyNotifications.some((ic) => ic.unread)
+
+    if (!hasUnread || legacyNotifications.length === 0) {
+        return current
+    }
+
+    const latestNotification = legacyNotifications.reduce((a, b) => (a.created_at.isAfter(b.created_at) ? a : b))
+
+    return {
+        last_read: latestNotification.created_at.toISOString(),
+        next: current?.next ?? null,
+        results: (current?.results ?? []).map((ic) => ({ ...ic, unread: false })),
+    }
+}
+
 export const sidePanelNotificationsLogic = kea<sidePanelNotificationsLogicType>([
     path(['layout', 'navigation-3000', 'sidepanel', 'panels', 'activity', 'sidePanelNotificationsLogic']),
     connect(() => ({
@@ -289,30 +308,16 @@ export const sidePanelNotificationsLogic = kea<sidePanelNotificationsLogicType>(
                     }
 
                     const current = values.importantChanges
-                    if (!current) {
-                        return null
-                    }
-
                     const legacyNotifications = values.legacyNotifications
-                    const hasUnread = legacyNotifications.some((ic) => ic.unread)
+                    const nextImportantChanges = markLegacyNotificationsRead(current, legacyNotifications)
 
-                    if (!hasUnread || legacyNotifications.length === 0) {
-                        return current
+                    if (nextImportantChanges?.last_read && nextImportantChanges !== current) {
+                        await api.create(`api/projects/${values.currentProjectId}/my_notifications/bookmark`, {
+                            bookmark: nextImportantChanges.last_read,
+                        })
                     }
 
-                    const latestNotification = legacyNotifications.reduce((a, b) =>
-                        a.created_at.isAfter(b.created_at) ? a : b
-                    )
-
-                    await api.create(`api/projects/${values.currentProjectId}/my_notifications/bookmark`, {
-                        bookmark: latestNotification.created_at.toISOString(),
-                    })
-
-                    return {
-                        last_read: latestNotification.created_at.toISOString(),
-                        next: current.next,
-                        results: current.results.map((ic) => ({ ...ic, unread: false })),
-                    }
+                    return nextImportantChanges
                 },
             },
         ],

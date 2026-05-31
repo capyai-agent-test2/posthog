@@ -35,7 +35,7 @@ export type ActivityFilters = {
 export interface ChangesResponse {
     results: ActivityLogItem[]
     next: string | null
-    last_read: string
+    last_read: string | null
 }
 
 export enum SidePanelActivityTab {
