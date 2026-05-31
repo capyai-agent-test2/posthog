@@ -282,6 +282,7 @@ class TicketSerializer(TaggedItemSerializerMixin, serializers.ModelSerializer):
 
 class TicketViewSet(TaggedItemViewSetMixin, TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
     scope_object = "ticket"
+    scope_object_write_actions = ["create", "update", "partial_update", "patch", "destroy", "compose"]
     queryset = Ticket.objects.all()
     serializer_class = TicketSerializer
     permission_classes = [IsAuthenticated, APIScopePermission, PostHogFeatureFlagPermission]
