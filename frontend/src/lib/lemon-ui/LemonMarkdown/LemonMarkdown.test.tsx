@@ -1,8 +1,46 @@
 import React from 'react'
 
-import { extractTextFromChildren, slugifyHeading } from './LemonMarkdown'
+import { extractTextFromChildren, normalizeLatexMathDelimiters, slugifyHeading } from './LemonMarkdown'
 
 describe('LemonMarkdown utilities', () => {
+    describe('normalizeLatexMathDelimiters', () => {
+        it.each([
+            [
+                'Mobile users: \\( \\frac{118}{598} \\times 100 \\approx 19.73\\% \\)',
+                'Mobile users: $ \\frac{118}{598} \\times 100 \\approx 19.73\\% $',
+            ],
+            ['\\[ x = \\frac{-b}{2a} \\]', '$$ x = \\frac{-b}{2a} $$'],
+        ])('converts Latex delimiters in "%s"', (input, expected) => {
+            expect(normalizeLatexMathDelimiters(input)).toBe(expected)
+        })
+
+        it('does not convert Latex delimiters inside code spans or code blocks', () => {
+            expect(
+                normalizeLatexMathDelimiters('Inline `\\( x \\)`\n\n```text\n\\[ y \\]\n```\n\nOutside \\( z \\)')
+            ).toBe('Inline `\\( x \\)`\n\n```text\n\\[ y \\]\n```\n\nOutside $ z $')
+        })
+
+        it('does not convert Latex delimiters inside indented code blocks', () => {
+            expect(
+                normalizeLatexMathDelimiters(
+                    'Before \\( x \\)\n\n    \\( code \\)\n\t\\[ tabbed \\]\n\nAfter \\[ y \\]'
+                )
+            ).toBe('Before $ x $\n\n    \\( code \\)\n\t\\[ tabbed \\]\n\nAfter $$ y $$')
+        })
+
+        it('converts Latex delimiters on indented paragraph continuation lines', () => {
+            expect(normalizeLatexMathDelimiters('Before\n    \\( still paragraph \\)\n\nAfter')).toBe(
+                'Before\n    $ still paragraph $\n\nAfter'
+            )
+        })
+
+        it('does not convert Latex delimiters in indented code blocks after block lines', () => {
+            expect(normalizeLatexMathDelimiters('# Heading\n    \\( code \\)\n\n> Quote\n    \\[ more code \\]')).toBe(
+                '# Heading\n    \\( code \\)\n\n> Quote\n    \\[ more code \\]'
+            )
+        })
+    })
+
     describe('slugifyHeading', () => {
         it.each([
             ['Hello World', 'hello-world'],

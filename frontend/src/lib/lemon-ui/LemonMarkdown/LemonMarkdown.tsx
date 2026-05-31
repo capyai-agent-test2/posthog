@@ -1,9 +1,12 @@
 import './LemonMarkdown.scss'
+import 'katex/dist/katex.min.css'
 
 import clsx from 'clsx'
 import React, { memo, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
+import rehypeKatex from 'rehype-katex'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
 
 import { CodeSnippet, getLanguage, Language } from 'lib/components/CodeSnippet'
 import { RichContentMention } from 'lib/components/RichContentEditor/RichContentNodeMention'
@@ -40,6 +43,114 @@ export interface LemonMarkdownProps {
 }
 
 const HEADING_TAGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const
+
+function canStartIndentedCodeBlockAfterLine(line: string, wasIndentedCodeBlock: boolean): boolean {
+    const trimmedLine = line.trim()
+    const lineWithUpToThreeSpaces = line.match(/^ {0,3}(.*)$/)?.[1] ?? line
+
+    return (
+        wasIndentedCodeBlock ||
+        trimmedLine === '' ||
+        /^#{1,6}(?:\s|$)/.test(lineWithUpToThreeSpaces) ||
+        /^(?:[-*_])(?:\s*\1){2,}\s*$/.test(lineWithUpToThreeSpaces) ||
+        /^>/.test(lineWithUpToThreeSpaces)
+    )
+}
+
+export function normalizeLatexMathDelimiters(markdown: string): string {
+    let normalized = ''
+    let inlineCodeTicks = 0
+    let fencedCodeTicks = ''
+    let atLineStart = true
+    let canStartIndentedCodeBlock = true
+    let inIndentedCodeBlock = false
+    let currentLine = ''
+
+    for (let index = 0; index < markdown.length; index++) {
+        const currentCharacter = markdown[index]
+        const nextCharacter = markdown[index + 1]
+        const remainingLine = markdown.slice(index)
+        const fenceMatch = remainingLine.match(/^([ \t]*)(`{3,}|~{3,})/)
+        const indentedCodeBlockMatch = remainingLine.match(/^(?: {4}|\t)[^\n]*(?:\n|$)/)
+        const isBlankLine = atLineStart && /^[ \t]*(?:\n|$)/.test(remainingLine)
+
+        if (atLineStart && !inlineCodeTicks && fenceMatch) {
+            const fence = fenceMatch[2]
+            if (!fencedCodeTicks) {
+                fencedCodeTicks = fence
+            } else if (fence[0] === fencedCodeTicks[0] && fence.length >= fencedCodeTicks.length) {
+                fencedCodeTicks = ''
+            }
+            normalized += fenceMatch[1] + fence
+            index += fenceMatch[0].length - 1
+            atLineStart = false
+            currentLine += fenceMatch[0]
+            continue
+        }
+
+        if (
+            atLineStart &&
+            !inlineCodeTicks &&
+            !fencedCodeTicks &&
+            indentedCodeBlockMatch &&
+            (canStartIndentedCodeBlock || inIndentedCodeBlock)
+        ) {
+            normalized += indentedCodeBlockMatch[0]
+            index += indentedCodeBlockMatch[0].length - 1
+            inIndentedCodeBlock = true
+            canStartIndentedCodeBlock = canStartIndentedCodeBlockAfterLine(indentedCodeBlockMatch[0], true)
+            currentLine = ''
+            atLineStart = true
+            continue
+        }
+
+        if (atLineStart && !isBlankLine && !indentedCodeBlockMatch) {
+            inIndentedCodeBlock = false
+        }
+
+        if (!fencedCodeTicks && currentCharacter === '`') {
+            let tickCount = 1
+            while (markdown[index + tickCount] === '`') {
+                tickCount++
+            }
+            inlineCodeTicks = inlineCodeTicks === tickCount ? 0 : inlineCodeTicks || tickCount
+            normalized += '`'.repeat(tickCount)
+            currentLine += '`'.repeat(tickCount)
+            index += tickCount - 1
+            atLineStart = false
+            continue
+        }
+
+        if (!fencedCodeTicks && !inlineCodeTicks && currentCharacter === '\\') {
+            if (nextCharacter === '(' || nextCharacter === ')') {
+                normalized += '$'
+                currentLine += '$'
+                index++
+                atLineStart = false
+                continue
+            }
+            if (nextCharacter === '[' || nextCharacter === ']') {
+                normalized += '$$'
+                currentLine += '$$'
+                index++
+                atLineStart = false
+                continue
+            }
+        }
+
+        normalized += currentCharacter
+        currentLine += currentCharacter
+        if (currentCharacter === '\n') {
+            atLineStart = true
+            canStartIndentedCodeBlock = canStartIndentedCodeBlockAfterLine(currentLine, inIndentedCodeBlock)
+            currentLine = ''
+        } else {
+            atLineStart = false
+        }
+    }
+
+    return normalized
+}
 
 /** Generate a URL-safe slug from heading text content. */
 export function slugifyHeading(text: string): string {
@@ -159,11 +270,17 @@ const LemonMarkdownRenderer = memo(function LemonMarkdownRenderer({
         }),
         [disableDocsRedirect, lowKeyHeadings, wrapCode, generateHeadingIds, renderMermaid]
     )
+    const normalizedChildren = useMemo(() => normalizeLatexMathDelimiters(children), [children])
 
     return (
         /* eslint-disable-next-line react/forbid-elements */
-        <ReactMarkdown components={components} remarkPlugins={[remarkGfm, remarkMentions]} skipHtml>
-            {children}
+        <ReactMarkdown
+            components={components}
+            remarkPlugins={[remarkGfm, remarkMath, remarkMentions]}
+            rehypePlugins={[rehypeKatex]}
+            skipHtml
+        >
+            {normalizedChildren}
         </ReactMarkdown>
     )
 })
