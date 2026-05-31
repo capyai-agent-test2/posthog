@@ -315,6 +315,7 @@ docker-compose stop
 # single script.
 cat > compose/start <<EOF
 #!/bin/bash
+set -e
 ./compose/wait
 ./bin/migrate
 ./bin/docker-server
@@ -323,6 +324,7 @@ chmod +x compose/start
 
 cat > compose/temporal-django-worker <<EOF
 #!/bin/bash
+set -e
 ./bin/migrate-check
 ./bin/temporal-django-worker
 EOF
