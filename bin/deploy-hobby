@@ -173,6 +173,7 @@ chmod +x compose/start
 
 cat > compose/temporal-django-worker <<EOF
 #!/bin/bash
+./bin/migrate-check
 ./bin/temporal-django-worker
 EOF
 chmod +x compose/temporal-django-worker

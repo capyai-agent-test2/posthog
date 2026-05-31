@@ -96,7 +96,6 @@ services:
             OBJECT_STORAGE_ENABLED: true
             RECORDING_API_URL: http://recording-api:6738
             ENCRYPTION_SALT_KEYS: $ENCRYPTION_SALT_KEYS
-            POSTHOG_SKIP_MIGRATION_CHECKS: '1'
             PERSONHOG_ADDR: 'personhog-router:50052'
             PERSONHOG_ENABLED: 'true'
             PERSONHOG_ROLLOUT_PERCENTAGE: '100'
