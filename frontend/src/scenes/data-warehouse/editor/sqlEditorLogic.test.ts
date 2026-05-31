@@ -1167,6 +1167,26 @@ describe('sqlEditorLogic', () => {
             expect(String(router.values.hashParams.raw)).toEqual('1')
         })
 
+        it('keeps unsynced editor text when the active SQL tab reopens with a stale query hash', async () => {
+            logic = sqlEditorLogic({
+                tabId: TAB_ID,
+                monaco: createMockMonaco(),
+                editor: createMockEditor(),
+            })
+            logic.mount()
+
+            router.actions.push(urls.sqlEditor(), undefined, { q: 'SELECT old' })
+
+            await expectLogic(logic).toDispatchActions(['createTab', 'updateTab'])
+
+            logic.actions.setQueryInput('SELECT edited')
+            router.actions.push(urls.sqlEditor(), undefined, { q: 'SELECT old' })
+
+            await new Promise((resolve) => setTimeout(resolve, 0))
+
+            expect(logic.values.queryInput).toEqual('SELECT edited')
+        })
+
         it('strips legacy top-level connection ids when source query changes', async () => {
             logic = sqlEditorLogic({
                 tabId: TAB_ID,
