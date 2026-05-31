@@ -75,7 +75,9 @@ function hasPersonPropertyFiltersOrBreakdown(
 export const annotationsOverlayLogic = kea<annotationsOverlayLogicType>([
     path((key) => ['lib', 'components', 'Annotations', 'annotationsOverlayLogic', key]),
     props({ dashboardId: undefined } as AnnotationsOverlayLogicProps),
-    key(({ insightNumericId, kind }) => (kind ? `${insightNumericId}::${kind}` : insightNumericId)),
+    key(({ insightNumericId, dashboardId, kind }) =>
+        [insightNumericId, dashboardId ?? 'no-dashboard', kind ?? 'default'].join('::')
+    ),
     connect(() => ({
         values: [
             insightLogic,

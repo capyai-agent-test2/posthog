@@ -4,9 +4,12 @@ import { Chart } from 'lib/Chart'
 import { AnnotationsOverlay } from 'lib/components/AnnotationsOverlay'
 import { computeVisibleXLabels, useChartLayout } from 'lib/hog-charts'
 
+import { DashboardType } from '~/types'
+
 interface AnnotationsLayerProps {
     /** Numeric insight id used by the annotations logic. Pass `'new'` for unsaved insights. */
     insightNumericId: number | 'new'
+    dashboardId?: DashboardType['id']
     /** Per-data-point date strings; used for grouping annotations. */
     dates: string[]
     /** Series key whose bar should anchor annotations in compare-against-previous grouped
@@ -35,6 +38,7 @@ const stopPointerPropagation = (e: React.MouseEvent<HTMLDivElement>): void => {
 
 export function AnnotationsLayer({
     insightNumericId,
+    dashboardId,
     dates,
     seriesKey,
     previousDates,
@@ -109,6 +113,7 @@ export function AnnotationsLayer({
                 chartWidth={dimensions.width}
                 chartHeight={dimensions.height}
                 insightNumericId={insightNumericId}
+                dashboardId={dashboardId}
             />
             {previousChartLike && previousDates && (
                 <AnnotationsOverlay
@@ -117,6 +122,7 @@ export function AnnotationsLayer({
                     chartWidth={dimensions.width}
                     chartHeight={dimensions.height}
                     insightNumericId={insightNumericId}
+                    dashboardId={dashboardId}
                     kind="previous"
                 />
             )}

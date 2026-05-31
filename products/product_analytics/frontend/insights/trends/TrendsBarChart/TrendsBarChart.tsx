@@ -371,6 +371,7 @@ export function TrendsBarChart({ context, inSharedMode = false }: TrendsBarChart
             {showAnnotations && (
                 <AnnotationsLayer
                     insightNumericId={insight.id || 'new'}
+                    dashboardId={insightProps.dashboardId}
                     dates={annotationsDates}
                     seriesKey={currentSeriesKey}
                     previousDates={annotationsPreviousDates}
