@@ -1103,6 +1103,12 @@ describe('sessionRecordingsPlaylistLogic', () => {
                 },
             })
         })
+
+        it('returns default filters for missing saved filter payloads', () => {
+            expect(normalizeSavedFilterToUniversalFilters(undefined)).toEqual(
+                convertLegacyFiltersToUniversalFilters({}, {})
+            )
+        })
     })
 
     describe('getDefaultFilters', () => {
