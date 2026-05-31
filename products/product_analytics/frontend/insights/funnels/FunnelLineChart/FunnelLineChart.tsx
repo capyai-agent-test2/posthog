@@ -177,7 +177,13 @@ export function FunnelLineChart({
             dataAttr="trend-line-graph-funnel"
             onError={handleChartError}
         >
-            {!inSharedMode && <AnnotationsLayer insightNumericId={insight.id || 'new'} dates={annotationDates} />}
+            {!inSharedMode && (
+                <AnnotationsLayer
+                    insightNumericId={insight.id || 'new'}
+                    dashboardId={insightProps.dashboardId}
+                    dates={annotationDates}
+                />
+            )}
         </TimeSeriesLineChart>
     )
 }

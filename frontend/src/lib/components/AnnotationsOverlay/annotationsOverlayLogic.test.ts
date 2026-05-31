@@ -249,6 +249,25 @@ describe('annotationsOverlayLogic', () => {
     })
 
     describe('relevantAnnotations', () => {
+        it('uses separate logic instances for the same insight on different dashboards', () => {
+            logic = annotationsOverlayLogic({
+                dashboardItemId: MOCK_INSIGHT_SHORT_ID,
+                insightNumericId: MOCK_INSIGHT_NUMERIC_ID,
+                dates: ['2022-01-01', '2023-01-01'],
+                ticks: [{ value: 0 }, { value: 1 }],
+                dashboardId: MOCK_DASHBOARD_ID,
+            })
+            const secondDashboardLogic = annotationsOverlayLogic({
+                dashboardItemId: MOCK_INSIGHT_SHORT_ID,
+                insightNumericId: MOCK_INSIGHT_NUMERIC_ID,
+                dates: ['2022-01-01', '2023-01-01'],
+                ticks: [{ value: 0 }, { value: 1 }],
+                dashboardId: MOCK_DASHBOARD_ID_2,
+            })
+
+            expect(logic).not.toBe(secondDashboardLogic)
+        })
+
         it('returns annotations scoped to the insight for a saved insight', async () => {
             useInsightMocks()
 

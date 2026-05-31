@@ -20,7 +20,7 @@ import { annotationModalLogic, annotationScopeToName } from 'scenes/annotations/
 import { insightLogic } from 'scenes/insights/insightLogic'
 
 import { annotationsModel } from '~/models/annotationsModel'
-import { AnnotationType, DatedAnnotationType, IntervalType } from '~/types'
+import { AnnotationType, DashboardType, DatedAnnotationType, IntervalType } from '~/types'
 
 import { AnnotationsOverlayLogicProps, annotationsOverlayLogic } from './annotationsOverlayLogic'
 import { useAnnotationsPositioning } from './useAnnotationsPositioning'
@@ -69,6 +69,7 @@ export interface AnnotationsOverlayProps {
     chartWidth: number
     chartHeight: number
     datasetIndex?: number
+    dashboardId?: DashboardType['id']
     /** Forwarded to the kea logic key so multiple overlays on the same insight don't
      *  collide. Used by compare-against-previous bar charts to show one overlay per period. */
     kind?: string
@@ -87,6 +88,7 @@ export const AnnotationsOverlay = React.memo(function AnnotationsOverlay({
     dates,
     insightNumericId,
     datasetIndex = 0,
+    dashboardId,
     kind,
 }: AnnotationsOverlayProps): JSX.Element {
     const { insightProps } = useValues(insightLogic)
@@ -113,7 +115,7 @@ export const AnnotationsOverlay = React.memo(function AnnotationsOverlay({
 
     const annotationsOverlayLogicProps: AnnotationsOverlayLogicProps = {
         ...insightProps,
-        dashboardId: insightProps.dashboardId,
+        dashboardId: dashboardId ?? insightProps.dashboardId,
         insightNumericId,
         dates,
         ticks: prevTicksRef.current,

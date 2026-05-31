@@ -202,7 +202,13 @@ export function TrendsLifecycleChart({ context, inSharedMode = false }: TrendsLi
             dataAttr="trend-lifecycle-graph"
             onError={handleChartError}
         >
-            {showAnnotations && <AnnotationsLayer insightNumericId={insight.id || 'new'} dates={annotationsDates} />}
+            {showAnnotations && (
+                <AnnotationsLayer
+                    insightNumericId={insight.id || 'new'}
+                    dashboardId={insightProps.dashboardId}
+                    dates={annotationsDates}
+                />
+            )}
         </TimeSeriesBarChart>
     )
 }

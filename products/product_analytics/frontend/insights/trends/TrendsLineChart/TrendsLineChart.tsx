@@ -286,7 +286,13 @@ export function TrendsLineChart({ context, inSharedMode = false }: TrendsLineCha
                     isHidden={getTrendsHidden}
                 />
             ) : null}
-            {showAnnotations && <AnnotationsLayer insightNumericId={insight.id || 'new'} dates={annotationsDates} />}
+            {showAnnotations && (
+                <AnnotationsLayer
+                    insightNumericId={insight.id || 'new'}
+                    dashboardId={insightProps.dashboardId}
+                    dates={annotationsDates}
+                />
+            )}
         </TimeSeriesLineChart>
     )
 }
