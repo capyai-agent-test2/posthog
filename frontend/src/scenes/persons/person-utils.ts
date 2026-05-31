@@ -135,12 +135,12 @@ export const asLink = (person?: PersonPropType | null): string | undefined => {
     if (!person?.properties) {
         return undefined
     }
-    return person.distinct_id
-        ? urls.personByDistinctId(person.distinct_id)
-        : person.distinct_ids?.length
-          ? urls.personByDistinctId(person.distinct_ids[0])
-          : person.id
-            ? urls.personByUUID(person.id)
+    return person.id
+        ? urls.personByUUID(person.id)
+        : person.distinct_id
+          ? urls.personByDistinctId(person.distinct_id)
+          : person.distinct_ids?.length
+            ? urls.personByDistinctId(person.distinct_ids[0])
             : undefined
 }
 

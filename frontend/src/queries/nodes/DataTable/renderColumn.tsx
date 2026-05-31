@@ -325,15 +325,17 @@ export function renderColumn(
             displayProps.noPopover = false // If we are in an events list, the popover experience is better
         }
 
-        if (isPersonsNode(query.source) && personRecord.distinct_ids) {
-            displayProps.href = urls.personByDistinctId(personRecord.distinct_ids[0])
+        if (isPersonsNode(query.source) && personRecord.id) {
+            displayProps.href = urls.personByUUID(personRecord.id)
         }
 
         if (isActorsQuery(query.source) && value) {
             displayProps.person = value
-            displayProps.href = value.distinct_ids?.[0]
-                ? urls.personByDistinctId(value.distinct_ids[0])
-                : urls.personByUUID(value.id)
+            displayProps.href = value.id
+                ? urls.personByUUID(value.id)
+                : value.distinct_ids?.[0]
+                  ? urls.personByDistinctId(value.distinct_ids[0])
+                  : undefined
         }
 
         if (isTracesQuery(query.source) && value) {

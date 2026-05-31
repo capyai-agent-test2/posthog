@@ -88,6 +88,12 @@ describe('the person header', () => {
         it('returns undefined for a person without a profile', () => {
             expect(asLink({ distinct_ids: ['a uuid'] })).toBeUndefined()
         })
+
+        it('prefers the canonical person UUID link when available', () => {
+            expect(asLink({ id: 'person-uuid', distinct_ids: ['a uuid'], properties: {} })).toEqual(
+                urls.personByUUID('person-uuid')
+            )
+        })
     })
 
     const displayTestCases = [
