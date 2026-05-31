@@ -1868,26 +1868,22 @@ class SessionRecordingViewSet(
         return Response(response_data)
 
 
-@tracer.start_as_current_span("load_recording_if_matches_filters")
-def _load_recording_if_matches_filters(
+@tracer.start_as_current_span("load_recording_by_id")
+def _load_recording_by_id(
     session_id: str,
-    query: RecordingsQuery,
     team: Team,
     allow_event_property_expansion: bool,
 ) -> SessionRecording | None:
     """
-    Check if a specific recording matches the current filters (ignoring pagination).
-    Returns the recording if it matches, None otherwise.
+    Load a specific recording for a concrete replay link, regardless of the current list filters.
     """
-    prepend_check_query = query.model_copy(
-        update={
-            "session_ids": [session_id],
-            "session_recording_id": None,
-            "limit": 1,
-            "offset": 0,
-            "after": None,
-        }
+    s3_persisted_recording = (
+        SessionRecording.objects.filter(team=team, session_id=session_id).exclude(full_recording_v2_path=None).first()
     )
+    if s3_persisted_recording:
+        return s3_persisted_recording
+
+    prepend_check_query = RecordingsQuery(session_ids=[session_id], date_from=None, date_to=None, limit=1)
     ch_query_result = SessionRecordingListFromQuery(
         query=prepend_check_query,
         team=team,
@@ -1897,12 +1893,6 @@ def _load_recording_if_matches_filters(
 
     if not ch_query_result.results:
         return None
-
-    s3_persisted_recording = (
-        SessionRecording.objects.filter(team=team, session_id=session_id).exclude(full_recording_v2_path=None).first()
-    )
-    if s3_persisted_recording:
-        return s3_persisted_recording
 
     prepend_recordings = SessionRecording.get_or_build_from_clickhouse(team, ch_query_result.results)
     if prepend_recordings:
@@ -1936,23 +1926,16 @@ def list_recordings_from_query(
 
     timer = ServerTimingsGathered()
 
-    # If session_recording_id is provided, add it to session_ids to fetch it along with the rest
+    # If session_recording_id is provided, load it independently so concrete replay links are not hidden by filters.
     if session_recording_id_to_prepend:
-        if all_session_ids:
-            all_session_ids = [session_recording_id_to_prepend] + [
-                sid for sid in all_session_ids if sid != session_recording_id_to_prepend
-            ]
-        else:
-            # We need to fetch this specific recording alongside the filtered results
-            with timer("load_prepend_recording"):
-                prepend_recording = _load_recording_if_matches_filters(
-                    session_recording_id_to_prepend,
-                    query,
-                    team,
-                    allow_event_property_expansion,
-                )
-                if prepend_recording:
-                    recordings.append(prepend_recording)
+        with timer("load_prepend_recording"):
+            prepend_recording = _load_recording_by_id(
+                session_recording_id_to_prepend,
+                team,
+                allow_event_property_expansion,
+            )
+            if prepend_recording:
+                recordings.append(prepend_recording)
 
     if all_session_ids:
         with timer("load_persisted_recordings"), tracer.start_as_current_span("load_persisted_recordings"):
