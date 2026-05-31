@@ -1,8 +1,7 @@
-import { connect, kea, listeners, path, selectors } from 'kea'
+import { connect, kea, path, selectors } from 'kea'
 import { actionToUrl, router, urlToAction } from 'kea-router'
 
 import { capitalizeFirstLetter } from 'lib/utils'
-import { copyToClipboard } from 'lib/utils/copyToClipboard'
 import { Scene } from 'scenes/sceneTypes'
 import type { Params } from 'scenes/sceneTypes'
 import { urls } from 'scenes/urls'
@@ -101,17 +100,6 @@ export const settingsSceneLogic = kea<settingsSceneLogicType>([
             },
         ],
     }),
-
-    listeners(({ values }) => ({
-        async selectSetting({ setting }) {
-            const url = urls.absolute(
-                urls.currentProject(
-                    urls.settings(values.selectedSectionId ?? values.selectedLevel, setting as SettingId)
-                )
-            )
-            await copyToClipboard(url)
-        },
-    })),
 
     urlToAction(({ actions, values }) => ({
         '/settings/:section': ({ section }) => {

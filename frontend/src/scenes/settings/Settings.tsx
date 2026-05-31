@@ -35,6 +35,7 @@ import {
 } from 'lib/ui/quill'
 import { inStorybookTestRunner } from 'lib/utils'
 import { getAccessControlDisabledReason } from 'lib/utils/accessControlUtils'
+import { copyToClipboard } from 'lib/utils/copyToClipboard'
 import { urls } from 'scenes/urls'
 
 import { ErrorBoundary } from '~/layout/ErrorBoundary'
@@ -410,6 +411,13 @@ function SettingsRenderer(props: SettingsLogicProps & { handleLocally: boolean }
                                         to={urls.settings(selectedSectionId ?? selectedLevel, x.id)}
                                         onClick={(e) => {
                                             selectSetting(x.id)
+                                            void copyToClipboard(
+                                                urls.absolute(
+                                                    urls.currentProject(
+                                                        urls.settings(selectedSectionId ?? selectedLevel, x.id)
+                                                    )
+                                                )
+                                            )
                                             e.preventDefault()
                                         }}
                                     />
