@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { CorsPlugin, createHLSPlayerPlugin, WindowTitlePlugin } from './index'
+import { CorsPlugin, FormControlReplayerPlugin, WindowTitlePlugin, createHLSPlayerPlugin } from './index'
 
 describe('CorsPlugin', () => {
     it.each(['https://some-external.js'])('should replace JS urls', (jsUrl) => {
@@ -100,6 +100,62 @@ describe('HLSPlayerPlugin', () => {
 
         expect(mockHlsInstance.loadSource).not.toHaveBeenCalled()
         expect(video.src).toContain('https://example.com/stream.m3u8')
+    })
+})
+
+describe('FormControlReplayerPlugin', () => {
+    it('applies serialized select values on build', () => {
+        const select = document.createElement('select')
+        select.innerHTML = '<option value="public">Public</option><option value="private">Private</option>'
+        select.setAttribute('value', 'private')
+
+        FormControlReplayerPlugin.onBuild?.(select, { id: 1, replayer: null as any })
+
+        expect(select.value).toBe('private')
+    })
+
+    it('renders masked number input values as text on build', () => {
+        const input = document.createElement('input')
+        input.type = 'number'
+        input.setAttribute('value', '***')
+
+        FormControlReplayerPlugin.onBuild?.(input, { id: 1, replayer: null as any })
+
+        expect(input.type).toBe('text')
+        expect(input.value).toBe('***')
+    })
+
+    it('renders masked number input incremental changes as text', () => {
+        const input = document.createElement('input')
+        input.type = 'number'
+        const replayer = {
+            getMirror: () => ({
+                getNode: () => input,
+            }),
+        }
+
+        FormControlReplayerPlugin.handler?.(
+            {
+                type: 3,
+                data: { source: 5, id: 1, text: '***', isChecked: false },
+            } as any,
+            false,
+            { replayer: replayer as any }
+        )
+
+        expect(input.type).toBe('text')
+        expect(input.value).toBe('***')
+    })
+
+    it('keeps numeric input values as number inputs', () => {
+        const input = document.createElement('input')
+        input.type = 'number'
+        input.setAttribute('value', '123.45')
+
+        FormControlReplayerPlugin.onBuild?.(input, { id: 1, replayer: null as any })
+
+        expect(input.type).toBe('number')
+        expect(input.value).toBe('123.45')
     })
 })
 

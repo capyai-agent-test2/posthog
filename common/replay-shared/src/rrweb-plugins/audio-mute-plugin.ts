@@ -1,5 +1,8 @@
-import { ReplayPlugin, Replayer } from 'posthog-js/rrweb'
-import { EventType, IncrementalSource, eventWithTime } from 'posthog-js/rrweb-types'
+import type { ReplayPlugin, Replayer } from 'posthog-js/rrweb'
+import type { eventWithTime } from 'posthog-js/rrweb-types'
+
+const RRWEB_EVENT_TYPE_INCREMENTAL_SNAPSHOT = 3
+const RRWEB_INCREMENTAL_SOURCE_MUTATION = 0
 
 export const AudioMuteReplayerPlugin = (isMuted: boolean): ReplayPlugin => {
     const applyMuteToMediaElement = (element: HTMLElement): void => {
@@ -71,7 +74,10 @@ export const AudioMuteReplayerPlugin = (isMuted: boolean): ReplayPlugin => {
         },
 
         handler: (e: eventWithTime, _isSync: boolean, { replayer }: { replayer: Replayer }) => {
-            if (e.type === EventType.IncrementalSnapshot && e.data.source === IncrementalSource.Mutation) {
+            if (
+                e.type === RRWEB_EVENT_TYPE_INCREMENTAL_SNAPSHOT &&
+                e.data.source === RRWEB_INCREMENTAL_SOURCE_MUTATION
+            ) {
                 if (Array.isArray(e.data.adds)) {
                     e.data.adds.forEach((addedNode: any) => {
                         if (addedNode.node && addedNode.node.type === 1) {
