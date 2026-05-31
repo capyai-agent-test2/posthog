@@ -5,6 +5,7 @@ import copy
 import json
 import math
 import time
+import hashlib
 import logging
 import functools
 from datetime import datetime, timedelta
@@ -501,6 +502,11 @@ def extract_etag_from_header(header_value: str | None) -> str | None:
     etag = etag.strip('"')
 
     return etag if etag else None
+
+
+def get_remote_config_etag(payload: Any) -> str:
+    serialized_payload = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(serialized_payload.encode("utf-8")).hexdigest()[:16]
 
 
 class LocalEvaluationThrottle(BurstRateThrottle):
@@ -4097,9 +4103,22 @@ class FeatureFlagViewSet(
         if not feature_flag.is_remote_configuration:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
+        client_etag = extract_etag_from_header(request.headers.get("If-None-Match"))
+
         if not feature_flag.has_encrypted_payloads:
             payloads = feature_flag.filters.get("payloads", {})
-            return Response(payloads.get("true") or None)
+            payload = payloads.get("true") or None
+            etag = get_remote_config_etag(payload)
+            if client_etag == etag:
+                response = Response(status=status.HTTP_304_NOT_MODIFIED)
+                response["ETag"] = f'W/"{etag}"'
+                response["Cache-Control"] = "private, must-revalidate"
+                return response
+
+            response = Response(payload)
+            response["ETag"] = f'W/"{etag}"'
+            response["Cache-Control"] = "private, must-revalidate"
+            return response
 
         # Note: This decryption step is protected by the feature_flag:read scope, so we can assume the
         # user has access to the flag. However get_decrypted_flag_payloads_protected will also check the authentication
@@ -4112,7 +4131,18 @@ class FeatureFlagViewSet(
         count = int(1 / sampling_rate)
         increment_request_count(self.team.pk, count, FlagRequestType.REMOTE_CONFIG)
 
-        return Response(decrypted_flag_payloads["true"] or None)
+        payload = decrypted_flag_payloads["true"] or None
+        etag = get_remote_config_etag(payload)
+        if client_etag == etag:
+            response = Response(status=status.HTTP_304_NOT_MODIFIED)
+            response["ETag"] = f'W/"{etag}"'
+            response["Cache-Control"] = "private, must-revalidate"
+            return response
+
+        response = Response(payload)
+        response["ETag"] = f'W/"{etag}"'
+        response["Cache-Control"] = "private, must-revalidate"
+        return response
 
     @validated_request(
         query_serializer=ActivityQuerySerializer,

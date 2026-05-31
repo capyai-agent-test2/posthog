@@ -43,7 +43,11 @@ from posthog.test.test_utils import create_group_type_mapping_without_created_at
 from products.dashboards.backend.models.dashboard import Dashboard
 from products.early_access_features.backend.models import EarlyAccessFeature
 from products.experiments.backend.models.experiment import Experiment
-from products.feature_flags.backend.api.feature_flag import FeatureFlagSerializer, extract_etag_from_header
+from products.feature_flags.backend.api.feature_flag import (
+    FeatureFlagSerializer,
+    extract_etag_from_header,
+    get_remote_config_etag,
+)
 from products.feature_flags.backend.flag_status import FeatureFlagStatus
 from products.feature_flags.backend.models.feature_flag import (
     FeatureFlag,
@@ -82,6 +86,12 @@ class TestExtractEtagFromHeader:
     )
     def test_extract_etag_from_header(self, _name: str, header_value: str | None, expected: str | None):
         assert extract_etag_from_header(header_value) == expected
+
+    def test_get_remote_config_etag_is_stable_for_equivalent_objects(self):
+        assert get_remote_config_etag({"b": 2, "a": 1}) == get_remote_config_etag({"a": 1, "b": 2})
+
+    def test_get_remote_config_etag_changes_with_payload(self):
+        assert get_remote_config_etag('{"test": true}') != get_remote_config_etag('{"test": false}')
 
 
 class TestFeatureFlag(APIBaseTest, ClickhouseTestMixin):
@@ -1928,6 +1938,81 @@ class TestFeatureFlag(APIBaseTest, ClickhouseTestMixin):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json(), '{"test": true}')
+
+    def test_remote_config_returns_etag_header(self):
+        FeatureFlag.objects.create(
+            team=self.team,
+            key="etag-remote-config-flag",
+            name="Remote Config Flag",
+            active=True,
+            filters={
+                "groups": [{"properties": [], "rollout_percentage": 100}],
+                "payloads": {"true": '{"test": true}'},
+            },
+            is_remote_configuration=True,
+        )
+
+        response = self.client.get(f"/api/projects/{self.team.id}/feature_flags/etag-remote-config-flag/remote_config")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json(), '{"test": true}')
+        self.assertIn("ETag", response.headers)
+        self.assertTrue(response.headers["ETag"].startswith('W/"'))
+        self.assertEqual(response.headers["Cache-Control"], "private, must-revalidate")
+
+    def test_remote_config_returns_not_modified_when_etag_matches(self):
+        FeatureFlag.objects.create(
+            team=self.team,
+            key="matching-etag-remote-config-flag",
+            name="Remote Config Flag",
+            active=True,
+            filters={
+                "groups": [{"properties": [], "rollout_percentage": 100}],
+                "payloads": {"true": '{"test": true}'},
+            },
+            is_remote_configuration=True,
+        )
+
+        first_response = self.client.get(
+            f"/api/projects/{self.team.id}/feature_flags/matching-etag-remote-config-flag/remote_config"
+        )
+
+        response = self.client.get(
+            f"/api/projects/{self.team.id}/feature_flags/matching-etag-remote-config-flag/remote_config",
+            headers={"If-None-Match": first_response.headers["ETag"]},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_304_NOT_MODIFIED)
+        self.assertEqual(response.headers["ETag"], first_response.headers["ETag"])
+        self.assertEqual(response.content, b"")
+
+    def test_remote_config_returns_updated_payload_when_etag_does_not_match(self):
+        feature_flag = FeatureFlag.objects.create(
+            team=self.team,
+            key="updated-etag-remote-config-flag",
+            name="Remote Config Flag",
+            active=True,
+            filters={
+                "groups": [{"properties": [], "rollout_percentage": 100}],
+                "payloads": {"true": '{"test": true}'},
+            },
+            is_remote_configuration=True,
+        )
+
+        first_response = self.client.get(
+            f"/api/projects/{self.team.id}/feature_flags/updated-etag-remote-config-flag/remote_config"
+        )
+        feature_flag.filters["payloads"]["true"] = '{"test": false}'
+        feature_flag.save(update_fields=["filters"])
+
+        response = self.client.get(
+            f"/api/projects/{self.team.id}/feature_flags/updated-etag-remote-config-flag/remote_config",
+            headers={"If-None-Match": first_response.headers["ETag"]},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json(), '{"test": false}')
+        self.assertNotEqual(response.headers["ETag"], first_response.headers["ETag"])
 
     def test_remote_config_with_secret_api_key_prevents_cross_team_access(self):
         # Create two teams with different secret keys
