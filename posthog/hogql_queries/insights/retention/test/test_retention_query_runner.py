@@ -4103,7 +4103,6 @@ class TestRetention(RetentionBaseQueryVariantComparisonMixin, ClickhouseTestMixi
         )
 
     def test_retention_cumulative_with_breakdown_event_properties(self):
-        """Test cumulative retention with breakdown by event properties - reproduces issue #41496"""
         _create_person(team_id=self.team.pk, distinct_ids=["person1"])
         _create_person(team_id=self.team.pk, distinct_ids=["person2"])
         _create_person(team_id=self.team.pk, distinct_ids=["person3"])
@@ -4147,6 +4146,44 @@ class TestRetention(RetentionBaseQueryVariantComparisonMixin, ClickhouseTestMixi
         # Day 0 cohort: 1 person, returns on day 1 and day 3
         # In cumulative mode: day 1 = 1, day 2 = 1 (from day 1), day 3 = 1 (from day 1 and day 3)
         self.assertEqual(chrome_cohorts[0][:4], [1, 1, 1, 1])
+
+    def test_retention_cumulative_with_breakdown_person_properties(self):
+        _create_person(team_id=self.team.pk, distinct_ids=["person1"], properties={"company": "Acme"})
+        _create_person(team_id=self.team.pk, distinct_ids=["person2"], properties={"company": "Beta"})
+        _create_person(team_id=self.team.pk, distinct_ids=["person3"], properties={"company": "Acme"})
+
+        _create_events(
+            self.team,
+            [
+                ("person1", _date(0)),
+                ("person1", _date(3)),
+                ("person2", _date(0)),
+                ("person2", _date(1)),
+                ("person3", _date(0)),
+                ("person3", _date(2)),
+            ],
+        )
+
+        result = self.run_query(
+            query={
+                "dateRange": {"date_to": _date(5, hour=0)},
+                "retentionFilter": {
+                    "totalIntervals": 6,
+                    "period": "Day",
+                    "cumulative": True,
+                },
+                "breakdownFilter": {"breakdowns": [{"property": "company", "type": "person"}]},
+            }
+        )
+
+        breakdown_values = {c.get("breakdown_value") for c in result}
+        self.assertEqual(breakdown_values, {"Acme", "Beta"})
+
+        acme_cohorts = pluck([c for c in result if c.get("breakdown_value") == "Acme"], "values", "count")
+        self.assertEqual(acme_cohorts[0][:4], [2, 2, 2, 1])
+
+        beta_cohorts = pluck([c for c in result if c.get("breakdown_value") == "Beta"], "values", "count")
+        self.assertEqual(beta_cohorts[0][:3], [1, 1, 0])
 
     def test_retention_actor_query_with_event_property_breakdown(self):
         """Test actor query with event property breakdown filter"""
