@@ -14,9 +14,9 @@ from posthog.test.base import (
     flush_persons_and_events,
     snapshot_clickhouse_queries,
 )
-from unittest.mock import ANY, patch
+from unittest.mock import ANY, MagicMock, patch
 
-from django.test import override_settings
+from django.test import SimpleTestCase, override_settings
 
 from nanoid import generate
 from parameterized import parameterized
@@ -32,10 +32,29 @@ from products.actions.backend.models.action import Action
 from products.feature_flags.backend.models.feature_flag import FeatureFlag
 from products.product_analytics.backend.models.insight import Insight
 from products.product_tours.backend.models import ProductTour
-from products.surveys.backend.api.survey import nh3_clean_with_allow_list
+from products.surveys.backend.api.survey import get_surveys_response, nh3_clean_with_allow_list
 from products.surveys.backend.models import MAX_ITERATION_COUNT, Survey, SurveyResponseArchive
 
 from ee.models.rbac.access_control import AccessControl
+
+
+class TestGetSurveysResponse(SimpleTestCase):
+    def test_get_surveys_response_reads_from_primary_by_default(self):
+        team = MagicMock(project_id=1, survey_config=None)
+        queryset = MagicMock()
+        db_manager = MagicMock()
+        db_manager.filter.return_value.exclude.return_value.select_related.return_value.prefetch_related.return_value = queryset
+
+        with (
+            patch.object(Survey.objects, "db_manager", return_value=db_manager) as db_manager_mock,
+            patch("products.surveys.backend.api.survey.SurveyAPISerializer") as serializer_mock,
+        ):
+            serializer_mock.return_value.data = []
+
+            get_surveys_response(team)
+
+        db_manager_mock.assert_called_once_with("default")
+        serializer_mock.assert_called_once_with(queryset, many=True)
 
 
 class TestSurvey(APIBaseTest):

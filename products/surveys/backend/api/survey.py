@@ -3309,9 +3309,9 @@ def get_surveys_count(team: Team) -> int:
     )
 
 
-def get_surveys_response(team: Team):
+def get_surveys_response(team: Team, database: str = "default") -> dict[str, Any]:
     surveys = SurveyAPISerializer(
-        Survey.objects.db_manager(READ_DB_FOR_SURVEYS)
+        Survey.objects.db_manager(database)
         .filter(team__project_id=team.project_id)
         .exclude(archived=True)
         .select_related("linked_flag", "targeting_flag", "internal_targeting_flag")
