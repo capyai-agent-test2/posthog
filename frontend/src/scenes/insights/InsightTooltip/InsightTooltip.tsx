@@ -154,6 +154,7 @@ export function InsightTooltip({
             {
                 key: 'datum',
                 className: 'datum-column',
+                width: 160,
                 title,
                 sticky: true,
                 render: function renderDatum(_, datum) {
@@ -174,6 +175,7 @@ export function InsightTooltip({
                     key: colIdx.toString(),
                     className: 'datum-counts-column',
                     align: 'right',
+                    width: 120,
                     title:
                         (colIdx === 0 ? rightTitle : undefined) ||
                         (!concreteTooltipTitle &&
