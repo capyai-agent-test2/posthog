@@ -145,6 +145,7 @@ class FOSSCohortQuery(EventQuery):
             extra_fields = []
         self._fields = []
         self._events = []
+        self._has_all_events_action = False
         self._earliest_time_for_event_query = None
         self._restrict_event_query_by_time = True
         self._cohort_pk = cohort_pk
@@ -362,7 +363,7 @@ class FOSSCohortQuery(EventQuery):
                 )
 
             date_condition, date_params = self._get_date_condition()
-            if len(self._events) > 0:
+            if len(self._events) > 0 and not self._has_all_events_action:
                 event_condition = f"AND event IN %({event_param_name})s"
             else:
                 event_condition = ""
@@ -685,6 +686,9 @@ class FOSSCohortQuery(EventQuery):
     def _add_action(self, action_id: int) -> None:
         action = Action.objects.get(id=action_id, team_id=self._team_id)
         for step in action.steps:
+            if step.event is None:
+                self._has_all_events_action = True
+                return
             if step.event:
                 self._events.append(step.event)
 

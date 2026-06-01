@@ -332,11 +332,16 @@ class EnterpriseCohortQuery(FOSSCohortQuery):
                 person_id_joined_alias=self._person_id_alias,
             )
 
+        if len(self._events) > 0 and not self._has_all_events_action:
+            event_condition = f"AND event IN %({event_param_name})s"
+        else:
+            event_condition = ""
+
         new_query = f"""
         SELECT {", ".join(_inner_fields)} FROM events AS {self.EVENT_TABLE_ALIAS}
         {self._get_person_ids_query()}
         WHERE team_id = %(team_id)s
-        AND event IN %({event_param_name})s
+        {event_condition}
         {date_condition}
         {person_prop_query}
         """
