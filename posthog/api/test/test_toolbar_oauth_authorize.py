@@ -66,6 +66,15 @@ class TestToolbarOAuthAuthorize(APIBaseTest):
         assert "code_challenge" in qs
         assert qs.get("code_challenge_method") == ["S256"]
 
+    def test_oauth_url_includes_hedgehog_config_write_scope(self):
+        response = self._get_authorize()
+        self._assert_authorize_redirects(response)
+        auth_url = self._get_authorization_url(response)
+        qs = parse_qs(urlparse(auth_url).query)
+        scopes = qs["scope"][0].split(" ")
+        assert "user:read" in scopes
+        assert "user:write" in scopes
+
     def test_oauth_url_contains_correct_redirect_uri(self):
         response = self._get_authorize()
         self._assert_authorize_redirects(response)
