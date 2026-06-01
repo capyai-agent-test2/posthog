@@ -1,4 +1,4 @@
-use std::{fmt, hash::Hash, str::FromStr, sync::LazyLock};
+use std::{collections::HashSet, fmt, hash::Hash, str::FromStr, sync::LazyLock};
 
 use chrono::{DateTime, Duration, DurationRound, RoundingError, Utc};
 use regex::Regex;
@@ -270,6 +270,8 @@ impl Event {
             return updates;
         };
 
+        let mut emitted_property_keys = HashSet::new();
+
         // If this is a groupidentify event, we ONLY bubble up the group properties
         if self.event == "$groupidentify" {
             let Some(Value::String(group_type)) = props.get("$group_type") else {
@@ -287,6 +289,7 @@ impl Event {
 
             self.get_props_from_object(
                 &mut updates,
+                &mut emitted_property_keys,
                 group_properties,
                 PropertyParentType::Group,
                 Some(group_type),
@@ -295,15 +298,28 @@ impl Event {
         }
 
         // Grab the "ordinary" (non-person) event properties
-        self.get_props_from_object(&mut updates, &props, PropertyParentType::Event, None);
+        self.get_props_from_object(
+            &mut updates,
+            &mut emitted_property_keys,
+            &props,
+            PropertyParentType::Event,
+            None,
+        );
 
         // If there are any person properties, also push those into the flat property map.
         if let Some(Value::Object(set_props)) = props.get("$set") {
-            self.get_props_from_object(&mut updates, set_props, PropertyParentType::Person, None)
+            self.get_props_from_object(
+                &mut updates,
+                &mut emitted_property_keys,
+                set_props,
+                PropertyParentType::Person,
+                None,
+            )
         }
         if let Some(Value::Object(set_once_props)) = props.get("$set_once") {
             self.get_props_from_object(
                 &mut updates,
+                &mut emitted_property_keys,
                 set_once_props,
                 PropertyParentType::Person,
                 None,
@@ -316,6 +332,7 @@ impl Event {
     fn get_props_from_object(
         &self,
         updates: &mut Vec<Update>,
+        emitted_property_keys: &mut HashSet<(PropertyParentType, Option<GroupType>, String)>,
         set: &Map<String, Value>,
         parent_type: PropertyParentType,
         group_type: Option<GroupType>,
@@ -326,14 +343,29 @@ impl Event {
                 continue;
             }
 
-            self.add_property_update(updates, key, value, parent_type, group_type.clone());
-            self.add_nested_property_updates(updates, key, value, parent_type, group_type.clone());
+            self.add_property_update(
+                updates,
+                emitted_property_keys,
+                key,
+                value,
+                parent_type,
+                group_type.clone(),
+            );
+            self.add_nested_property_updates(
+                updates,
+                emitted_property_keys,
+                key,
+                value,
+                parent_type,
+                group_type.clone(),
+            );
         }
     }
 
     fn add_nested_property_updates(
         &self,
         updates: &mut Vec<Update>,
+        emitted_property_keys: &mut HashSet<(PropertyParentType, Option<GroupType>, String)>,
         prefix: &str,
         value: &Value,
         parent_type: PropertyParentType,
@@ -347,6 +379,7 @@ impl Event {
             let property_key = format!("{prefix}.{nested_key}");
             self.add_property_update(
                 updates,
+                emitted_property_keys,
                 &property_key,
                 nested_value,
                 parent_type,
@@ -354,6 +387,7 @@ impl Event {
             );
             self.add_nested_property_updates(
                 updates,
+                emitted_property_keys,
                 &property_key,
                 nested_value,
                 parent_type,
@@ -365,6 +399,7 @@ impl Event {
     fn add_property_update(
         &self,
         updates: &mut Vec<Update>,
+        emitted_property_keys: &mut HashSet<(PropertyParentType, Option<GroupType>, String)>,
         key: &str,
         value: &Value,
         parent_type: PropertyParentType,
@@ -384,6 +419,11 @@ impl Event {
             return;
         }
 
+        let sanitized_key = sanitize_string(key);
+        if !emitted_property_keys.insert((parent_type, group_type.clone(), sanitized_key.clone())) {
+            return;
+        }
+
         // posthog_eventproperty only tracks which properties appear on which events —
         // person, group, and session properties have no meaningful event association
         // and no read path consumes those rows.
@@ -392,7 +432,7 @@ impl Event {
                 team_id: self.team_id,
                 project_id: self.project_id,
                 event: sanitize_string(&self.event),
-                property: sanitize_string(key),
+                property: sanitized_key.clone(),
             }));
         }
 
@@ -402,7 +442,7 @@ impl Event {
         updates.push(Update::Property(PropertyDefinition {
             team_id: self.team_id,
             project_id: self.project_id,
-            name: sanitize_string(key),
+            name: sanitized_key,
             is_numerical,
             property_type,
             event_type: parent_type,
@@ -670,5 +710,53 @@ mod tests {
             volume_30_day: None,
             query_usage_30_day: None,
         })));
+    }
+
+    #[test]
+    fn into_updates_deduplicates_nested_property_collisions() {
+        let event = Event {
+            team_id: 111,
+            project_id: 111,
+            event: "purchase".to_string(),
+            properties: Some(
+                serde_json::json!({
+                    "product": {
+                        "price": 0,
+                    },
+                    "product.price": "0",
+                })
+                .to_string(),
+            ),
+        };
+
+        let updates = event.into_updates(10000);
+        let matching_property_definitions = updates
+            .iter()
+            .filter(|update| {
+                matches!(
+                    update,
+                    Update::Property(PropertyDefinition {
+                        name,
+                        event_type: PropertyParentType::Event,
+                        ..
+                    }) if name == "product.price"
+                )
+            })
+            .count();
+        let matching_event_properties = updates
+            .iter()
+            .filter(|update| {
+                matches!(
+                    update,
+                    Update::EventProperty(EventProperty {
+                        property,
+                        ..
+                    }) if property == "product.price"
+                )
+            })
+            .count();
+
+        assert_eq!(matching_property_definitions, 1);
+        assert_eq!(matching_event_properties, 1);
     }
 }
