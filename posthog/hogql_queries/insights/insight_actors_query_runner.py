@@ -108,6 +108,8 @@ class InsightActorsQueryRunner(AnalyticsQueryRunner[HogQLQueryResponse]):
             return stickiness_runner.to_actors_query(
                 interval_num=int(stickiness_actors_query.day) if stickiness_actors_query.day is not None else None,
                 operator=getattr(stickiness_actors_query, "operator", None),
+                series_index=stickiness_actors_query.series,
+                compare_value=stickiness_actors_query.compare,
             )
         elif isinstance(self.source_runner, LifecycleQueryRunner):
             lifecycle_runner = cast(LifecycleQueryRunner, self.source_runner)

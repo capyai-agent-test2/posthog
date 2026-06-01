@@ -18,6 +18,7 @@ from django.test import override_settings
 from posthog.schema import (
     ActionsNode,
     CohortPropertyFilter,
+    Compare,
     CompareFilter,
     DataWarehouseNode,
     DataWarehousePropertyFilter,
@@ -29,6 +30,8 @@ from posthog.schema import (
     FeaturePropertyFilter,
     GroupPropertyFilter,
     HogQLPropertyFilter,
+    InsightActorsQuery,
+    InsightActorsQueryOptions,
     IntervalType,
     LogEntryPropertyFilter,
     MathGroupTypeIndex,
@@ -741,6 +744,70 @@ class TestStickinessQueryRunner(ClickhouseTestMixin, APIBaseTest):
         assert response.results[1]["count"] == 2
         assert response.results[1]["compare_label"] == "previous"
         assert response.results[1]["data"] == [0, 0, 0, 0, 1, 0, 0, 0, 1]
+
+    def test_compare_actors_query_options(self):
+        query = self._get_query(filters=StickinessFilter(), compare_filters=CompareFilter(compare=True))
+        options_query = InsightActorsQueryOptions(source=InsightActorsQuery(source=query))
+
+        response = get_query_runner(options_query, self.team).calculate()
+
+        assert response.compare is not None
+        assert [item.value for item in response.compare] == ["current", "previous"]
+
+    def test_compare_actors_query_filters_period(self):
+        self._create_events(
+            [
+                SeriesTestData(
+                    distinct_id="current-period",
+                    events=[
+                        Series(
+                            event="$pageview",
+                            timestamps=[
+                                "2020-01-12T12:00:00Z",
+                                "2020-01-13T12:00:00Z",
+                            ],
+                        ),
+                    ],
+                    properties={},
+                ),
+                SeriesTestData(
+                    distinct_id="previous-period",
+                    events=[
+                        Series(
+                            event="$pageview",
+                            timestamps=[
+                                "2020-01-10T12:00:00Z",
+                                "2020-01-11T12:00:00Z",
+                            ],
+                        ),
+                    ],
+                    properties={},
+                ),
+            ]
+        )
+        flush_persons_and_events()
+        query = self._get_query(
+            date_from="2020-01-12",
+            date_to="2020-01-13",
+            filters=StickinessFilter(),
+            compare_filters=CompareFilter(compare=True),
+        )
+        runner = StickinessQueryRunner(team=self.team, query=query)
+
+        current_response = execute_hogql_query(
+            query_type="StickinessActorsQuery",
+            query=runner.to_actors_query(interval_num=2, compare_value=Compare.CURRENT),
+            team=self.team,
+        )
+        previous_response = execute_hogql_query(
+            query_type="StickinessActorsQuery",
+            query=runner.to_actors_query(interval_num=2, compare_value=Compare.PREVIOUS),
+            team=self.team,
+        )
+
+        assert len(current_response.results) == 1
+        assert len(previous_response.results) == 1
+        assert current_response.results != previous_response.results
 
     def test_criteria(self):
         self._create_events(

@@ -74,6 +74,16 @@ describe('handleStickinessChartClick', () => {
         expect(call.orderBy).toBeUndefined()
     })
 
+    it('opens the persons modal with the clicked comparison period', () => {
+        const openPersonsModal = jest.fn()
+        const trendResult = makeTrendResult({ compare_label: CompareLabelType.Previous })
+        const deps = makeDeps({ openPersonsModal, indexedResults: [trendResult] })
+
+        handleStickinessChartClick(keyFor(trendResult), 1, deps)
+
+        expect(openPersonsModal.mock.calls[0][0].query).toMatchObject({ compare: 'previous' })
+    })
+
     it('renders a "stickiness on {interval} {day}" title with the series label', () => {
         const openPersonsModal = jest.fn()
         const trendResult = makeTrendResult({ label: '$pageview' })

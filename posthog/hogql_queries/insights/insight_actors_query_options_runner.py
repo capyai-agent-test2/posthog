@@ -13,6 +13,8 @@ from posthog.hogql_queries.insights.trends.trends_query_runner import TrendsQuer
 from posthog.hogql_queries.query_runner import QueryRunner, get_query_runner
 from posthog.models.filters.mixins.utils import cached_property
 
+from products.product_analytics.backend.hogql_queries.stickiness.stickiness_query_runner import StickinessQueryRunner
+
 
 class InsightActorsQueryOptionsRunner(QueryRunner):
     query: InsightActorsQueryOptions
@@ -36,5 +38,8 @@ class InsightActorsQueryOptionsRunner(QueryRunner):
         elif isinstance(self.source_runner, LifecycleQueryRunner):
             lifecycle_runner = cast(LifecycleQueryRunner, self.source_runner)
             return lifecycle_runner.to_actors_query_options()
+        elif isinstance(self.source_runner, StickinessQueryRunner):
+            stickiness_runner = cast(StickinessQueryRunner, self.source_runner)
+            return stickiness_runner.to_actors_query_options()
 
         return InsightActorsQueryOptionsResponse(day=None, status=None, interval=None, breakdown=None, series=None)

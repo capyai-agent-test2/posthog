@@ -8,10 +8,14 @@ from django.utils.timezone import now
 from posthog.schema import (
     ActionsNode,
     CachedStickinessQueryResponse,
+    Compare,
+    CompareItem,
     DataWarehouseEventsModifier,
     DataWarehouseNode,
     EventsNode,
     HogQLQueryModifiers,
+    InsightActorsQueryOptionsResponse,
+    Series,
     StickinessComputationMode,
     StickinessQuery,
     StickinessQueryResponse,
@@ -265,11 +269,21 @@ class StickinessQueryRunner(AnalyticsQueryRunner[StickinessQueryResponse]):
         return queries
 
     def to_actors_query(
-        self, interval_num: Optional[int] = None, operator: Optional[str] = None
+        self,
+        interval_num: Optional[int] = None,
+        operator: Optional[str] = None,
+        series_index: Optional[int] = None,
+        compare_value: Optional[Compare] = None,
     ) -> ast.SelectQuery | ast.SelectSetQuery:
         queries: list[ast.SelectQuery] = []
 
         for series in self.series:
+            if series_index is not None and series.series_order != series_index:
+                continue
+            series_compare_value = Compare.PREVIOUS if series.is_previous_period_series else Compare.CURRENT
+            if compare_value is not None and series_compare_value != compare_value:
+                continue
+
             events_query = self._events_query(series)
             aggregation_alias = "actor_id"
             if series.series.math == "hogql" and series.series.math_hogql is not None:
@@ -303,6 +317,25 @@ class StickinessQueryRunner(AnalyticsQueryRunner[StickinessQueryResponse]):
             queries.append(events_query)
 
         return ast.SelectSetQuery.create_from_queries(queries, "UNION ALL")
+
+    def to_actors_query_options(self) -> InsightActorsQueryOptionsResponse:
+        res_series = []
+        for index, series in enumerate(self.query.series):
+            try:
+                series_label = self.series_event(series)
+            except Action.DoesNotExist:
+                continue
+
+            res_series.append(Series(label="All events" if series_label is None else series_label, value=index))
+
+        res_compare = None
+        if self.query.compareFilter is not None and self.query.compareFilter.compare:
+            res_compare = [
+                CompareItem(label="Current", value=Compare.CURRENT.value),
+                CompareItem(label="Previous", value=Compare.PREVIOUS.value),
+            ]
+
+        return InsightActorsQueryOptionsResponse(series=res_series, compare=res_compare)
 
     def _calculate(self) -> StickinessQueryResponse:
         queries = self.to_queries()
