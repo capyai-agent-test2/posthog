@@ -35,7 +35,7 @@ SELECT
     persons.properties AS properties,
     persons.person_distinct_id_version AS person_distinct_id_version,
     persons.person_version AS person_version,
-    persons.created_at AS created_at,
+    toDateTime64(persons.created_at, 6, 'UTC') AS created_at,
     persons._inserted_at AS _inserted_at,
     persons.is_deleted AS is_deleted
 FROM (
@@ -137,7 +137,7 @@ FROM (
         p.version AS person_version,
         pd.version AS person_distinct_id_version,
         p.properties AS properties,
-        p.created_at AS created_at,
+        toDateTime64(p.created_at, 6, 'UTC') AS created_at,
         toBool(p.is_deleted) AS is_deleted,
         multiIf(
             (
@@ -185,7 +185,7 @@ SELECT
     p.properties AS properties,
     pd.version AS person_distinct_id_version,
     p.version AS person_version,
-    p.created_at AS created_at,
+    toDateTime64(p.created_at, 6, 'UTC') AS created_at,
     toBool(p.is_deleted) AS is_deleted,
     multiIf(
         pd._timestamp < {interval_end}::DateTime64
@@ -217,7 +217,7 @@ INNER JOIN (
         id,
         max(version) AS version,
         argMax(properties, person.version) AS properties,
-        argMax(created_at, person.version) AS created_at,
+        argMax(toDateTime64(created_at, 6, 'UTC'), person.version) AS created_at,
         argMax(_timestamp, person.version) AS _timestamp,
         argMax(is_deleted, person.version) AS is_deleted
     FROM
@@ -756,7 +756,7 @@ SELECT
     p.properties AS properties,
     pd.version AS person_distinct_id_version,
     p.version AS person_version,
-    p.created_at AS created_at,
+    toDateTime64(p.created_at, 6, 'UTC') AS created_at,
     toBool(p.is_deleted) AS is_deleted,
     multiIf(
         pd._timestamp < {interval_end}::DateTime64
@@ -788,7 +788,7 @@ INNER JOIN (
         id,
         max(version) AS version,
         argMax(properties, person.version) AS properties,
-        argMax(created_at, person.version) AS created_at,
+        argMax(toDateTime64(created_at, 6, 'UTC'), person.version) AS created_at,
         argMax(_timestamp, person.version) AS _timestamp,
         argMax(is_deleted, person.version) AS is_deleted
     FROM
@@ -823,7 +823,7 @@ SELECT
     persons.properties AS properties,
     persons.person_distinct_id_version AS person_distinct_id_version,
     persons.person_version AS person_version,
-    persons.created_at AS created_at,
+    toDateTime64(persons.created_at, 6, 'UTC') AS created_at,
     persons._inserted_at AS _inserted_at,
     persons.is_deleted AS is_deleted
 FROM (
@@ -926,7 +926,7 @@ FROM (
         p.version AS person_version,
         pd.version AS person_distinct_id_version,
         p.properties AS properties,
-        p.created_at AS created_at,
+        toDateTime64(p.created_at, 6, 'UTC') AS created_at,
         toBool(p.is_deleted) AS is_deleted,
         multiIf(
             (
