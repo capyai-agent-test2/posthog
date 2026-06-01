@@ -8,7 +8,7 @@ import { Tooltip } from 'lib/lemon-ui/Tooltip'
 import { BillingProductV2AddonType, BillingProductV2Type } from '~/types'
 
 import { createProductValueFormatter, formatDisplayUsage, hasDisplayFormatting } from './billing-utils'
-import { BillingGaugeItemType } from './types'
+import { BillingGaugeItemKind, BillingGaugeItemType } from './types'
 
 /*
  * Billing Gauge Item: Individual bars on the billing gauge.
@@ -80,6 +80,16 @@ export function BillingGauge({ items, product }: BillingGaugeProps): JSX.Element
         return [...items].sort((a, b) => a.value - b.value)
     }, [items])
 
+    const isItemLabelTop = (item: BillingGaugeItemType, index: number): boolean => {
+        if (item.type === BillingGaugeItemKind.ProjectedUsage) {
+            return true
+        }
+        if (item.type === BillingGaugeItemKind.CurrentUsage) {
+            return false
+        }
+        return index % 2 !== 0
+    }
+
     return (
         <div className="relative h-2 bg-border-light my-16">
             {sortedItems.map((item, i) => (
@@ -88,7 +98,7 @@ export function BillingGauge({ items, product }: BillingGaugeProps): JSX.Element
                     item={item}
                     maxValue={maxValue}
                     isWithinUsageLimit={isWithinUsageLimit}
-                    isTop={i % 2 !== 0}
+                    isTop={isItemLabelTop(item, i)}
                     product={product}
                 />
             ))}
