@@ -64,6 +64,55 @@ _SAFE_TABLE_FUNCTION_NAME_RE = re2.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 EMPTY_SCOPE = ast.SelectQueryType()
 
+CLICKHOUSE_DATE_UNIT_FUNCTIONS = frozenset({"dateAdd", "dateSub", "dateDiff", "date_diff"})
+
+CLICKHOUSE_DATE_UNITS = frozenset(
+    {
+        "nanosecond",
+        "nanoseconds",
+        "ns",
+        "microsecond",
+        "microseconds",
+        "us",
+        "u",
+        "millisecond",
+        "milliseconds",
+        "ms",
+        "second",
+        "seconds",
+        "ss",
+        "s",
+        "minute",
+        "minutes",
+        "mi",
+        "n",
+        "hour",
+        "hours",
+        "hh",
+        "h",
+        "day",
+        "days",
+        "dd",
+        "d",
+        "week",
+        "weeks",
+        "wk",
+        "ww",
+        "month",
+        "months",
+        "mm",
+        "m",
+        "quarter",
+        "quarters",
+        "qq",
+        "q",
+        "year",
+        "years",
+        "yyyy",
+        "yy",
+    }
+)
+
 type PostgresKeywordType = type[ast.DateType] | type[ast.DateTimeType]
 
 POSTGRES_KEYWORD_TYPES: dict[str, PostgresKeywordType] = {
@@ -1441,6 +1490,23 @@ class Resolver(CloningVisitor):
 
     def visit_call(self, node: ast.Call):
         """Visit function calls."""
+
+        if node.name in CLICKHOUSE_DATE_UNIT_FUNCTIONS and node.args:
+            first_arg = node.args[0]
+            if isinstance(first_arg, ast.Field) and len(first_arg.chain) == 1:
+                unit = str(first_arg.chain[0]).lower()
+                if unit in CLICKHOUSE_DATE_UNITS:
+                    node = ast.Call(
+                        name=node.name,
+                        args=[ast.Constant(value=unit, start=first_arg.start, end=first_arg.end), *node.args[1:]],
+                        params=node.params,
+                        distinct=node.distinct,
+                        filter_expr=node.filter_expr,
+                        order_by=node.order_by,
+                        within_group=node.within_group,
+                        start=node.start,
+                        end=node.end,
+                    )
 
         # Expand *COLUMNS(...) in function arguments
         expanded_args: list[ast.Expr] = []
