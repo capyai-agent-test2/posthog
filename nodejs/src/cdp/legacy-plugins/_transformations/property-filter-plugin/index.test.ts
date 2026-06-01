@@ -1,7 +1,7 @@
 import { PluginEvent } from '~/plugin-scaffold'
 
 import { LegacyTransformationPluginMeta } from '../../types'
-import { processEvent } from './index'
+import { processEvent, setupPlugin } from './index'
 
 const createEvent = (event: Partial<PluginEvent>): PluginEvent =>
     ({
@@ -86,4 +86,19 @@ test('event properties are empty when no properties are given', () => {
 
     expect(event.properties).not.toHaveProperty('$set')
     expect(event.properties).not.toHaveProperty('foo')
+})
+
+test('setup trims comma-separated properties', () => {
+    const global = {}
+    setupPlugin({
+        global,
+        config: {
+            properties: 'gender, $set.gender, foo.bar.baz.one',
+        },
+    } as unknown as LegacyTransformationPluginMeta)
+
+    const event = processEvent(createEvent(properties), { global } as LegacyTransformationPluginMeta)
+    expect(event.properties).not.toHaveProperty('gender')
+    expect(event.properties.$set).not.toHaveProperty('gender')
+    expect(event.properties.foo.bar.baz).not.toHaveProperty('one')
 })
