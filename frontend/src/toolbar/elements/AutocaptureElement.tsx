@@ -24,6 +24,10 @@ export const AutocaptureElement = memo(
         if (!rect) {
             return null
         }
+        const stopPageClickThrough = (event: React.MouseEvent): void => {
+            event.preventDefault()
+            event.stopPropagation()
+        }
         return (
             <div
                 // eslint-disable-next-line react/forbid-dom-props
@@ -35,7 +39,12 @@ export const AutocaptureElement = memo(
                     height: `${rect.bottom - rect.top}px`,
                     ...style,
                 }}
-                onClick={onClick}
+                onMouseDown={stopPageClickThrough}
+                onMouseUp={stopPageClickThrough}
+                onClick={(event) => {
+                    stopPageClickThrough(event)
+                    onClick(event)
+                }}
                 onMouseOver={onMouseOver}
                 onMouseOut={onMouseOut}
             />

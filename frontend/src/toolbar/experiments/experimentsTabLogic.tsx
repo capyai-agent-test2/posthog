@@ -378,14 +378,15 @@ export const experimentsTabLogic = kea<experimentsTabLogicType>([
                     }
                     actions.setExperimentFormValue('variants', updatedVariants)
 
-                    // Save the original state to undo transforms on variant change
-                    actions.setExperimentFormValue('original_html_state', {
-                        ...values.experimentForm.original_html_state,
-                        [selector]: {
-                            html: element.innerHTML,
-                            ...(element.getAttribute('style') && { css: element.getAttribute('style') }),
-                        },
-                    })
+                    if (!values.experimentForm.original_html_state?.[selector]) {
+                        actions.setExperimentFormValue('original_html_state', {
+                            ...values.experimentForm.original_html_state,
+                            [selector]: {
+                                html: element.innerHTML,
+                                ...(element.getAttribute('style') && { css: element.getAttribute('style') }),
+                            },
+                        })
+                    }
                 }
             }
         },
