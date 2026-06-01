@@ -296,6 +296,82 @@ class TestCohortQuery(ClickhouseTestMixin, BaseTest):
 
         assert [p1.uuid] == [r[0] for r in res]
 
+    def test_performed_action_matching_all_events(self):
+        p1 = _create_person(
+            team_id=self.team.pk,
+            distinct_ids=["p1"],
+            properties={"name": "test"},
+        )
+        _create_event(
+            team=self.team,
+            event="custom_event",
+            properties={"attr": "some_val"},
+            distinct_id="p1",
+            timestamp=datetime.now() - timedelta(days=2),
+        )
+
+        p2 = _create_person(
+            team_id=self.team.pk,
+            distinct_ids=["p2"],
+            properties={"name": "test"},
+        )
+        _create_event(
+            team=self.team,
+            event="$pageview",
+            properties={},
+            distinct_id="p2",
+            timestamp=datetime.now() - timedelta(days=2),
+        )
+
+        _create_person(
+            team_id=self.team.pk,
+            distinct_ids=["p3"],
+            properties={"name": "test"},
+        )
+        _create_event(
+            team=self.team,
+            event="custom_event",
+            properties={"attr": "other_val"},
+            distinct_id="p3",
+            timestamp=datetime.now() - timedelta(days=2),
+        )
+
+        action = Action.objects.create(
+            team=self.team,
+            name="all events action",
+            steps_json=[
+                {
+                    "event": None,
+                    "properties": [{"key": "attr", "value": "some_val", "type": "event"}],
+                },
+                {"event": "$pageview"},
+            ],
+        )
+        flush_persons_and_events()
+
+        filter = Filter(
+            data={
+                "properties": {
+                    "type": "AND",
+                    "values": [
+                        {
+                            "key": action.pk,
+                            "event_type": "actions",
+                            "time_value": 1,
+                            "time_interval": "week",
+                            "value": "performed_event",
+                            "type": "behavioral",
+                        }
+                    ],
+                }
+            }
+        )
+
+        res, q, params = execute(filter, self.team)
+
+        assert "event IN %(" not in q
+        assert sorted([p1.uuid, p2.uuid]) == sorted([r[0] for r in res])
+
     @snapshot_clickhouse_queries
     def test_performed_event_poe_override(self):
         p1 = _create_person(
