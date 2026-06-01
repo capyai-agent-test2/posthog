@@ -683,6 +683,15 @@ def _expr_to_compare_op(
 
 
 def apply_path_cleaning(path_expr: ast.Expr, team: Team) -> ast.Expr:
+    path_expr = ast.Call(
+        name="replaceRegexpOne",
+        args=[
+            path_expr,
+            ast.Constant(value=r"[?#].*$"),
+            ast.Constant(value=""),
+        ],
+    )
+
     if not team.path_cleaning_filters:
         return path_expr
 

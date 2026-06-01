@@ -3,6 +3,7 @@ from typing import Any, Literal, Optional, Union, cast
 
 from freezegun import freeze_time
 from posthog.test.base import APIBaseTest, BaseTest, _create_event, cleanup_materialized_columns
+from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
 from parameterized import parameterized
@@ -24,6 +25,7 @@ from posthog.hogql.modifiers import create_default_modifiers_for_team
 from posthog.hogql.parser import parse_expr
 from posthog.hogql.printer.utils import prepare_and_print_ast
 from posthog.hogql.property import (
+    apply_path_cleaning,
     entity_to_expr,
     has_aggregation,
     map_virtual_properties,
@@ -48,6 +50,16 @@ from ee.clickhouse.materialized_columns.columns import materialize
 elements_chain_match = lambda x: parse_expr("elements_chain =~ {regex}", {"regex": ast.Constant(value=str(x))})
 elements_chain_imatch = lambda x: parse_expr("elements_chain =~* {regex}", {"regex": ast.Constant(value=str(x))})
 not_call = lambda x: ast.Call(name="not", args=[x])
+
+
+class TestApplyPathCleaning(TestCase):
+    def test_strips_query_string_and_hash(self):
+        team = cast(Team, MagicMock(path_cleaning_filters=[]))
+
+        self.assertEqual(
+            clear_locations(apply_path_cleaning(ast.Field(chain=["properties", "$current_url"]), team)),
+            clear_locations(parse_expr("replaceRegexpOne(properties.$current_url, '[?#].*$', '')")),
+        )
 
 
 class TestProperty(BaseTest):

@@ -203,6 +203,20 @@ export function OperatorValueSelect({
 
     // DateTime properties should not default to Exact
     const isDateTimeProperty = propertyDefinition?.property_type == PropertyType.DateTime
+    const isUrlLikeProperty =
+        type !== PropertyFilterType.Cohort &&
+        propertyKey !== undefined &&
+        [
+            '$current_url',
+            '$entry_current_url',
+            '$end_current_url',
+            '$initial_current_url',
+            '$pathname',
+            '$entry_pathname',
+            '$end_pathname',
+            '$initial_pathname',
+            '$prev_pageview_pathname',
+        ].includes(propertyKey)
 
     const isInitialOperator = !operator || operator == PropertyOperator.Exact
 
@@ -214,6 +228,8 @@ export function OperatorValueSelect({
             startingOperator = PropertyOperator.In
         } else if (propertyKey === 'message' && type === PropertyFilterType.Log) {
             startingOperator = PropertyOperator.IContains
+        } else if (!operator && isUrlLikeProperty) {
+            startingOperator = PropertyOperator.IsCleanedPathExact
         }
     }
 
@@ -251,6 +267,12 @@ export function OperatorValueSelect({
             }
             return !operatorAllowlist || operatorAllowlist.includes(op)
         })
+        if (
+            isUrlLikeProperty &&
+            (!operatorAllowlist || operatorAllowlist.includes(PropertyOperator.IsCleanedPathExact))
+        ) {
+            operators.push(PropertyOperator.IsCleanedPathExact)
+        }
 
         // Restrict message log property to only allow exact, is_not, contains, not contains, regex, and not regex operators
         if (propertyKey === 'message' && type === PropertyFilterType.Log) {
