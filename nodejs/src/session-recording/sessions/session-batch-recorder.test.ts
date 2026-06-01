@@ -1082,6 +1082,31 @@ describe('SessionBatchRecorder', () => {
             expect(mockOffsetManager.commit).toHaveBeenCalledTimes(1)
         })
 
+        it('should discard pending flush data for revoked partitions', async () => {
+            const error = new Error('Metadata store failed')
+            mockMetadataStore.storeSessionBlocks.mockRejectedValueOnce(error)
+
+            const message = createMessage('session1', [
+                {
+                    type: EventType.FullSnapshot,
+                    timestamp: 1000,
+                    data: { source: 1 },
+                },
+            ])
+
+            await recorder.record(message)
+            await expect(recorder.flush()).rejects.toThrow(error)
+            expect(recorder.hasPendingFlush).toBe(true)
+
+            recorder.discardPartition(1)
+
+            expect(recorder.hasPendingFlush).toBe(false)
+            await expect(recorder.flush()).resolves.toEqual([])
+            expect(mockWriter.writeSession).toHaveBeenCalledTimes(1)
+            expect(mockMetadataStore.storeSessionBlocks).toHaveBeenCalledTimes(1)
+            expect(mockOffsetManager.commit).toHaveBeenCalledTimes(1)
+        })
+
         it('should not commit offsets if console log flush fails', async () => {
             const error = new Error('Console log flush failed')
             mockConsoleLogStore.flush.mockRejectedValueOnce(error)

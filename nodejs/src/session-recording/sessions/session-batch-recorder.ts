@@ -19,12 +19,17 @@ import { SessionTracker } from './session-tracker'
 import { SnappySessionRecorder } from './snappy-session-recorder'
 
 type PendingSessionBlock = Omit<SessionBlockMetadata, 'blockLength' | 'blockUrl' | 'retentionPeriodDays'> & {
+    partition: number
     writeData: WriteSessionData
+}
+
+type PendingFeatureBlock = SessionFeatureBlock & {
+    partition: number
 }
 
 interface PendingFlushData {
     sessionBlocks: PendingSessionBlock[]
-    featureBlocks: SessionFeatureBlock[]
+    featureBlocks: PendingFeatureBlock[]
     totalEvents: number
     totalSessions: number
 }
@@ -278,6 +283,28 @@ export class SessionBatchRecorder {
             this.partitionSessions.delete(partition)
             this.offsetManager.discardPartition(partition)
         }
+
+        if (this.pendingFlushData) {
+            this.pendingFlushData.sessionBlocks = this.pendingFlushData.sessionBlocks.filter(
+                (sessionBlock) => sessionBlock.partition !== partition
+            )
+            this.pendingFlushData.featureBlocks = this.pendingFlushData.featureBlocks.filter(
+                (featureBlock) => featureBlock.partition !== partition
+            )
+            this.pendingFlushData.totalEvents = this.pendingFlushData.sessionBlocks.reduce(
+                (totalEvents, sessionBlock) => totalEvents + sessionBlock.eventCount,
+                0
+            )
+            this.pendingFlushData.totalSessions = this.pendingFlushData.sessionBlocks.length
+
+            if (this.pendingFlushData.sessionBlocks.length === 0) {
+                this.pendingFlushData = null
+            }
+        }
+    }
+
+    public get hasPendingFlush(): boolean {
+        return !!this.pendingFlushData
     }
 
     /**
@@ -307,7 +334,7 @@ export class SessionBatchRecorder {
 
             for (const sessionBlock of pendingFlushData.sessionBlocks) {
                 const { bytesWritten, url, retentionPeriodDays } = await writer.writeSession(sessionBlock.writeData)
-                const { writeData: _writeData, ...metadata } = sessionBlock
+                const { partition: _partition, writeData: _writeData, ...metadata } = sessionBlock
 
                 blockMetadata.push({
                     ...metadata,
@@ -321,7 +348,9 @@ export class SessionBatchRecorder {
 
             await writer.finish()
             await this.consoleLogStore.flush()
-            await this.featureStore.storeSessionFeatures(pendingFlushData.featureBlocks)
+            await this.featureStore.storeSessionFeatures(
+                pendingFlushData.featureBlocks.map(({ partition: _partition, ...featureBlock }) => featureBlock)
+            )
             await this.metadataStore.storeSessionBlocks(blockMetadata)
             await this.offsetManager.commit()
 
@@ -361,12 +390,12 @@ export class SessionBatchRecorder {
         }
 
         const sessionBlocks: PendingSessionBlock[] = []
-        const featureBlocks: SessionFeatureBlock[] = []
+        const featureBlocks: PendingFeatureBlock[] = []
         let totalEvents = 0
         let totalSessions = 0
 
         try {
-            for (const sessions of this.partitionSessions.values()) {
+            for (const [partition, sessions] of this.partitionSessions.entries()) {
                 for (const [
                     sessionBlockRecorder,
                     consoleLogRecorder,
@@ -394,6 +423,7 @@ export class SessionBatchRecorder {
                     const features = featureRecorder.end()
                     if (features) {
                         featureBlocks.push({
+                            partition,
                             sessionId: sessionBlockRecorder.sessionId,
                             teamId: sessionBlockRecorder.teamId,
                             distinctId: sessionBlockRecorder.distinctId,
@@ -412,6 +442,7 @@ export class SessionBatchRecorder {
                     )
 
                     sessionBlocks.push({
+                        partition,
                         sessionId: sessionBlockRecorder.sessionId,
                         teamId: sessionBlockRecorder.teamId,
                         distinctId: sessionBlockRecorder.distinctId,

@@ -151,7 +151,9 @@ export class SessionBatchManager {
     public shouldFlush(): boolean {
         const batchSize = this.currentBatch.size
         const batchAge = Date.now() - this.lastFlushTime
-        return batchSize >= this.maxBatchSizeBytes || batchAge >= this.maxBatchAgeMs
+        return (
+            this.currentBatch.hasPendingFlush || batchSize >= this.maxBatchSizeBytes || batchAge >= this.maxBatchAgeMs
+        )
     }
 
     public discardPartitions(partitions: number[]): void {
