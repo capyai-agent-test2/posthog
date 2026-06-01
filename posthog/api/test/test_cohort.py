@@ -4939,6 +4939,30 @@ email@example.org,
         cohort = Cohort.objects.get(id=cohort1_id)
         self.assertTrue(cohort.deleted)
 
+    @patch("django.db.transaction.on_commit", side_effect=lambda func: func())
+    @patch("posthog.api.cohort.report_user_action")
+    @patch("posthog.tasks.calculate_cohort.calculate_cohort_ch.delay")
+    def test_can_delete_cohort_with_missing_cohort_reference(
+        self, patch_calculate_cohort, patch_capture, patch_on_commit
+    ):
+        cohort = Cohort.objects.create(
+            team=self.team,
+            name="Stale dependent cohort",
+            groups=[{"properties": [{"key": "id", "value": "99999", "type": "cohort"}]}],
+            deleted=False,
+            is_static=False,
+        )
+
+        response = self.client.patch(
+            f"/api/projects/{self.team.id}/cohorts/{cohort.id}",
+            data={"deleted": True},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.content)
+        cohort.refresh_from_db()
+        self.assertTrue(cohort.deleted)
+        self.assertEqual(patch_calculate_cohort.call_count, 0)
+
     def test_cohort_last_error_message_from_calculation_history(self):
         """Test that API returns friendly error message from failed calculation"""
         from posthog.models.cohort.calculation_history import CohortCalculationHistory

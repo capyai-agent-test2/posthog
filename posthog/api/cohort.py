@@ -1091,7 +1091,7 @@ class CohortSerializer(serializers.ModelSerializer):
         elif not cohort.is_static:
             cohort.is_calculating = True
 
-        if will_create_loops(cohort):
+        if not deleted_state and will_create_loops(cohort):
             raise ValidationError("Cohorts cannot reference other cohorts in a loop.")
 
         cohort.save()
