@@ -56,7 +56,9 @@ test.describe('Auth', () => {
         await expect(page.locator('[data-attr=password]')).toHaveValue('wrong password')
 
         await loginPage.clickLogin()
-        await expect(page.locator('.LemonBanner')).toContainText('Invalid email or password.')
+        await expect(page.locator('.LemonBanner')).toContainText(
+            'Invalid email or password. Email addresses are case-sensitive.'
+        )
 
         await loginPage.enterPassword(LOGIN_PASSWORD)
         await loginPage.clickLogin()

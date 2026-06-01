@@ -576,7 +576,7 @@ class ErrorResponsesMixin:
     ERROR_INVALID_CREDENTIALS = {
         "type": "validation_error",
         "code": "invalid_credentials",
-        "detail": "Invalid email or password.",
+        "detail": "Invalid email or password. Email addresses are case-sensitive.",
         "attr": None,
     }
 

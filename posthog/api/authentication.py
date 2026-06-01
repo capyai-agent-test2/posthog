@@ -221,8 +221,8 @@ def is_email_verified_for_login(user: User) -> bool:
 
 
 class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField()
+    email = serializers.EmailField(help_text="Email address for the user account. Email matching is case-sensitive.")
+    password = serializers.CharField(help_text="Password for the user account.")
 
     def to_representation(self, instance: Any) -> dict[str, Any]:
         return {"success": True}
@@ -321,7 +321,10 @@ class LoginSerializer(serializers.Serializer):
             if handler.is_locked(axes_request, credentials=axes_credentials):
                 raise AxesBackendPermissionDenied("Account locked: too many login attempts.")
 
-            raise serializers.ValidationError("Invalid email or password.", code="invalid_credentials")
+            raise serializers.ValidationError(
+                "Invalid email or password. Email addresses are case-sensitive.",
+                code="invalid_credentials",
+            )
 
         if not is_email_verified_for_login(user):
             raise serializers.ValidationError(

@@ -314,6 +314,23 @@ class TestLoginAPI(APIBaseTest):
         # Events never get reported
         mock_capture.assert_not_called()
 
+    @patch("posthoganalytics.capture")
+    def test_user_cant_login_with_incorrect_email_case(self, mock_capture):
+        response = self.client.post(
+            "/api/login",
+            {"email": self.CONFIG_EMAIL.upper(), "password": self.CONFIG_PASSWORD},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json(), self.ERROR_INVALID_CREDENTIALS)
+
+        # Assert user is not logged in
+        response = self.client.get("/api/users/@me/")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertNotIn("email", response.json())
+
+        # Events never get reported
+        mock_capture.assert_not_called()
+
     def test_cant_login_without_required_attributes(self):
         required_attributes = ["email", "password"]
 
