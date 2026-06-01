@@ -4,6 +4,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useActions, useValues } from 'kea'
 import { Group } from 'kea-forms'
+import { useRef } from 'react'
 
 import { IconPlusSmall, IconTrash, IconWarning } from '@posthog/icons'
 import { LemonButton, LemonCheckbox, LemonDialog, LemonInput, LemonSelect, LemonTag, Tooltip } from '@posthog/lemon-ui'
@@ -252,15 +253,25 @@ export function SurveyEditQuestionGroup({ index, question }: { index: number; qu
         question.type === SurveyQuestionType.Rating && question.scale === SURVEY_RATING_SCALE.NPS_10_POINT
 
     const hasTranslations = question.translations && Object.keys(question.translations).length > 0
+    const transientChoiceAliases = useRef<Record<number, string[]>>({})
 
     // Helper to synchronize choices in all translations when default choices change
-    const updateDefaultChoices = (newChoices: string[], renamedChoice?: { from: string; to: string }): void => {
+    const updateDefaultChoices = (
+        newChoices: string[],
+        renamedChoice?: { from: string; to: string; previousAliases?: string[] }
+    ): void => {
         if (!isChoiceQuestion(question)) {
             return
         }
 
         const choiceAliases = renamedChoice
-            ? getChoiceAliasesForRename(question.choiceAliases, renamedChoice.from, renamedChoice.to, newChoices)
+            ? getChoiceAliasesForRename(
+                  question.choiceAliases,
+                  renamedChoice.from,
+                  renamedChoice.to,
+                  newChoices,
+                  renamedChoice.previousAliases
+              )
             : cleanChoiceAliasesForChoices(question.choiceAliases, newChoices)
 
         if (!hasTranslations || !question.translations) {
@@ -674,7 +685,7 @@ export function SurveyEditQuestionGroup({ index, question }: { index: number; qu
                                     {({ value, onChange }) => {
                                         const handleChoicesChange = (
                                             newChoices: string[],
-                                            renamedChoice?: { from: string; to: string }
+                                            renamedChoice?: { from: string; to: string; previousAliases?: string[] }
                                         ): void => {
                                             if (editingLanguage) {
                                                 onChange(newChoices)
@@ -724,9 +735,25 @@ export function SurveyEditQuestionGroup({ index, question }: { index: number; qu
                                                                     onChange={(val) => {
                                                                         const newChoices = [...value]
                                                                         newChoices[index] = val
+                                                                        const previousAliases =
+                                                                            transientChoiceAliases.current[index]
+                                                                        if (choice && !val) {
+                                                                            transientChoiceAliases.current[index] =
+                                                                                Array.from(
+                                                                                    new Set([
+                                                                                        ...(question.choiceAliases?.[
+                                                                                            choice
+                                                                                        ] ?? []),
+                                                                                        choice,
+                                                                                    ])
+                                                                                )
+                                                                        } else if (val) {
+                                                                            delete transientChoiceAliases.current[index]
+                                                                        }
                                                                         handleChoicesChange(newChoices, {
                                                                             from: choice,
                                                                             to: val,
+                                                                            previousAliases,
                                                                         })
                                                                     }}
                                                                     onPaste={(event) =>

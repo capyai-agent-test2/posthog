@@ -786,14 +786,15 @@ export function getChoiceAliasesForRename(
     currentAliases: Record<string, string[]> | undefined,
     previousChoice: string,
     renamedChoice: string,
-    currentChoices: string[]
+    currentChoices: string[],
+    additionalPreviousAliases: string[] = []
 ): Record<string, string[]> | undefined {
-    if (previousChoice === renamedChoice) {
+    if (previousChoice === renamedChoice || !renamedChoice) {
         return cleanChoiceAliasesForChoices(currentAliases, currentChoices)
     }
 
     const updatedAliases = { ...currentAliases }
-    const previousAliases = updatedAliases[previousChoice] ?? []
+    const previousAliases = [...(updatedAliases[previousChoice] ?? []), ...additionalPreviousAliases]
     delete updatedAliases[previousChoice]
 
     updatedAliases[renamedChoice] = Array.from(

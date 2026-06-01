@@ -1449,12 +1449,26 @@ describe('splitChoicesOnPaste', () => {
 describe('getChoiceAliasesForRename', () => {
     it('preserves rename lineage through a transient empty label', () => {
         const afterClearing = getChoiceAliasesForRename(undefined, 'Old label', '', ['', 'Another choice'])
-        expect(afterClearing).toEqual({ '': ['Old label'] })
+        expect(afterClearing).toBeUndefined()
 
-        const afterTypingReplacement = getChoiceAliasesForRename(afterClearing, '', 'New label', [
+        const afterTypingReplacement = getChoiceAliasesForRename(
+            afterClearing,
+            '',
             'New label',
-            'Another choice',
-        ])
+            ['New label', 'Another choice'],
+            ['Old label']
+        )
         expect(afterTypingReplacement).toEqual({ 'New label': ['Old label'] })
+    })
+
+    it('keeps transient empty-label lineage scoped outside the shared alias map', () => {
+        const aliases = getChoiceAliasesForRename(
+            undefined,
+            '',
+            'Unrelated choice',
+            ['', 'Unrelated choice'],
+            ['Different old label']
+        )
+        expect(aliases).toEqual({ 'Unrelated choice': ['Different old label'] })
     })
 })
