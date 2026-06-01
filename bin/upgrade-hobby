@@ -11,12 +11,25 @@ else
     exit
 fi
 
-if [ "$REGISTRY_URL" == "" ]
-then
-export REGISTRY_URL="posthog/posthog"
-fi
+set_env_default() {
+    local key="$1"
+    local value="$2"
 
-export POSTHOG_APP_TAG="${POSTHOG_APP_TAG:-latest}"
+    if [ -z "${!key}" ]; then
+        export "$key=$value"
+
+        if [ -f ".env" ]; then
+            if grep -q "^${key}=" .env; then
+                sed -i "s|^${key}=.*|${key}=${value}|" .env
+            else
+                echo "${key}=${value}" >> .env
+            fi
+        fi
+    fi
+}
+
+set_env_default REGISTRY_URL "posthog/posthog"
+set_env_default POSTHOG_APP_TAG "latest"
 
 echo "Checking for named postgres and clickhouse volumes to avoid data loss when upgrading from < 1.39"
 if docker volume ls | grep -Pzoq 'clickhouse-data\n(.|\n)*postgres-data\n'
@@ -89,6 +102,9 @@ else
     echo "No .env file found. Please create it with POSTHOG_SECRET and DOMAIN set."
     exit 1
 fi
+
+set_env_default REGISTRY_URL "posthog/posthog"
+set_env_default POSTHOG_APP_TAG "latest"
 
 # we introduced ENCRYPTION_SALT_KEYS and so if there isn't one, need to add it
 # check for it in the .env file
@@ -172,7 +188,7 @@ if ! grep -q "SESSION_RECORDING_STORAGE_MIGRATED_TO_SEAWEEDFS" .env; then
   source .env
 fi
 
-export POSTHOG_APP_TAG="${POSTHOG_APP_TAG:-latest-release}"
+set_env_default POSTHOG_APP_TAG "latest"
 
 # Check if current compose file uses postgres:12-alpine (needs migration before upgrade)
 if grep -qE 'postgres:12-alpine|postgres:12' posthog/docker-compose.hobby.yml 2>/dev/null; then
@@ -313,12 +329,43 @@ docker-compose stop
 # rewrite entrypoint
 # TODO: this is duplicated from bin/deploy-hobby. We should refactor this into a
 # single script.
+mkdir -p compose
 cat > compose/start <<EOF
 #!/bin/bash
 ./compose/wait
 ./bin/migrate
 ./bin/docker-server
 EOF
+chmod +x compose/start
+
+cat > compose/temporal-django-worker <<EOF
+#!/bin/bash
+./bin/temporal-django-worker
+EOF
+chmod +x compose/temporal-django-worker
+
+cat > compose/wait <<EOF
+#!/usr/bin/env python3
+
+import socket
+import time
+
+def loop():
+    print("Waiting for ClickHouse and Postgres to be ready")
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect(('clickhouse', 9000))
+        print("Clickhouse is ready")
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect(('db', 5432))
+        print("Postgres is ready")
+    except ConnectionRefusedError as e:
+        time.sleep(5)
+        loop()
+
+loop()
+EOF
+chmod +x compose/wait
 
 if [ ${DOCKER_VOLUMES_MISSING} == 'TRUE' ];
 then
