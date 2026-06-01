@@ -32,6 +32,7 @@ from posthog.hogql.database.models import (
     FieldTraverser,
     LazyJoin,
     LazyTable,
+    SavedQuery,
     StringDatabaseField,
     Table,
     TableNode,
@@ -168,6 +169,56 @@ class TestDatabase(BaseTest, QueryMatchingTest):
         assert saved_query_name not in database._view_table_names
         assert "DELETED" not in serialized_database
         assert "DELETED" not in database._view_table_names
+
+    def test_database_includes_parent_environment_saved_queries(self):
+        child_team = Team.objects.create(
+            organization=self.organization, name="Child environment", parent_team=self.team
+        )
+        DataWarehouseSavedQuery.objects.create(
+            team=self.team,
+            name="parent_saved_query",
+            query={
+                "kind": "HogQLQuery",
+                "query": "select event as event from events LIMIT 100",
+            },
+            columns={"event": {"hogql": "StringDatabaseField", "clickhouse": "String", "valid": True}},
+        )
+
+        database = Database.create_for(team=child_team)
+
+        assert database.has_table("parent_saved_query")
+
+    def test_database_prefers_child_environment_saved_query_over_parent_with_same_name(self):
+        child_team = Team.objects.create(
+            organization=self.organization, name="Child environment", parent_team=self.team
+        )
+        DataWarehouseSavedQuery.objects.create(
+            team=self.team,
+            name="shared_saved_query",
+            query={
+                "kind": "HogQLQuery",
+                "query": "select event as parent_event from events LIMIT 100",
+            },
+            columns={"parent_event": {"hogql": "StringDatabaseField", "clickhouse": "String", "valid": True}},
+        )
+        child_saved_query = DataWarehouseSavedQuery.objects.create(
+            team=child_team,
+            name="shared_saved_query",
+            query={
+                "kind": "HogQLQuery",
+                "query": "select event as child_event from events LIMIT 100",
+            },
+            columns={"child_event": {"hogql": "StringDatabaseField", "clickhouse": "String", "valid": True}},
+        )
+
+        database = Database.create_for(team=child_team)
+
+        saved_query = database.get_table("shared_saved_query")
+        assert isinstance(saved_query, SavedQuery)
+        assert saved_query.query == "select event as child_event from events LIMIT 100"
+
+        serialized_database = database.serialize(HogQLContext(team_id=child_team.pk, database=database))
+        assert serialized_database["shared_saved_query"].id == str(child_saved_query.id)
 
     def test_serialize_database_warehouse_table_s3_with_unknown_field(self):
         credentials = DataWarehouseCredential.objects.create(access_key="blah", access_secret="blah", team=self.team)
