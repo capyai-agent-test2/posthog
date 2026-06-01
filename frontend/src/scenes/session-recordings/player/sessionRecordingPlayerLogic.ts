@@ -196,6 +196,8 @@ export function stripRrwebScriptShims(html: string): string {
     return html.replace(NOSCRIPT_BLOCK_RE, '')
 }
 
+export const RENDER_REPLAY_MOUSE_TAIL = false
+
 /**
  * returns the relative second in the recording
  * e.g. if the player starts at 1000ms and the snapshot is at 2000ms or 1500ms, the relative second is 1
@@ -1325,7 +1327,7 @@ export const sessionRecordingPlayerLogic = kea<sessionRecordingPlayerLogicType>(
                 ],
                 // these two settings are attempts to improve performance of running two Replayers at once
                 // the main player and a preview player
-                mouseTail: props.mode !== SessionRecordingPlayerMode.Preview,
+                mouseTail: RENDER_REPLAY_MOUSE_TAIL,
                 useVirtualDom: false,
                 plugins,
                 onError: (error) => {

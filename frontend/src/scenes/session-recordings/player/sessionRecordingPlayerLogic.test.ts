@@ -21,7 +21,12 @@ import {
     recordingMetaJson,
     setupSessionRecordingTest,
 } from './__mocks__/test-setup'
-import { findNewEvents, findSegmentForTimestamp, stripRrwebScriptShims } from './sessionRecordingPlayerLogic'
+import {
+    findNewEvents,
+    findSegmentForTimestamp,
+    RENDER_REPLAY_MOUSE_TAIL,
+    stripRrwebScriptShims,
+} from './sessionRecordingPlayerLogic'
 import { snapshotDataLogic } from './snapshotDataLogic'
 import { deleteRecording as deleteRecordingMock } from './utils/playerUtils'
 
@@ -223,6 +228,12 @@ describe('findSegmentForTimestamp', () => {
         expect(result?.windowId).toBe(undefined)
         expect(result?.startTimestamp).toBe(3000)
         expect(result?.endTimestamp).toBe(2001)
+    })
+})
+
+describe('RENDER_REPLAY_MOUSE_TAIL', () => {
+    it('keeps rrweb mouse-tail rendering disabled', () => {
+        expect(RENDER_REPLAY_MOUSE_TAIL).toBe(false)
     })
 })
 
