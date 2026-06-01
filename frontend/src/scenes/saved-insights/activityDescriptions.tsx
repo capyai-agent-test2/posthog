@@ -26,8 +26,8 @@ import { urls } from 'scenes/urls'
 
 import { filtersToQueryNode } from '~/queries/nodes/InsightQuery/utils/filtersToQueryNode'
 import { queryNodeToFilter } from '~/queries/nodes/InsightQuery/utils/queryNodeToFilter'
-import { InsightQueryNode, QuerySchema, TrendsQuery } from '~/queries/schema/schema-general'
-import { isInsightQueryNode, hasBreakdownFilter } from '~/queries/utils'
+import { QuerySchema, TrendsQuery } from '~/queries/schema/schema-general'
+import { hasBreakdownFilter, isInsightQueryNode, isInsightVizNode } from '~/queries/utils'
 import { FilterType, InsightModel, InsightShortId } from '~/types'
 
 const nameOrLinkToInsight = (short_id?: InsightShortId | null, name?: string | null): string | JSX.Element => {
@@ -88,8 +88,10 @@ const insightActionsMapping: Record<
         }
 
         const queryAfter = change?.after as QuerySchema
-        return isInsightQueryNode(queryAfter)
-            ? summarizeChanges(queryNodeToFilter(change?.after as InsightQueryNode))
+        const insightQuery = isInsightVizNode(queryAfter) ? queryAfter.source : queryAfter
+
+        return isInsightQueryNode(insightQuery)
+            ? summarizeChanges(queryNodeToFilter(insightQuery))
             : { description: ["cannot yet summarize changes to this insight's query: " + queryAfter?.kind] }
     },
     deleted: function onSoftDelete(change, logItem, asNotification) {
