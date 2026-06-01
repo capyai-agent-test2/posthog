@@ -717,7 +717,39 @@ export function SurveyEditQuestionGroup({ index, question }: { index: number; qu
                                                 return
                                             }
                                             event.preventDefault()
+                                            transientChoiceAliases.current = {}
                                             handleChoicesChange(merged)
+                                        }
+
+                                        const removeTransientChoiceAlias = (removedIndex: number): void => {
+                                            transientChoiceAliases.current = Object.fromEntries(
+                                                Object.entries(transientChoiceAliases.current)
+                                                    .map(
+                                                        ([choiceIndex, aliases]) =>
+                                                            [Number(choiceIndex), aliases] as const
+                                                    )
+                                                    .filter(([choiceIndex]) => choiceIndex !== removedIndex)
+                                                    .map(([choiceIndex, aliases]) => [
+                                                        choiceIndex > removedIndex ? choiceIndex - 1 : choiceIndex,
+                                                        aliases,
+                                                    ])
+                                            )
+                                        }
+
+                                        const insertTransientChoiceAlias = (insertedIndex: number): void => {
+                                            transientChoiceAliases.current = Object.fromEntries(
+                                                Object.entries(transientChoiceAliases.current).map(
+                                                    ([choiceIndex, aliases]) => {
+                                                        const numericChoiceIndex = Number(choiceIndex)
+                                                        return [
+                                                            numericChoiceIndex >= insertedIndex
+                                                                ? numericChoiceIndex + 1
+                                                                : numericChoiceIndex,
+                                                            aliases,
+                                                        ]
+                                                    }
+                                                )
+                                            )
                                         }
 
                                         return (
@@ -792,6 +824,7 @@ export function SurveyEditQuestionGroup({ index, question }: { index: number; qu
                                                                         }
                                                                         const newChoices = [...value]
                                                                         newChoices.splice(index, 1)
+                                                                        removeTransientChoiceAlias(index)
                                                                         handleChoicesChange(newChoices)
                                                                         if (isOpenChoice) {
                                                                             toggleHasOpenChoice(false)
@@ -822,6 +855,9 @@ export function SurveyEditQuestionGroup({ index, question }: { index: number; qu
                                                                         const newChoices = value.slice(0, -1)
                                                                         newChoices.push('')
                                                                         newChoices.push(value[value.length - 1])
+                                                                        insertTransientChoiceAlias(
+                                                                            newChoices.length - 2
+                                                                        )
                                                                         handleChoicesChange(newChoices)
                                                                     } else {
                                                                         handleChoicesChange([...value, ''])
