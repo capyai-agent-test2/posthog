@@ -286,6 +286,37 @@ function isValidJsonArray(maybeJson: string): boolean {
     return false
 }
 
+const URL_PATH_BREAKDOWN_PROPERTIES = new Set([
+    '$pathname',
+    '$entry_pathname',
+    '$end_pathname',
+    '$prev_pageview_pathname',
+    '$initial_pathname',
+])
+
+function isUrlPathBreakdown(
+    breakdownFilter: BreakdownFilter | null | undefined,
+    multipleBreakdownIndex: number | undefined
+): boolean {
+    const breakdown =
+        typeof multipleBreakdownIndex === 'number' ? breakdownFilter?.breakdowns?.[multipleBreakdownIndex] : undefined
+    const breakdownProperty =
+        breakdown?.property ??
+        (typeof multipleBreakdownIndex === 'number' && Array.isArray(breakdownFilter?.breakdown)
+            ? breakdownFilter.breakdown[multipleBreakdownIndex]
+            : breakdownFilter?.breakdown)
+
+    return typeof breakdownProperty === 'string' && URL_PATH_BREAKDOWN_PROPERTIES.has(breakdownProperty)
+}
+
+function decodeUrlPathLabel(label: string): string {
+    try {
+        return decodeURIComponent(label)
+    } catch {
+        return label
+    }
+}
+
 function formatNumericBreakdownLabel(
     breakdown_value: number | bigint,
     breakdownFilter: BreakdownFilter | null | undefined,
@@ -430,12 +461,16 @@ export function formatBreakdownLabel(
     }
 
     if (typeof breakdown_value == 'string') {
-        const label =
+        let label =
             isOtherBreakdown(breakdown_value) || breakdown_value === 'nan'
                 ? BREAKDOWN_OTHER_DISPLAY
                 : isNullBreakdown(breakdown_value) || breakdown_value === ''
                   ? BREAKDOWN_NULL_DISPLAY
                   : breakdown_value
+
+        if (isUrlPathBreakdown(breakdownFilter, multipleBreakdownIndex)) {
+            label = decodeUrlPathLabel(label)
+        }
 
         if (label.length > 200) {
             return label.slice(0, 200) + '…'

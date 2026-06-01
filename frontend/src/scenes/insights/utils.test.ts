@@ -310,6 +310,22 @@ describe('formatBreakdownLabel()', () => {
         expect(formatBreakdownLabel('millenial', breakdownFilter, [], identity)).toEqual('millenial')
     })
 
+    it('decodes URL path breakdowns for display', () => {
+        const breakdownFilter: BreakdownFilter = {
+            breakdown: '$pathname',
+            breakdown_type: 'event',
+        }
+        expect(formatBreakdownLabel('/%D1%82%D0%B5%D1%81%D1%82', breakdownFilter, [], identity)).toEqual('/тест')
+    })
+
+    it('keeps malformed encoded URL path breakdowns unchanged', () => {
+        const breakdownFilter: BreakdownFilter = {
+            breakdown: '$pathname',
+            breakdown_type: 'event',
+        }
+        expect(formatBreakdownLabel('/broken/%E0%A4%A', breakdownFilter, [], identity)).toEqual('/broken/%E0%A4%A')
+    })
+
     it('handles string breakdowns for "other" value', () => {
         const breakdownFilter: BreakdownFilter = {
             breakdown: 'demographic',
@@ -356,6 +372,17 @@ describe('formatBreakdownLabel()', () => {
         )
     })
 
+    it('decodes URL path values in legacy multi-breakdowns', () => {
+        const breakdownFilter: BreakdownFilter = {
+            breakdown: ['$pathname', '$browser'],
+            breakdown_type: 'event',
+        }
+
+        expect(formatBreakdownLabel(['/%D1%82%D0%B5%D1%81%D1%82', 'Chrome'], breakdownFilter, [], identity)).toEqual(
+            '/тест::Chrome'
+        )
+    })
+
     it('handles multiple breakdowns', () => {
         const breakdownFilter: BreakdownFilter = {
             breakdowns: [
@@ -376,6 +403,26 @@ describe('formatBreakdownLabel()', () => {
         )
         expect(formatBreakdownLabel([10, 'Chrome'], breakdownFilter, [], identity, 2)).toEqual('10::Chrome')
         expect(formatBreakdownLabel([10, 'Chrome'], breakdownFilter, [], () => '10s', 0)).toEqual('10s::Chrome')
+    })
+
+    it('decodes URL path values in multiple breakdowns', () => {
+        const breakdownFilter: BreakdownFilter = {
+            breakdowns: [
+                {
+                    property: '$pathname',
+                    type: 'event',
+                },
+                {
+                    property: '$browser',
+                    type: 'event',
+                },
+            ],
+            breakdown: 'fallback',
+        }
+
+        expect(formatBreakdownLabel(['/%D1%82%D0%B5%D1%81%D1%82', 'Chrome'], breakdownFilter, [], identity)).toEqual(
+            '/тест::Chrome'
+        )
     })
 
     it('handles a breakdown value of a multiple breakdown', () => {
