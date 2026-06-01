@@ -271,7 +271,7 @@ class MySQLColumn(Column):
                 arrow_type = pa.timestamp("us")
                 return pa.field(self.name, arrow_type, nullable=True)
             case "time":
-                arrow_type = pa.time64("us")
+                arrow_type = pa.duration("us")
             case "boolean" | "bool":
                 arrow_type = pa.bool_()
             case "binary" | "varbinary" | "blob" | "mediumblob" | "longblob":

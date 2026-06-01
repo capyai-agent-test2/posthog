@@ -3,9 +3,11 @@ import datetime
 import pytest
 from unittest.mock import MagicMock
 
+import pyarrow as pa
 import pymysql
 
 from posthog.temporal.data_imports.pipelines.pipeline.typings import SourceInputs
+from posthog.temporal.data_imports.pipelines.pipeline.utils import table_from_iterator
 from posthog.temporal.data_imports.sources.common.sql import Table, TableStats
 from posthog.temporal.data_imports.sources.generated_configs import MySQLSourceConfig
 from posthog.temporal.data_imports.sources.mysql.mysql import (
@@ -190,6 +192,20 @@ class TestMySQLColumnToArrowField:
         field = col.to_arrow_field()
         # Unsigned integers widen to the next signed type that can hold their range.
         assert "uint" in str(field.type)
+
+    def test_time_columns_use_duration_for_pymysql_timedelta_values(self):
+        col = MySQLColumn(name="x", data_type="time", column_type="time", nullable=True)
+        field = col.to_arrow_field()
+
+        assert str(field.type) == "duration[us]"
+
+        table = table_from_iterator(
+            iter([{"x": datetime.timedelta(hours=1, minutes=2, seconds=3, microseconds=4)}]),
+            pa.schema([field]),
+        )
+
+        assert table.schema.field("x").type == field.type
+        assert table.to_pylist() == [{"x": datetime.timedelta(seconds=3723, microseconds=4)}]
 
 
 # ---------------------------------------------------------------------------
