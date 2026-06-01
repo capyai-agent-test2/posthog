@@ -103,6 +103,12 @@ describe('InsightDisplayConfig', () => {
     })
 
     describe('line graph display options', () => {
+        it('shows compare filter for area graph', () => {
+            setupAndRender(makeTrendsQuery(ChartDisplayType.ActionsAreaGraph))
+
+            expect(document.querySelector('[data-attr="compare-filter"]')).toBeInTheDocument()
+        })
+
         it('shows multiple options in the Display section', async () => {
             setupAndRender(makeTrendsQuery(ChartDisplayType.ActionsLineGraph))
             await openOptionsMenu()

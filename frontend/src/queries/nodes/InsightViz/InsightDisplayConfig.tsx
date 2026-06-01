@@ -109,10 +109,7 @@ export function InsightDisplayConfig(): JSX.Element {
     const hideWeekendsEnabled = !!featureFlags[FEATURE_FLAGS.PRODUCT_ANALYTICS_HIDE_WEEKENDS]
 
     const showCompare =
-        (isTrends &&
-            display !== ChartDisplayType.ActionsAreaGraph &&
-            display !== ChartDisplayType.CalendarHeatmap &&
-            display !== ChartDisplayType.BoxPlot) ||
+        (isTrends && display !== ChartDisplayType.CalendarHeatmap && display !== ChartDisplayType.BoxPlot) ||
         isStickiness ||
         isWebAnalyticsInsightQuery(querySource)
     const showInterval =
