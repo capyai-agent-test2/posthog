@@ -2,9 +2,10 @@ import './ErrorBoundary.scss'
 
 import clsx from 'clsx'
 import { useActions, useValues } from 'kea'
+import React, { type FunctionComponent } from 'react'
 
 import { IconCopy } from '@posthog/icons'
-import { PostHogErrorBoundary, type PostHogErrorBoundaryFallbackProps } from '@posthog/react'
+import { PostHogContext, type PostHogErrorBoundaryFallbackProps } from '@posthog/react'
 
 import { SupportTicketExceptionEvent, supportLogic } from 'lib/components/Support/supportLogic'
 import { LemonBanner } from 'lib/lemon-ui/LemonBanner'
@@ -21,6 +22,82 @@ const DOM_MUTATION_PATTERNS = [
 function isDOMModificationError(error: Error): boolean {
     const message = error.message || ''
     return DOM_MUTATION_PATTERNS.some((pattern) => message.includes(pattern))
+}
+
+type ErrorBoundaryAdditionalProperties =
+    | Record<string, number | string | boolean | bigint | symbol | null | undefined>
+    | ((error: unknown) => Record<string, number | string | boolean | bigint | symbol | null | undefined>)
+
+interface AppErrorBoundaryProps {
+    children?: React.ReactNode | (() => React.ReactNode)
+    fallback?: React.ReactNode | FunctionComponent<PostHogErrorBoundaryFallbackProps>
+    additionalProperties?: ErrorBoundaryAdditionalProperties
+}
+
+interface AppErrorBoundaryState {
+    componentStack: string | null
+    exceptionEvent: unknown
+    error: unknown
+}
+
+const INITIAL_ERROR_BOUNDARY_STATE: AppErrorBoundaryState = {
+    componentStack: null,
+    exceptionEvent: null,
+    error: null,
+}
+
+export class AppErrorBoundary extends React.Component<AppErrorBoundaryProps, AppErrorBoundaryState> {
+    static contextType = PostHogContext
+    declare context: React.ContextType<typeof PostHogContext>
+
+    constructor(props: AppErrorBoundaryProps) {
+        super(props)
+        this.state = INITIAL_ERROR_BOUNDARY_STATE
+    }
+
+    componentDidCatch(error: unknown, errorInfo: React.ErrorInfo): void {
+        if (error instanceof Error && isDOMModificationError(error)) {
+            console.warn('Browser extension DOM modification detected:', error)
+            return
+        }
+
+        const additionalProperties =
+            typeof this.props.additionalProperties === 'function'
+                ? this.props.additionalProperties(error)
+                : this.props.additionalProperties
+        const exceptionEvent = this.context.client.captureException(error, additionalProperties)
+
+        this.setState({
+            componentStack: errorInfo.componentStack ?? null,
+            exceptionEvent,
+            error,
+        })
+    }
+
+    render(): React.ReactNode {
+        const { children, fallback } = this.props
+        const { componentStack, error, exceptionEvent } = this.state
+
+        if (componentStack === null) {
+            return typeof children === 'function' ? children() : children
+        }
+
+        const element =
+            typeof fallback === 'function'
+                ? fallback({
+                      error,
+                      componentStack,
+                      exceptionEvent,
+                  })
+                : fallback
+
+        if (React.isValidElement(element)) {
+            return element
+        }
+
+        console.warn('[PostHog][ErrorBoundary] Invalid fallback prop, provide a valid React element or component.')
+        return null
+    }
 }
 
 interface ErrorBoundaryProps {
@@ -40,7 +117,7 @@ export function ErrorBoundary({ children, exceptionProps = {}, className }: Erro
     }
 
     return (
-        <PostHogErrorBoundary
+        <AppErrorBoundary
             additionalProperties={additionalProperties}
             fallback={(props: PostHogErrorBoundaryFallbackProps) => {
                 const rawError = props.error
@@ -140,7 +217,7 @@ export function ErrorBoundary({ children, exceptionProps = {}, className }: Erro
             }}
         >
             {children}
-        </PostHogErrorBoundary>
+        </AppErrorBoundary>
     )
 }
 
@@ -151,7 +228,7 @@ export function LightErrorBoundary({ children, exceptionProps = {}, className }:
         additionalProperties.team_id = currentTeamId
     }
     return (
-        <PostHogErrorBoundary
+        <AppErrorBoundary
             additionalProperties={additionalProperties}
             fallback={(props: PostHogErrorBoundaryFallbackProps) => {
                 const rawError = props.error
@@ -168,6 +245,6 @@ export function LightErrorBoundary({ children, exceptionProps = {}, className }:
             }}
         >
             {children}
-        </PostHogErrorBoundary>
+        </AppErrorBoundary>
     )
 }
