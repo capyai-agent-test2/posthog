@@ -34,11 +34,29 @@ class WebGoalsQueryRunner(WebAnalyticsQueryRunner[WebGoalsQueryResponse]):
     query: WebGoalsQuery
     cached_response: CachedWebGoalsQueryResponse
 
+    def _select_actions(self, limit: int = 5) -> list[Action]:
+        cached = getattr(self, "_web_goals_actions", None)
+        if cached is not None:
+            return cached
+
+        actions = list(
+            Action.objects.filter(team__project_id=self.team.project_id, deleted=False).order_by(
+                "pinned_at", "-last_calculated_at"
+            )[:limit]
+        )
+        self._web_goals_actions = actions
+        return actions
+
+    def get_cache_payload(self) -> dict:
+        payload = super().get_cache_payload()
+        payload["actions"] = [
+            {"id": action.id, "updated_at": action.updated_at.isoformat()} for action in self._select_actions()
+        ]
+        return payload
+
     def to_query(self) -> ast.SelectQuery | ast.SelectSetQuery:
         with self.timings.measure("actions"):
-            actions = Action.objects.filter(team__project_id=self.team.project_id, deleted=False).order_by(
-                "pinned_at", "-last_calculated_at"
-            )[:5]
+            actions = self._select_actions()
             if not actions:
                 raise NoActionsError("No actions found")
 

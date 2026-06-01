@@ -260,7 +260,19 @@ class TestWebGoalsQueryRunner(ClickhouseTestMixin, APIBaseTest):
         p2, s2 = self._create_person()
         self._visit_web_analytics(p1, s1)
         self._click_pay(p2, s2)
-        actions[0].delete()
+
+        with freeze_time(self.QUERY_TIMESTAMP):
+            query = WebGoalsQuery(dateRange=DateRange(date_from="2024-11-01", date_to=None))
+            initial_cache_key = WebGoalsQueryRunner(team=self.team, query=query).get_cache_key()
+
+        Action.objects.filter(id=actions[0].id).update(deleted=True)
+
+        with freeze_time(self.QUERY_TIMESTAMP):
+            query = WebGoalsQuery(dateRange=DateRange(date_from="2024-11-01", date_to=None))
+            updated_cache_key = WebGoalsQueryRunner(team=self.team, query=query).get_cache_key()
+
+        assert updated_cache_key != initial_cache_key
+
         results = self._run_web_goals_query("2024-11-01", None).results
         assert results == [
             ["Contacted Sales", (0, 0), (0, 0), (0, 0)],

@@ -33,7 +33,6 @@ from posthog.hogql.query import execute_hogql_query
 
 from posthog.clickhouse.query_tagging import Feature, Product, tag_queries
 
-from products.actions.backend.models.action import Action
 from products.analytics_platform.backend.lazy_computation.lazy_computation_executor import (
     LazyComputationResult,
     LazyComputationTable,
@@ -140,38 +139,23 @@ def _check_eligible(runner: "WebGoalsQueryRunner") -> None:
         raise NoActionsConfigured()
 
 
-# Attribute name used to memoize the action lookup on the per-request
-# runner instance. Using a `_lazy_*` prefix avoids collision with anything
-# the live `WebGoalsQueryRunner` already stores.
-_RUNNER_ACTIONS_CACHE_ATTR = "_lazy_goals_actions"
-
-
 def _select_actions(runner: "WebGoalsQueryRunner") -> list:
     """Top-N actions, matching the live runner's hard `[:5]` slice exactly.
 
-    Memoized on the runner instance: this function is called from both the
+    Memoized by the live runner: this function is called from both the
     eligibility check (`_check_eligible`) and the orchestrator
-    (`execute_lazy_precomputed_read`). Without caching we issue two
-    consecutive identical Postgres queries per opted-in request AND open a
-    TOCTOU window where a concurrent action mutation between the two calls
-    can flip eligibility from "pass with N actions" to "execute with 0
-    actions", producing a confusing empty-then-fallback response. The
-    runner is request-scoped, so a per-runner attribute cache is the right
-    lifetime.
+    (`execute_lazy_precomputed_read`). Without caching we issue consecutive
+    identical Postgres queries per opted-in request AND open a TOCTOU window
+    where a concurrent action mutation between calls can flip eligibility from
+    "pass with N actions" to "execute with 0 actions", producing a confusing
+    empty-then-fallback response. The runner is request-scoped, so a per-runner
+    cache is the right lifetime.
 
     Different top-5 sets across requests still produce different INSERT
     ASTs and therefore distinct lazy_computation cache keys — the cache
     here is purely an in-request memoization.
     """
-    cached = getattr(runner, _RUNNER_ACTIONS_CACHE_ATTR, None)
-    if cached is not None:
-        return cached
-    qs = Action.objects.filter(team__project_id=runner.team.project_id, deleted=False).order_by(
-        "pinned_at", "-last_calculated_at"
-    )[:MAX_ACTIONS]
-    fetched = list(qs)
-    setattr(runner, _RUNNER_ACTIONS_CACHE_ATTR, fetched)
-    return fetched
+    return runner._select_actions(MAX_ACTIONS)
 
 
 def _events_session_id_expr(runner: "WebGoalsQueryRunner") -> ast.Expr:
