@@ -2254,6 +2254,11 @@ export const sqlEditorLogic = kea<sqlEditorLogicType>([
             }
             const applyUrlState = (sourceQuery: DataVisualizationNode): DataVisualizationNode =>
                 applyVariablesFromUrl(applyFiltersFromUrl(sourceQuery))
+            const applyUrlStateToSavedQuery = (query: HogQLQuery): HogQLQuery =>
+                applyUrlState({
+                    kind: NodeKind.DataVisualizationNode,
+                    source: query,
+                }).source
             const expectedDatabaseConnectionId = values.selectedConnectionId ?? null
             const shouldSyncDatabaseConnection =
                 values.databaseConnectionId !== expectedDatabaseConnectionId || !values.database
@@ -2351,8 +2356,12 @@ export const sqlEditorLogic = kea<sqlEditorLogicType>([
                         const associatedView = draft.saved_query_id
                             ? values.dataWarehouseSavedQueryMapById[draft.saved_query_id]
                             : undefined
+                        const draftToOpen = {
+                            ...draft,
+                            query: applyUrlStateToSavedQuery(draft.query),
+                        }
 
-                        actions.createTab(draft.query.query, associatedView, undefined, draft)
+                        actions.createTab(draftToOpen.query.query, associatedView, undefined, draftToOpen)
                     }
                     return
                 } else if (
@@ -2389,12 +2398,20 @@ export const sqlEditorLogic = kea<sqlEditorLogicType>([
                         }
                     }
 
-                    const queryToOpen = searchParams.open_query ? searchParams.open_query : (view.query?.query ?? '')
+                    const viewToOpen = view.query
+                        ? {
+                              ...view,
+                              query: applyUrlStateToSavedQuery(view.query),
+                          }
+                        : view
+                    const queryToOpen = searchParams.open_query
+                        ? searchParams.open_query
+                        : (viewToOpen.query?.query ?? '')
 
                     if (outputTabFromUrl) {
-                        actions.createTab(queryToOpen, view)
+                        actions.createTab(queryToOpen, viewToOpen)
                     } else {
-                        actions.editView(queryToOpen, view)
+                        actions.editView(queryToOpen, viewToOpen)
                     }
                     actions.setViewLoading(false)
                     tabAdded = true

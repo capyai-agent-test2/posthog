@@ -198,7 +198,9 @@ describe('sqlEditorLogic', () => {
                     }
                     return [200, { results: [] }]
                 },
-                '/api/environments/:team_id/warehouse_saved_queries/': { results: [MOCK_VIEW] },
+                '/api/environments/:team_id/warehouse_saved_queries/': {
+                    results: [MOCK_VIEW, MOCK_VIEW_WITH_VARIABLES],
+                },
                 '/api/environments/:team_id/warehouse_saved_queries/:id/': (req) => {
                     if (req.params.id === MOCK_VIEW.id) {
                         return [200, MOCK_VIEW]
@@ -476,6 +478,33 @@ describe('sqlEditorLogic', () => {
 
         expect(logic.values.sourceQuery.source.variables).toEqual(MOCK_VIEW_WITH_VARIABLES.query.variables)
         expect(logic.values.activeTab?.sourceQuery?.source.variables).toEqual(MOCK_VIEW_WITH_VARIABLES.query.variables)
+    })
+
+    it('keeps URL variable state when opening a saved view', async () => {
+        const variables: Record<string, HogQLVariable> = {
+            variable_1: {
+                variableId: 'variable_1',
+                code_name: 'date',
+                value: '-30d',
+            },
+        }
+
+        logic = sqlEditorLogic({
+            tabId: TAB_ID,
+            monaco: createMockMonaco(),
+            editor: createMockEditor(),
+        })
+        logic.mount()
+
+        router.actions.push(urls.sqlEditor(), undefined, {
+            view: MOCK_VIEW_WITH_VARIABLES.id,
+            variables,
+        })
+
+        await expectLogic(logic).toDispatchActions(['editView', 'createTab', 'setSourceQuery', 'updateTab'])
+
+        expect(logic.values.sourceQuery.source.variables).toEqual(variables)
+        expect(logic.values.activeTab?.view?.query?.variables).toEqual(variables)
     })
 
     describe('title section', () => {
