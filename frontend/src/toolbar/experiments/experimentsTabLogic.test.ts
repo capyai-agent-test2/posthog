@@ -381,5 +381,25 @@ describe('experimentsTabLogic', () => {
                     theExperimentsTabLogic.actions.applyVariant('test2')
                 })
         })
+
+        it('does not overwrite original html state when reselecting a transformed element', async () => {
+            document.body.innerHTML = '<h1>Original</h1>'
+
+            theExperimentsTabLogic.actions.newExperiment()
+            theExperimentsTabLogic.actions.inspectElementSelected(
+                document.querySelector('h1') as HTMLElement,
+                'test',
+                0,
+                'h1'
+            )
+
+            const element = document.querySelector('h1') as HTMLElement
+            element.innerHTML = 'Edited'
+
+            theExperimentsTabLogic.actions.inspectElementSelected(element, 'test', 0, 'h1')
+            theExperimentsTabLogic.actions.applyVariant('control')
+
+            expect((document.querySelector('h1') as HTMLElement).innerHTML).toEqual('Original')
+        })
     })
 })
