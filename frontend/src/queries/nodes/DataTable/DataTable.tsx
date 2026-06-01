@@ -43,7 +43,7 @@ import { SavedQueries } from '~/queries/nodes/DataTable/SavedQueries'
 import { TableViewSelector } from '~/queries/nodes/DataTable/TableView/TableViewSelector'
 import {
     extractExpressionComment,
-    getDataNodeDefaultColumns,
+    getColumnsForQueryMutation,
     orderByForSelectKey,
     removeAsAlias,
     removeExpressionComment,
@@ -395,7 +395,10 @@ export function DataTable({
                                                 // Typecasting to a query type with select and order_by fields.
                                                 // The actual query may or may not be an events query.
                                                 const source = query.source as EventsQuery
-                                                const columns = columnsInLemonTable ?? getDataNodeDefaultColumns(source)
+                                                const columns = getColumnsForQueryMutation(
+                                                    columnsInQuery,
+                                                    columnsInLemonTable
+                                                )
                                                 const isAggregation = isHogQLAggregation(hogQl)
                                                 const orderKey = orderByForKey(key)
                                                 const isOrderBy = source.orderBy?.[0] === orderKey
@@ -517,7 +520,10 @@ export function DataTable({
                                             ) {
                                                 const isAggregation = isHogQLAggregation(hogQl)
                                                 const source = query.source as EventsQuery
-                                                const columns = columnsInLemonTable ?? getDataNodeDefaultColumns(source)
+                                                const columns = getColumnsForQueryMutation(
+                                                    columnsInQuery,
+                                                    columnsInLemonTable
+                                                )
                                                 setQuery({
                                                     ...query,
                                                     source: {
@@ -556,7 +562,10 @@ export function DataTable({
                                             ) {
                                                 const isAggregation = isHogQLAggregation(hogQl)
                                                 const source = query.source as EventsQuery
-                                                const columns = columnsInLemonTable ?? getDataNodeDefaultColumns(source)
+                                                const columns = getColumnsForQueryMutation(
+                                                    columnsInQuery,
+                                                    columnsInLemonTable
+                                                )
                                                 setQuery?.({
                                                     ...query,
                                                     source: {

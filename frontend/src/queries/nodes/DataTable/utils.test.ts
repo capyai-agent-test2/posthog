@@ -4,6 +4,7 @@ import {
     extractAsAlias,
     extractDisplayLabel,
     extractExpressionComment,
+    getColumnsForQueryMutation,
     getColumnsForQuery,
     getDefaultDataTablePersonColumns,
     orderByForSelectKey,
@@ -146,6 +147,16 @@ describe('DataTable utils', () => {
                 source: { kind: NodeKind.EventsQuery, select: ['*', 'event'] },
             })
         ).toEqual(['*', 'event'])
+    })
+
+    it('getColumnsForQueryMutation preserves raw aliased expressions over response aliases', () => {
+        const rawExpression = `formatDateTime(toTimeZone(timestamp, 'Europe/Berlin'), '%b %d, %H:%i:%s') as "Absolute Time"`
+
+        expect(getColumnsForQueryMutation(['event', rawExpression], ['event', 'Absolute Time'])).toEqual([
+            'event',
+            rawExpression,
+        ])
+        expect(getColumnsForQueryMutation([], ['event', 'Absolute Time'])).toEqual(['event', 'Absolute Time'])
     })
 
     describe('ColumnConfigurator setColumns should not leak stale columns', () => {
