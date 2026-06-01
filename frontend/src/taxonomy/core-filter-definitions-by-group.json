@@ -2251,7 +2251,7 @@
             "used_for_debug": true
         },
         "$referrer": {
-            "description": "URL of where the user came from.",
+            "description": "Browser-provided previous page URL. Can be empty when the browser suppresses referrer data, such as links with rel='noreferrer'.",
             "examples": [
                 "https://google.com/search?q=posthog&rlz=1C..."
             ],
@@ -2584,7 +2584,7 @@
             "label": "Session entry rdt_cid"
         },
         "$session_entry_referrer": {
-            "description": "URL of where the user came from. Captured at the start of the session and remains constant for the duration of the session.",
+            "description": "Browser-provided previous page URL. Can be empty when the browser suppresses referrer data, such as links with rel='noreferrer'. Captured at the start of the session and remains constant for the duration of the session.",
             "examples": [
                 "https://google.com/search?q=posthog&rlz=1C..."
             ],
@@ -5494,7 +5494,7 @@
             "label": "Initial rdt_cid"
         },
         "$initial_referrer": {
-            "description": "URL of where the user came from. Data from the first time this user was seen.",
+            "description": "Browser-provided previous page URL. Can be empty when the browser suppresses referrer data, such as links with rel='noreferrer'. Data from the first time this user was seen.",
             "examples": [
                 "https://google.com/search?q=posthog&rlz=1C..."
             ],
@@ -6160,7 +6160,7 @@
             "used_for_debug": true
         },
         "$referrer": {
-            "description": "URL of where the user came from. Data from the last time this user was seen.",
+            "description": "Browser-provided previous page URL. Can be empty when the browser suppresses referrer data, such as links with rel='noreferrer'. Data from the last time this user was seen.",
             "examples": [
                 "https://google.com/search?q=posthog&rlz=1C..."
             ],
@@ -6493,7 +6493,7 @@
             "label": "Session entry rdt_cid"
         },
         "$session_entry_referrer": {
-            "description": "URL of where the user came from. Captured at the start of the session and remains constant for the duration of the session.",
+            "description": "Browser-provided previous page URL. Can be empty when the browser suppresses referrer data, such as links with rel='noreferrer'. Captured at the start of the session and remains constant for the duration of the session.",
             "examples": [
                 "https://google.com/search?q=posthog&rlz=1C..."
             ],
