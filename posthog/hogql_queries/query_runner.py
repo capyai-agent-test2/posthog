@@ -1854,6 +1854,9 @@ class QueryRunner(ABC, Generic[Q, R, CR]):
             "version": 2,
         }
 
+        if getattr(self.query, "filterTestAccounts", False) and self.team.test_account_filters:
+            payload["test_account_filters"] = self.team.test_account_filters
+
         # Include property-level access control restrictions in the cache key so that
         # users with different property restrictions get separate cache entries.
         restricted = self._get_property_access_restrictions()
