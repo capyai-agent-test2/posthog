@@ -3,6 +3,7 @@ import {
     convertPropertiesToPropertyGroup,
     convertPropertyGroupToProperties,
     createDefaultPropertyFilter,
+    formatPropertyLabel,
     isValidPropertyFilter,
     normalizePropertyFilterValue,
     propertyFilterTypeToTaxonomicFilterType,
@@ -239,6 +240,30 @@ describe('normalizePropertyFilterValue()', () => {
     it('handles null and undefined operators', () => {
         expect(normalizePropertyFilterValue('test', null)).toEqual('test')
         expect(normalizePropertyFilterValue('test', undefined)).toEqual('test')
+    })
+})
+
+describe('formatPropertyLabel()', () => {
+    it.each([
+        ['numeric cohort ID', 42],
+        ['string cohort ID', '42'],
+    ])('uses the loaded cohort name for a %s', (_, value) => {
+        expect(
+            formatPropertyLabel(
+                {
+                    key: 'id',
+                    value,
+                    type: PropertyFilterType.Cohort,
+                    operator: PropertyOperator.In,
+                } as CohortPropertyFilter,
+                {
+                    42: {
+                        id: 42,
+                        name: 'Power Users',
+                    } as any,
+                }
+            )
+        ).toEqual('User in Power Users')
     })
 })
 
