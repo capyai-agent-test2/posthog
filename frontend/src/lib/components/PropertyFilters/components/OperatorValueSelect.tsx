@@ -228,7 +228,7 @@ export function OperatorValueSelect({
             startingOperator = PropertyOperator.In
         } else if (propertyKey === 'message' && type === PropertyFilterType.Log) {
             startingOperator = PropertyOperator.IContains
-        } else if (!operator && isUrlLikeProperty) {
+        } else if (isUrlLikeProperty) {
             startingOperator = PropertyOperator.IsCleanedPathExact
         }
     }
