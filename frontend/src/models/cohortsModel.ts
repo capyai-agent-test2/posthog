@@ -79,11 +79,15 @@ function convertTimeValueToRelativeTime(criteria: AnyCohortCriteriaType): string
 }
 
 function processCohortCriteria(criteria: AnyCohortCriteriaType): AnyCohortCriteriaType {
-    if (!criteria.type) {
-        return criteria
+    const processedCriteria = { ...criteria }
+
+    if (processedCriteria.sort_key == null) {
+        processedCriteria.sort_key = uuidv4()
     }
 
-    const processedCriteria = { ...criteria }
+    if (!criteria.type) {
+        return processedCriteria
+    }
 
     if (
         [BehavioralFilterKey.Cohort, BehavioralFilterKey.Person].includes(criteria.type) &&
@@ -103,10 +107,6 @@ function processCohortCriteria(criteria: AnyCohortCriteriaType): AnyCohortCriter
         COHORT_EVENT_TYPES_WITH_EXPLICIT_DATETIME.includes(criteria.value)
     ) {
         processedCriteria.explicit_datetime = convertTimeValueToRelativeTime(criteria)
-    }
-
-    if (processedCriteria.sort_key == null) {
-        processedCriteria.sort_key = uuidv4()
     }
 
     return processedCriteria

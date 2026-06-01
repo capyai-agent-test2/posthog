@@ -38,12 +38,16 @@ export function CohortCriteriaRowBuilder({
 }: CohortCriteriaRowBuilderProps): JSX.Element {
     const { setCriteria, duplicateFilter, removeFilter } = useActions(cohortEditLogic)
     const rowShape = ROWS[type]
+    const criteriaKey = criteria.sort_key ?? `${groupIndex}-${index}`
 
     const renderFieldComponent = (_field: Field, i: number): JSX.Element => {
+        const fieldKey = _field.fieldKey ?? `field-${i}`
+
         return (
-            <div key={_field.fieldKey ?? i}>
+            <div key={fieldKey}>
                 {renderField[_field.type]({
                     fieldKey: _field.fieldKey,
+                    cohortFilterLogicKey: `cohort-criteria-${criteriaKey}-${fieldKey}`,
                     criteria,
                     ...(_field.type === FilterType.Text ? { value: _field.defaultValue } : {}),
                     ...(_field.groupTypeFieldKey ? { groupTypeFieldKey: _field.groupTypeFieldKey } : {}),
@@ -103,6 +107,7 @@ export function CohortCriteriaRowBuilder({
                                 <div>
                                     {renderField[FilterType.Behavioral]({
                                         fieldKey: 'value',
+                                        cohortFilterLogicKey: `cohort-criteria-${criteriaKey}-value`,
                                         criteria,
                                         onChange: (newCriteria) => {
                                             setCriteria(cleanCriteria(newCriteria, true), groupIndex, index)
