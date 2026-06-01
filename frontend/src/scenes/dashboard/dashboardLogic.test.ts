@@ -22,7 +22,14 @@ import { variableDataLogic } from '~/queries/nodes/DataVisualization/Components/
 import { getQueryBasedDashboard } from '~/queries/nodes/InsightViz/utils'
 import { DashboardFilter, HogQLVariable, InsightVizNode, NodeKind, TrendsQuery } from '~/queries/schema/schema-general'
 import { initKeaTests } from '~/test/init'
-import { DashboardTile, DashboardType, InsightColor, InsightShortId, QueryBasedInsightModel } from '~/types'
+import {
+    DashboardMode,
+    DashboardTile,
+    DashboardType,
+    InsightColor,
+    InsightShortId,
+    QueryBasedInsightModel,
+} from '~/types'
 
 import _dashboardJson from './__mocks__/dashboard.json'
 
@@ -364,6 +371,44 @@ describe('dashboardLogic', () => {
 
             await expectLogic(logic, () => {
                 logic.actions.saveEditModeChanges()
+            }).toFinishAllListeners()
+
+            expect(api.update).toHaveBeenCalledTimes(1)
+            expect(api.update).toHaveBeenCalledWith(
+                `api/environments/${MOCK_TEAM_ID}/dashboards/5`,
+                expect.objectContaining({
+                    tiles: expect.any(Array),
+                })
+            )
+        })
+
+        it('exiting edit mode via the keyboard save shortcut persists layout changes', async () => {
+            await expectLogic(logic).toFinishAllListeners()
+
+            const initialDashboard = logic.values.dashboard
+            expect(initialDashboard).not.toBeNull()
+
+            const firstTile = initialDashboard!.tiles[0]
+            const currentLayouts = logic.values.layouts
+            const modifiedLayouts: any = {
+                ...currentLayouts,
+                sm: currentLayouts.sm?.map((layout) =>
+                    layout.i === String(firstTile.id) ? { ...layout, x: (layout.x ?? 0) + 1 } : layout
+                ),
+            }
+
+            await expectLogic(logic, () => {
+                logic.actions.setDashboardMode(DashboardMode.Edit, DashboardEventSource.SceneCommonButtons)
+            }).toFinishAllListeners()
+
+            await expectLogic(logic, () => {
+                logic.actions.updateLayouts(modifiedLayouts)
+            }).toFinishAllListeners()
+
+            jest.spyOn(api, 'update')
+
+            await expectLogic(logic, () => {
+                logic.actions.setDashboardMode(null, DashboardEventSource.DashboardHeaderSaveDashboard)
             }).toFinishAllListeners()
 
             expect(api.update).toHaveBeenCalledTimes(1)

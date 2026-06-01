@@ -68,6 +68,53 @@ function triggerShortcut(shortcut: AppShortcutType): void {
     }
 }
 
+function findLastMatchingShortcut(
+    shortcuts: AppShortcutType[],
+    predicate: (shortcut: AppShortcutType) => boolean
+): AppShortcutType | undefined {
+    for (let index = shortcuts.length - 1; index >= 0; index--) {
+        const shortcut = shortcuts[index]
+        if (predicate(shortcut)) {
+            return shortcut
+        }
+    }
+    return undefined
+}
+
+function findLastMatchingSequenceShortcut(
+    shortcuts: AppShortcutType[],
+    sequenceKeys: string[]
+): { shortcut: AppShortcutType; keybind: string[]; isExactMatch: boolean } | undefined {
+    let partialMatch: { shortcut: AppShortcutType; keybind: string[]; isExactMatch: boolean } | undefined
+
+    for (let index = shortcuts.length - 1; index >= 0; index--) {
+        const shortcut = shortcuts[index]
+        for (const keybind of shortcut.keybind) {
+            if (!isSequenceKeybind(keybind)) {
+                continue
+            }
+
+            const shortcutSequenceKeys = getSequenceKeys(keybind)
+            if (sequenceKeys.length > shortcutSequenceKeys.length) {
+                continue
+            }
+
+            const matchesPrefix = sequenceKeys.every((key, keyIndex) => key === shortcutSequenceKeys[keyIndex])
+            if (!matchesPrefix) {
+                continue
+            }
+
+            if (sequenceKeys.length === shortcutSequenceKeys.length) {
+                return { shortcut, keybind, isExactMatch: true }
+            }
+
+            partialMatch ??= { shortcut, keybind, isExactMatch: false }
+        }
+    }
+
+    return partialMatch
+}
+
 function isEditableElement(event: KeyboardEvent): boolean {
     // Use composedPath to get the actual target element, even through shadow DOM boundaries
     // This is necessary because event.target gets retargeted to the shadow host when events
@@ -162,7 +209,7 @@ export const appShortcutLogic = kea<appShortcutLogicType>([
                 pressedKeys.push(keyToAdd)
                 const pressedKeyString = pressedKeys.join('+')
 
-                const matchingShortcut = values.registeredAppShortcuts.find((shortcut) =>
+                const matchingShortcut = findLastMatchingShortcut(values.registeredAppShortcuts, (shortcut) =>
                     shortcut.keybind.some(
                         (keybind) =>
                             !isSequenceKeybind(keybind) &&
@@ -191,7 +238,7 @@ export const appShortcutLogic = kea<appShortcutLogicType>([
             // check for collisions before being implemented. We could also make this
             // "lazy" but that would result in a noticeable lag in app for single key
             // shortcuts. My preference is the eager way
-            const singleKeyMatch = values.registeredAppShortcuts.find((shortcut) =>
+            const singleKeyMatch = findLastMatchingShortcut(values.registeredAppShortcuts, (shortcut) =>
                 shortcut.keybind.some((keybind) => isSingleKeyKeybind(keybind) && keybind[0] === key)
             )
 
@@ -215,37 +262,23 @@ export const appShortcutLogic = kea<appShortcutLogicType>([
             cache.sequenceKeys.push(key)
 
             // Look for a matching sequence shortcut
-            const matchingShortcut = values.registeredAppShortcuts.find((shortcut) =>
-                shortcut.keybind.some((keybind) => {
-                    if (!isSequenceKeybind(keybind)) {
-                        return false
-                    }
-                    const sequenceKeys = getSequenceKeys(keybind)
-                    // Check if our current keys match the end of a sequence
-                    if (cache.sequenceKeys.length > sequenceKeys.length) {
-                        return false
-                    }
-                    return sequenceKeys
-                        .slice(0, cache.sequenceKeys.length)
-                        .every((k: string, i: number) => k === cache.sequenceKeys[i])
-                })
+            const matchingSequenceShortcut = findLastMatchingSequenceShortcut(
+                values.registeredAppShortcuts,
+                cache.sequenceKeys
             )
 
-            if (matchingShortcut) {
-                const keybind = matchingShortcut.keybind.find((kb) => isSequenceKeybind(kb))!
-                const sequenceKeys = getSequenceKeys(keybind)
-
-                if (cache.sequenceKeys.length === sequenceKeys.length) {
+            if (matchingSequenceShortcut) {
+                if (matchingSequenceShortcut.isExactMatch) {
                     // Sequence complete
                     cache.sequenceKeys = []
                     cache.sequenceShortcut = null
-                    if (!values.disabledShortcutNames.includes(matchingShortcut.name)) {
+                    if (!values.disabledShortcutNames.includes(matchingSequenceShortcut.shortcut.name)) {
                         event.preventDefault()
-                        triggerShortcut(matchingShortcut)
+                        triggerShortcut(matchingSequenceShortcut.shortcut)
                     }
                 } else {
                     // Partial match - keep tracking
-                    cache.sequenceShortcut = matchingShortcut
+                    cache.sequenceShortcut = matchingSequenceShortcut.shortcut
                 }
             } else {
                 // No match - reset
