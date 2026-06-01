@@ -695,6 +695,20 @@ describe('SessionFeatureRecorder', () => {
             expect(result.interActionGapSumMs).toBe(3000) // 1000 + 2000
         })
 
+        it('should not record inter-action gaps for duplicate input states', () => {
+            const events = [
+                makeKeypressEvent(1000, { id: 1, text: 'hello' }),
+                makeKeypressEvent(2000, { id: 1, text: 'hello' }),
+                makeKeypressEvent(4000, { id: 1, text: 'hello!' }),
+            ]
+            recorder.recordMessage(createMessage(events))
+            const result = recorder.end()!
+
+            expect(result.keypressCount).toBe(2)
+            expect(result.interActionGapCount).toBe(1)
+            expect(result.interActionGapSumMs).toBe(3000)
+        })
+
         it('should record gaps between clicks and keypresses', () => {
             const events = [makeClickEvent(1000), makeKeypressEvent(3000)]
             recorder.recordMessage(createMessage(events))

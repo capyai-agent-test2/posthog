@@ -393,9 +393,9 @@ export class SessionFeatureRecorder {
         const e = event as RRWebEventData
         this.trackMousePosition(e)
         this.trackScroll(e)
-        this.trackClicks(event, e)
-        this.trackKeypress(windowId, event, e)
-        this.trackInterActionTiming(event, e.timestamp)
+        const countedClick = this.trackClicks(event, e)
+        const countedKeypress = this.trackKeypress(windowId, event, e)
+        this.trackInterActionTiming(countedClick || countedKeypress, e.timestamp)
         this.trackNavigation(event, e.timestamp)
         this.trackConsoleLogs(e)
         this.trackNetworkRequests(e)
@@ -513,9 +513,9 @@ export class SessionFeatureRecorder {
         this.lastScrollTimestamp = e.timestamp
     }
 
-    private trackClicks(event: SnapshotEvent, e: RRWebEventData): void {
+    private trackClicks(event: SnapshotEvent, e: RRWebEventData): boolean {
         if (!isClick(event)) {
-            return
+            return false
         }
 
         this.clickCount++
@@ -542,7 +542,7 @@ export class SessionFeatureRecorder {
             this.lastClickTimestamp = e.timestamp
             this.lastClickX = clickX ?? null
             this.lastClickY = clickY ?? null
-            return
+            return true
         }
 
         const timeDelta = e.timestamp - this.lastClickTimestamp!
@@ -566,15 +566,16 @@ export class SessionFeatureRecorder {
         this.lastClickTimestamp = e.timestamp
         this.lastClickX = clickX ?? null
         this.lastClickY = clickY ?? null
+        return true
     }
 
-    private trackKeypress(windowId: string, event: SnapshotEvent, e: RRWebEventData): void {
+    private trackKeypress(windowId: string, event: SnapshotEvent, e: RRWebEventData): boolean {
         if (!isKeypress(event)) {
-            return
+            return false
         }
 
         if (this.hasAlreadySeenInputState(windowId, e)) {
-            return
+            return false
         }
 
         this.keypressCount++
@@ -605,6 +606,7 @@ export class SessionFeatureRecorder {
             this.selectionCopyCount++
             this.lastSelectionTimestamp = null
         }
+        return true
     }
 
     private hasAlreadySeenInputState(windowId: string, e: RRWebEventData): boolean {
@@ -629,8 +631,8 @@ export class SessionFeatureRecorder {
         return false
     }
 
-    private trackInterActionTiming(event: SnapshotEvent, timestamp: number): void {
-        if (!isClick(event) && !isKeypress(event)) {
+    private trackInterActionTiming(countedAction: boolean, timestamp: number): void {
+        if (!countedAction) {
             return
         }
 
