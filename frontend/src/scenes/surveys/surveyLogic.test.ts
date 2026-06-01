@@ -2204,6 +2204,31 @@ describe('processResultsForSurveyQuestions', () => {
             expect(dataMap.get('Maybe')).toEqual({ label: 'Maybe', value: 0, isPredefined: true })
             expect(dataMap.get('Custom answer')).toEqual({ label: 'Custom answer', value: 1, isPredefined: false })
         })
+
+        it('groups renamed choice aliases under the current choice label', () => {
+            const questions = [
+                {
+                    id: 'single-q1',
+                    type: SurveyQuestionType.SingleChoice as const,
+                    question: 'Pick one',
+                    choices: ['Yes', 'No'],
+                    choiceAliases: { Yes: ['Yess'] },
+                },
+            ]
+            const rows: [string, string, number][] = [
+                ['single-q1', 'Yes', 2],
+                ['single-q1', 'Yess', 3],
+                ['single-q1', 'No', 1],
+            ]
+
+            const processed = processResultsForSurveyQuestions(questions, rows)
+            const singleData = processed['single-q1'] as ChoiceQuestionProcessedResponses
+
+            const dataMap = new Map(singleData.data.map((item) => [item.label, item]))
+            expect(singleData.totalResponses).toBe(6)
+            expect(dataMap.get('Yes')).toEqual({ label: 'Yes', value: 5, isPredefined: true })
+            expect(dataMap.get('Yess')).toBeUndefined()
+        })
     })
 
     describe('Multiple Choice Questions', () => {
@@ -2235,6 +2260,32 @@ describe('processResultsForSurveyQuestions', () => {
             expect(dataMap.get('B')).toEqual({ label: 'B', value: 1, isPredefined: true })
             expect(dataMap.get('C')).toEqual({ label: 'C', value: 1, isPredefined: true })
             expect(dataMap.get('Custom')).toEqual({ label: 'Custom', value: 1, isPredefined: false })
+        })
+
+        it('does not treat renamed predefined choices as open-ended responses', () => {
+            const questions = [
+                {
+                    id: 'multi-q1',
+                    type: SurveyQuestionType.MultipleChoice as const,
+                    question: 'Pick many',
+                    choices: ['Product analytics', 'Other'],
+                    choiceAliases: { 'Product analytics': ['Product Analytics'] },
+                    hasOpenChoice: true,
+                },
+            ]
+            const columnMap: OpenEndedColumnMap = {
+                'multi-q1': { columnIndex: 0, questionIndex: 0, type: SurveyQuestionType.MultipleChoice },
+            }
+            const rows = [
+                [['Product Analytics'], 'user1', '2024-01-15T10:00:00Z'],
+                [['Something custom'], 'user2', '2024-01-15T11:00:00Z'],
+            ]
+
+            const result = processOpenEndedResults(questions, columnMap, rows)
+            const choiceData = result['multi-q1'] as ChoiceQuestionProcessedResponses
+
+            expect(choiceData.data).toHaveLength(1)
+            expect(choiceData.data[0].label).toBe('Something custom')
         })
     })
 

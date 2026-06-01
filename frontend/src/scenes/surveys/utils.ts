@@ -783,6 +783,16 @@ export function sanitizeSurvey(survey: Partial<Survey>, options?: SanitizeSurvey
                 sanitized.choices
             ) {
                 sanitized.choices = sanitized.choices.map((choice) => choice.trim())
+                if (sanitized.choiceAliases) {
+                    sanitized.choiceAliases = Object.fromEntries(
+                        Object.entries(sanitized.choiceAliases)
+                            .map(([choice, aliases]) => [
+                                choice.trim(),
+                                aliases.map((alias) => alias.trim()).filter(Boolean),
+                            ])
+                            .filter(([choice, aliases]) => !!choice && aliases.length > 0)
+                    )
+                }
             }
             return sanitized
         }) || []

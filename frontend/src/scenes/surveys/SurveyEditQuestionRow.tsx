@@ -253,9 +253,56 @@ export function SurveyEditQuestionGroup({ index, question }: { index: number; qu
 
     const hasTranslations = question.translations && Object.keys(question.translations).length > 0
 
+    const cleanChoiceAliasesForChoices = (
+        currentAliases: Record<string, string[]> | undefined,
+        currentChoices: string[]
+    ): Record<string, string[]> | undefined => {
+        const currentChoiceSet = new Set(currentChoices)
+        const cleanedAliases = Object.fromEntries(
+            Object.entries(currentAliases ?? {}).filter(
+                ([choice, aliases]) => currentChoiceSet.has(choice) && aliases.length > 0
+            )
+        )
+        return Object.keys(cleanedAliases).length > 0 ? cleanedAliases : undefined
+    }
+
+    const getChoiceAliasesForRename = (
+        currentAliases: Record<string, string[]> | undefined,
+        previousChoice: string,
+        renamedChoice: string,
+        currentChoices: string[]
+    ): Record<string, string[]> | undefined => {
+        if (previousChoice === renamedChoice || !previousChoice || !renamedChoice) {
+            return cleanChoiceAliasesForChoices(currentAliases, currentChoices)
+        }
+
+        const updatedAliases = { ...currentAliases }
+        const previousAliases = updatedAliases[previousChoice] ?? []
+        delete updatedAliases[previousChoice]
+
+        updatedAliases[renamedChoice] = Array.from(
+            new Set([...(updatedAliases[renamedChoice] ?? []), ...previousAliases, previousChoice])
+        ).filter((alias) => alias !== renamedChoice)
+
+        return cleanChoiceAliasesForChoices(updatedAliases, currentChoices)
+    }
+
     // Helper to synchronize choices in all translations when default choices change
-    const syncChoicesInTranslations = (newChoices: string[]): void => {
-        if (!hasTranslations || !question.translations || !isChoiceQuestion(question)) {
+    const updateDefaultChoices = (newChoices: string[], renamedChoice?: { from: string; to: string }): void => {
+        if (!isChoiceQuestion(question)) {
+            return
+        }
+
+        const choiceAliases = renamedChoice
+            ? getChoiceAliasesForRename(question.choiceAliases, renamedChoice.from, renamedChoice.to, newChoices)
+            : cleanChoiceAliasesForChoices(question.choiceAliases, newChoices)
+
+        if (!hasTranslations || !question.translations) {
+            setSurveyValue('questions', [
+                ...survey.questions.slice(0, index),
+                { ...question, choices: newChoices, choiceAliases },
+                ...survey.questions.slice(index + 1),
+            ])
             return
         }
 
@@ -286,7 +333,7 @@ export function SurveyEditQuestionGroup({ index, question }: { index: number; qu
 
         setSurveyValue('questions', [
             ...survey.questions.slice(0, index),
-            { ...question, choices: newChoices, translations: updatedTranslations },
+            { ...question, choices: newChoices, choiceAliases, translations: updatedTranslations },
             ...survey.questions.slice(index + 1),
         ])
     }
@@ -659,9 +706,12 @@ export function SurveyEditQuestionGroup({ index, question }: { index: number; qu
                                     info="Tip: paste a list of options separated by new lines (or from a spreadsheet column) to add them all at once."
                                 >
                                     {({ value, onChange }) => {
-                                        const handleChoicesChange = (newChoices: string[]): void => {
-                                            onChange(newChoices)
+                                        const handleChoicesChange = (
+                                            newChoices: string[],
+                                            renamedChoice?: { from: string; to: string }
+                                        ): void => {
                                             if (editingLanguage) {
+                                                onChange(newChoices)
                                                 newChoices.forEach((_, choiceIndex) =>
                                                     clearAiGeneratedTranslationField(
                                                         `questions.${index}.translations.${editingLanguage}.choices.${choiceIndex}`
@@ -669,7 +719,7 @@ export function SurveyEditQuestionGroup({ index, question }: { index: number; qu
                                                 )
                                             }
                                             if (!editingLanguage) {
-                                                syncChoicesInTranslations(newChoices)
+                                                updateDefaultChoices(newChoices, renamedChoice)
                                             }
                                         }
 
@@ -708,7 +758,10 @@ export function SurveyEditQuestionGroup({ index, question }: { index: number; qu
                                                                     onChange={(val) => {
                                                                         const newChoices = [...value]
                                                                         newChoices[index] = val
-                                                                        handleChoicesChange(newChoices)
+                                                                        handleChoicesChange(newChoices, {
+                                                                            from: choice,
+                                                                            to: val,
+                                                                        })
                                                                     }}
                                                                     onPaste={(event) =>
                                                                         handlePasteIntoChoice(event, index)

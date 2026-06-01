@@ -352,6 +352,20 @@ export interface SurveyDateRange {
 type AggregateRow = [string, string, number]
 type AggregateEntries = [string, number][]
 
+function getPredefinedChoiceLabels(question: MultipleSurveyQuestion): Set<string> {
+    return new Set([...(question.choices ?? []), ...Object.values(question.choiceAliases ?? {}).flat()])
+}
+
+function getChoiceLabelAliases(question: MultipleSurveyQuestion): Record<string, string> {
+    const aliases: Record<string, string> = {}
+    Object.entries(question.choiceAliases ?? {}).forEach(([choice, previousLabels]) => {
+        previousLabels.forEach((previousLabel) => {
+            aliases[previousLabel] = choice
+        })
+    })
+    return aliases
+}
+
 function processChoiceQuestion(
     question: MultipleSurveyQuestion,
     entries: AggregateEntries,
@@ -359,14 +373,21 @@ function processChoiceQuestion(
 ): ChoiceQuestionProcessedResponses {
     const totalEntry = entries.find(([l]) => l === '__total__')
     const dataEntries = entries.filter(([l]) => l !== '__total__')
-    const predefined = new Set(question.choices ?? [])
+    const predefined = getPredefinedChoiceLabels(question)
+    const labelAliases = getChoiceLabelAliases(question)
 
     let total = 0
     const noResponseEntry = entries.find(([l]) => l === '__no_response__')
     const noResponseCount = noResponseEntry ? noResponseEntry[1] : 0
     const filteredEntries = dataEntries.filter(([l]) => l !== '__no_response__')
+    const choiceCounts = new Map<string, number>()
 
-    const data: ChoiceQuestionResponseData[] = filteredEntries
+    filteredEntries.forEach(([label, count]) => {
+        const displayLabel = labelAliases[label] ?? label
+        choiceCounts.set(displayLabel, (choiceCounts.get(displayLabel) ?? 0) + count)
+    })
+
+    const data: ChoiceQuestionResponseData[] = Array.from(choiceCounts.entries())
         .map(([label, count]) => {
             if (questionType === SurveyQuestionType.SingleChoice) {
                 total += count
@@ -505,7 +526,7 @@ function collectOpenChoiceResponses(
     distinctIdIdx: number,
     timestampIdx: number
 ): ChoiceQuestionResponseData[] {
-    const predefined = new Set(question.choices ?? [])
+    const predefined = getPredefinedChoiceLabels(question)
     const otherData: ChoiceQuestionResponseData[] = []
 
     for (const row of rows) {

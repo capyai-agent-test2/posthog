@@ -469,6 +469,11 @@ class SurveySingleChoiceQuestionSchemaSerializer(SurveyBaseQuestionSchemaSeriali
         required=False,
         help_text="Whether the final option should be an open-text choice (for example, 'Other').",
     )
+    choiceAliases = serializers.DictField(
+        child=serializers.ListField(child=serializers.CharField()),
+        required=False,
+        help_text="Previous labels for renamed choices, keyed by the current choice label.",
+    )
     branching = SurveyBranchingSchemaField(required=False, allow_null=True)
 
 
@@ -488,6 +493,11 @@ class SurveyMultipleChoiceQuestionSchemaSerializer(SurveyBaseQuestionSchemaSeria
     hasOpenChoice = serializers.BooleanField(
         required=False,
         help_text="Whether the final option should be an open-text choice (for example, 'Other').",
+    )
+    choiceAliases = serializers.DictField(
+        child=serializers.ListField(child=serializers.CharField()),
+        required=False,
+        help_text="Previous labels for renamed choices, keyed by the current choice label.",
     )
 
 
@@ -741,6 +751,31 @@ class SurveySerializerCreateUpdateOnly(serializers.ModelSerializer):
             else:
                 cleaned_choices.append(choice)
         return cleaned_choices
+
+    def _validate_and_sanitize_choice_aliases(self, choice_aliases: Any, choices: list[str]) -> dict[str, list[str]]:
+        if not isinstance(choice_aliases, dict):
+            raise serializers.ValidationError("Question choiceAliases must be an object")
+
+        choices_set = set(choices)
+        cleaned_choice_aliases: dict[str, list[str]] = {}
+        for raw_choice, raw_aliases in choice_aliases.items():
+            if not isinstance(raw_choice, str) or raw_choice not in choices_set:
+                raise serializers.ValidationError("Question choiceAliases keys must be current choices")
+            if not isinstance(raw_aliases, list):
+                raise serializers.ValidationError("Question choiceAliases values must be lists of strings")
+
+            cleaned_aliases: list[str] = []
+            for raw_alias in raw_aliases:
+                if not isinstance(raw_alias, str):
+                    raise serializers.ValidationError("Question choiceAliases values must be lists of strings")
+                alias = nh3_clean_with_allow_list(raw_alias) if nh3.is_html(raw_alias) else raw_alias
+                if alias and alias != raw_choice and alias not in cleaned_aliases:
+                    cleaned_aliases.append(alias)
+
+            if cleaned_aliases:
+                cleaned_choice_aliases[raw_choice] = cleaned_aliases
+
+        return cleaned_choice_aliases
 
     remove_targeting_flag = serializers.BooleanField(required=False, write_only=True, allow_null=True)
     targeting_flag = MinimalFeatureFlagSerializer(read_only=True)
@@ -1126,6 +1161,14 @@ class SurveySerializerCreateUpdateOnly(serializers.ModelSerializer):
                 if not isinstance(choices, list):
                     raise serializers.ValidationError("Question choices must be a list of strings")
                 cleaned_question["choices"] = self._validate_and_sanitize_choices(choices)
+
+            choice_aliases = raw_question.get("choiceAliases")
+            if choice_aliases is not None:
+                if "choices" not in cleaned_question:
+                    raise serializers.ValidationError("Question choiceAliases can only be set on choice questions")
+                cleaned_question["choiceAliases"] = self._validate_and_sanitize_choice_aliases(
+                    choice_aliases, cleaned_question["choices"]
+                )
 
             description_content_type = raw_question.get("descriptionContentType")
             if description_content_type and description_content_type not in ["text", "html"]:
