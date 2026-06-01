@@ -63,7 +63,7 @@ export const PropertyFilterButton = React.forwardRef<HTMLElement, PropertyFilter
             <ButtonComponent
                 ref={ref as any}
                 onClick={disabledReason ? undefined : onClick}
-                className={clsx('PropertyFilterButton', 'grow', 'ph-no-capture', {
+                className={clsx('PropertyFilterButton', 'max-w-full', 'ph-no-capture', {
                     'PropertyFilterButton--closeable': closable,
                     'PropertyFilterButton--clickable': clickable,
                     'PropertyFilterButton--compact': compact,

@@ -182,6 +182,25 @@ describe('PropertyFilters', () => {
         expect(pill?.textContent).toMatch(/Browser/)
     })
 
+    it('does not stretch selected group property filters across the row', () => {
+        renderPropertyFilters({
+            propertyFilters: [
+                {
+                    key: 'organization_name',
+                    type: PropertyFilterType.Group,
+                    value: 'example',
+                    operator: PropertyOperator.Exact,
+                    group_type_index: 0,
+                },
+            ],
+            taxonomicGroupTypes: ['groups_0' as TaxonomicFilterGroupType],
+        })
+
+        const button = screen.getByTestId('property-filter-0').querySelector('.PropertyFilterButton')
+        expect(button).toHaveClass('max-w-full')
+        expect(button).not.toHaveClass('grow')
+    })
+
     it('does not change reducer state when re-rendered with same filter values', () => {
         const filters = [BROWSER_FILTER]
         const onChange = jest.fn()
