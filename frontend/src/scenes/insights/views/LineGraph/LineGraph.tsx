@@ -73,6 +73,7 @@ function formatIntervalLabels(labels: string[], interval: string | null | undefi
 }
 
 const INCOMPLETE_SEGMENT_BORDER_DASH = [10, 10]
+const DEFAULT_GOAL_LINE_COLOR = 'var(--danger)'
 // Chart.js locks up the main thread when rendering too many series, effectively
 // freezing the browser. Cap the dataset count to keep the UI responsive.
 const MAX_CHART_DATASETS = 150
@@ -671,11 +672,13 @@ export function LineGraph_({
                 (goalLine) => goalLine.displayIfCrossed !== false || goalLine.value >= seriesNonZeroMax
             )
             const goalLineValueSet = new Set<number | string>(goalLines.map((goalLine) => goalLine.value))
-            const goalLinesWithColor = goalLines.filter((goalLine) => Boolean(goalLine.borderColor))
             const goalLineColorByValue = new Map<number | string, string | undefined>()
-            for (const goalLine of goalLinesWithColor) {
-                if (!goalLineColorByValue.has(goalLine.value)) {
-                    goalLineColorByValue.set(goalLine.value, resolveVariableColor(goalLine.borderColor))
+            for (const goalLine of goalLines) {
+                if (goalLine.borderColor || !goalLineColorByValue.has(goalLine.value)) {
+                    goalLineColorByValue.set(
+                        goalLine.value,
+                        resolveVariableColor(goalLine.borderColor ?? DEFAULT_GOAL_LINE_COLOR)
+                    )
                 }
             }
             const hasAnyDottedDataset = processedDatasets.some((dataset) => dataset.dotted)
@@ -801,7 +804,7 @@ export function LineGraph_({
                                 yMax: annotation.value,
                                 borderWidth: 2,
                                 borderDash: [6, 6],
-                                borderColor: resolveVariableColor(annotation.borderColor),
+                                borderColor: resolveVariableColor(annotation.borderColor ?? DEFAULT_GOAL_LINE_COLOR),
                                 label: {
                                     content: annotation.label,
                                     display: annotation.displayLabel ?? true,

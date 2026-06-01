@@ -10,6 +10,8 @@ export interface GoalLineConfig {
     displayIfCrossed?: boolean
 }
 
+const DEFAULT_GOAL_LINE_COLOR = 'var(--danger)'
+
 export function computeSeriesNonZeroMax(series: Series[]): number {
     let max = Number.NEGATIVE_INFINITY
     for (const s of series) {
@@ -45,6 +47,6 @@ export function buildGoalLineReferenceLines(
             label: line.displayLabel === false ? undefined : line.label,
             labelPosition: line.labelPosition ?? 'start',
             variant: 'goal',
-            style: line.color ? { color: line.color } : undefined,
+            style: { color: line.color ?? DEFAULT_GOAL_LINE_COLOR },
         }))
 }

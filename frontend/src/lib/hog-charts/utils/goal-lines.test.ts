@@ -52,6 +52,7 @@ describe('goal-lines', () => {
                 variant: 'goal',
                 label: 'Target',
                 labelPosition: 'start',
+                style: { color: 'var(--danger)' },
             })
         })
 
