@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from django.db.models import Prefetch, Q
+from django.db.models import Case, IntegerField, Prefetch, Q, When
 
 import structlog
 import posthoganalytics
@@ -191,6 +191,28 @@ type DatabaseSchemaTable = (
 )
 
 logger = structlog.get_logger(__name__)
+
+
+def _team_and_parent_ids(team: "Team") -> list[int]:
+    team_ids = [team.pk]
+    if team.parent_team_id is not None:
+        team_ids.append(team.parent_team_id)
+    return team_ids
+
+
+def _team_and_parent_ids_for_team_id(team_id: int) -> list[int]:
+    from posthog.models import Team
+
+    team = Team.objects.only("id", "parent_team_id").get(pk=team_id)
+    return _team_and_parent_ids(team)
+
+
+def _saved_query_team_priority(team_id: int) -> Case:
+    return Case(
+        When(team_id=team_id, then=0),
+        default=1,
+        output_field=IntegerField(),
+    )
 
 
 # READ BEFORE EDITING:
@@ -809,7 +831,7 @@ class Database(BaseModel):
         all_views = (
             DataWarehouseSavedQuery.objects.select_related("table")
             .exclude(deleted=True)
-            .filter(team_id=context.team_id)
+            .filter(team_id__in=_team_and_parent_ids_for_team_id(context.team_id))
             .all()
             if views
             else []
@@ -1080,17 +1102,22 @@ class Database(BaseModel):
         self_managed_warehouse_tables: TableNode = TableNode()
         views: TableNode = TableNode()
         warehouse_tables_to_process: list[tuple[Table, DataWarehouseTable]] = []
+        saved_query_team_ids = _team_and_parent_ids(team)
+        saved_query_team_priority = _saved_query_team_priority(team.pk)
         with timings.measure("data_warehouse_saved_query", emit_span=True):
             if database._is_direct_query():
-                queryset = DataWarehouseSavedQuery.objects.filter(team_id=team.pk).exclude(deleted=True)
+                queryset = DataWarehouseSavedQuery.objects.filter(team_id__in=saved_query_team_ids).exclude(
+                    deleted=True
+                )
                 if not is_managed_viewset_enabled:
                     queryset = queryset.filter(managed_viewset__isnull=True)
             else:
                 with timings.measure("select"):
                     queryset = (
-                        DataWarehouseSavedQuery.objects.filter(team_id=team.pk)
+                        DataWarehouseSavedQuery.objects.filter(team_id__in=saved_query_team_ids)
                         .exclude(deleted=True)
-                        .order_by("name")
+                        .alias(team_priority=saved_query_team_priority)
+                        .order_by("name", "team_priority")
                         .select_related("table", "table__credential", "managed_viewset")
                     )
                     if not is_managed_viewset_enabled:
@@ -1113,9 +1140,11 @@ class Database(BaseModel):
                 endpoint_saved_queries = []
                 try:
                     endpoint_saved_queries = list(
-                        DataWarehouseSavedQuery.objects.filter(team_id=team.pk)
+                        DataWarehouseSavedQuery.objects.filter(team_id__in=saved_query_team_ids)
                         .filter(origin=DataWarehouseSavedQuery.Origin.ENDPOINT)
                         .exclude(deleted=True)
+                        .alias(team_priority=saved_query_team_priority)
+                        .order_by("name", "team_priority")
                         .select_related("table", "table__credential")
                     )
                     for endpoint_saved_query in endpoint_saved_queries:
