@@ -308,7 +308,10 @@ export function elementIsVisible(element: HTMLElement, cache: WeakMap<HTMLElemen
             }
 
             const parentStyle = window.getComputedStyle(parent)
-            const parentVisible = parentStyle.display !== 'none' && parentStyle.visibility !== 'hidden'
+            const parentVisible =
+                parentStyle.display !== 'none' &&
+                parentStyle.visibility !== 'hidden' &&
+                parseFloat(parentStyle.opacity) !== 0
 
             cache.set(parent, parentVisible)
 
