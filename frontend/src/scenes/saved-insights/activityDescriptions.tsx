@@ -27,7 +27,7 @@ import { urls } from 'scenes/urls'
 import { filtersToQueryNode } from '~/queries/nodes/InsightQuery/utils/filtersToQueryNode'
 import { queryNodeToFilter } from '~/queries/nodes/InsightQuery/utils/queryNodeToFilter'
 import { QuerySchema, TrendsQuery } from '~/queries/schema/schema-general'
-import { hasBreakdownFilter, isInsightQueryNode, isInsightVizNode } from '~/queries/utils'
+import { hasBreakdownFilter, isInsightQueryNode, isInsightVizNode, isWebAnalyticsInsightQuery } from '~/queries/utils'
 import { FilterType, InsightModel, InsightShortId } from '~/types'
 
 const nameOrLinkToInsight = (short_id?: InsightShortId | null, name?: string | null): string | JSX.Element => {
@@ -90,7 +90,7 @@ const insightActionsMapping: Record<
         const queryAfter = change?.after as QuerySchema
         const insightQuery = isInsightVizNode(queryAfter) ? queryAfter.source : queryAfter
 
-        return isInsightQueryNode(insightQuery)
+        return isInsightQueryNode(insightQuery) && !isWebAnalyticsInsightQuery(insightQuery)
             ? summarizeChanges(queryNodeToFilter(insightQuery))
             : { description: ["cannot yet summarize changes to this insight's query: " + queryAfter?.kind] }
     },
