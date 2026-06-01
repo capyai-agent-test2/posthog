@@ -60,7 +60,10 @@ export const apiStatusLogic = kea<apiStatusLogicType>([
             try {
                 if (response?.status === 403) {
                     const responseData = await response?.json()
-                    if (responseData.code === 'sensitive_action_required_reauth') {
+                    if (
+                        responseData.code === 'sensitive_action_required_reauth' &&
+                        !values.timeSensitiveAuthenticationRequired
+                    ) {
                         actions.setTimeSensitiveAuthenticationRequired(true)
                     } else if (
                         responseData.code === 'two_factor_setup_required' &&
