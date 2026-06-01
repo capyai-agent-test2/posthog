@@ -30,11 +30,11 @@ let geoipProperties := {
     'time_zone': null
 }
 // Check if the event has an IP address
-if (event.properties?.$geoip_disable or empty(event.properties?.$ip)) {
+let ip := event.properties?.$ip ?? event.ip
+if (event.properties?.$geoip_disable or empty(ip)) {
     print('geoip disabled or no ip.')
     return event
 }
-let ip := event.properties.$ip
 // Check for localhost and common private network IPs
 if (ip == '127.0.0.1' or substring(ip, 1, 8) == '192.168.') {
     print('spoofing ip for local development', ip)

@@ -142,6 +142,23 @@ describe('geoip.template', () => {
         `)
     })
 
+    it('should enrich event using the database IP when $ip is not present', async () => {
+        mockGlobals = tester.createGlobals({
+            event: {
+                ip: '12.87.118.0',
+                properties: {},
+            },
+        })
+
+        const response = await tester.invoke({}, mockGlobals)
+
+        expect(response.finished).toBe(true)
+        expect(response.error).toBeUndefined()
+        expect((response.execResult as any).properties.$geoip_country_code).toEqual('US')
+        expect((response.execResult as any).properties.$set.$geoip_country_code).toEqual('US')
+        expect((response.execResult as any).properties.$set_once.$initial_geoip_country_code).toEqual('US')
+    })
+
     it('should set properties to null if no values present', async () => {
         // First call beforeEach with a transform function to remove city data
         await tester.beforeEach()

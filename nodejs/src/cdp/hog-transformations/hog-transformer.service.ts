@@ -150,6 +150,7 @@ export class HogTransformerService {
                 properties: event.properties || {},
                 elements_chain: event.properties?.$elements_chain || '',
                 timestamp: event.timestamp || '',
+                ip: event.ip,
                 url: event.properties?.$current_url || '',
             },
         }
