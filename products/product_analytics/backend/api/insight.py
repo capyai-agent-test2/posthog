@@ -1054,6 +1054,9 @@ class InsightSerializer(InsightBasicSerializer):
                 )
 
                 is_shared = self.context.get("is_shared", False)
+                if is_shared and self.context["request"].path.endswith(".json") and not refresh_requested:
+                    execution_mode = ExecutionMode.RECENT_CACHE_CALCULATE_BLOCKING_IF_STALE
+
                 if is_shared:
                     execution_mode = shared_insights_execution_mode(
                         execution_mode,

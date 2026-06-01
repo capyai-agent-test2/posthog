@@ -527,6 +527,22 @@ class TestInsight(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
         with patch(
             "posthog.caching.calculate_results.calculate_for_query_based_insight"
         ) as calculate_for_query_based_insight:
+            self.client.get(f"{valid_url}.json")
+            calculate_for_query_based_insight.assert_called_once_with(
+                mock.ANY,
+                dashboard=mock.ANY,
+                execution_mode=ExecutionMode.RECENT_CACHE_CALCULATE_BLOCKING_IF_STALE,
+                team=self.team,
+                user=mock.ANY,
+                filters_override={},
+                variables_override={},
+                tile_filters_override={},
+                analytics_props=ANY,
+            )
+
+        with patch(
+            "posthog.caching.calculate_results.calculate_for_query_based_insight"
+        ) as calculate_for_query_based_insight:
             self.client.get(valid_url, data={"refresh": True})
             calculate_for_query_based_insight.assert_called_once_with(
                 mock.ANY,
