@@ -162,6 +162,48 @@ describe('cohortEditLogic', () => {
             expect(api.update).toHaveBeenCalledTimes(1)
         })
 
+        it('does not refresh cohort persons while recalculation is pending after save', async () => {
+            await initCohortLogic({ id: 1 })
+            const refreshPersonsDataSpy = jest.spyOn(logic.actions, 'refreshPersonsData')
+            refreshPersonsDataSpy.mockClear()
+            const cohort = {
+                ...mockCohort,
+                filters: {
+                    properties: {
+                        ...mockCohort.filters.properties,
+                        values: [
+                            {
+                                id: '70427',
+                                type: FilterLogicalOperator.Or,
+                                values: [
+                                    {
+                                        type: BehavioralFilterKey.Behavioral,
+                                        value: BehavioralEventType.PerformEvent,
+                                        event_type: TaxonomicFilterGroupType.Events,
+                                        time_value: 30,
+                                        time_interval: TimeUnitType.Day,
+                                        key: 'dashboard date range changed',
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                },
+            }
+
+            await expectLogic(logic, async () => {
+                logic.actions.setCohort(cohort)
+                logic.actions.saveCohort(cohort)
+            }).toDispatchActions(['setCohort', 'saveCohort', 'saveCohortSuccess'])
+
+            expect(api.update).toHaveBeenCalledTimes(1)
+            expect(refreshPersonsDataSpy).not.toHaveBeenCalled()
+            if (logic.values.pollTimeout) {
+                clearTimeout(logic.values.pollTimeout)
+                logic.actions.setPollTimeout(null)
+            }
+        })
+
         it('do not save with invalid name', async () => {
             await initCohortLogic({ id: 1 })
             await expectLogic(logic, async () => {

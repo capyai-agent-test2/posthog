@@ -478,9 +478,6 @@ export const cohortEditLogic = kea<cohortEditLogicType>([
                     if (existingCohort.id === 'new') {
                         tryShowMCPHint('cohorts.create')
                     }
-                    if (cohort.id !== 'new') {
-                        actions.refreshPersonsData()
-                    }
                     if (existingCohort.id === 'new') {
                         router.actions.push(urls.cohort(cohort.id))
                         if (existingCohort.is_static) {
