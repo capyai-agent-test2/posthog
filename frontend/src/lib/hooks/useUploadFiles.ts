@@ -1,5 +1,5 @@
 import posthog from 'posthog-js'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
 import api from 'lib/api'
 
@@ -100,32 +100,37 @@ export function useUploadFiles({
 } {
     const [uploading, setUploading] = useState(false)
     const [filesToUpload, setFilesToUpload] = useState<File[]>([])
-    const uploadInProgressRef = useRef(false)
+    const uploadInProgressRef = useRef<Promise<void> | null>(null)
 
-    useEffect(() => {
-        const uploadFiles = async (): Promise<void> => {
-            if (filesToUpload.length === 0 || uploadInProgressRef.current) {
-                setUploading(false)
+    const handleSetFilesToUpload = useCallback(
+        (files: File[]): void => {
+            setFilesToUpload(files)
+
+            if (files.length === 0 || uploadInProgressRef.current) {
                 return
             }
 
-            try {
-                uploadInProgressRef.current = true
-                setUploading(true)
-                const file: File = filesToUpload[0]
-                const media = await uploadFile(file)
-                onUpload?.(media.image_location, media.name, media.id)
-            } catch (error) {
-                const errorDetail = (error as any).detail || 'unknown error'
-                onError(errorDetail)
-            } finally {
-                uploadInProgressRef.current = false
-                setUploading(false)
-                setFilesToUpload([])
-            }
-        }
-        uploadFiles().catch(console.error)
-    }, [filesToUpload]) // oxlint-disable-line react-hooks/exhaustive-deps
+            const uploadPromise = (async (): Promise<void> => {
+                try {
+                    setUploading(true)
+                    const file: File = files[0]
+                    const media = await uploadFile(file)
+                    onUpload?.(media.image_location, media.name, media.id)
+                } catch (error) {
+                    const errorDetail = (error as any).detail || 'unknown error'
+                    onError(errorDetail)
+                } finally {
+                    uploadInProgressRef.current = null
+                    setUploading(false)
+                    setFilesToUpload([])
+                }
+            })()
 
-    return { setFilesToUpload, filesToUpload, uploading }
+            uploadInProgressRef.current = uploadPromise
+            uploadPromise.catch(console.error)
+        },
+        [onError, onUpload]
+    )
+
+    return { setFilesToUpload: handleSetFilesToUpload, filesToUpload, uploading }
 }
