@@ -151,6 +151,33 @@ function createMockMonaco(): any {
     }
 }
 
+function createStatefulMockMonaco(): any {
+    const models = new Map<string, any>()
+
+    return {
+        Uri: {
+            parse: (uri: string) => ({ toString: () => uri, path: uri }),
+        },
+        editor: {
+            getModel: jest.fn((uri) => models.get(uri.toString()) ?? null),
+            createModel: jest.fn((value, _language, uri) => {
+                if (models.has(uri.toString())) {
+                    throw new Error('Model already exists')
+                }
+
+                const model = {
+                    getValue: () => value,
+                    setValue: jest.fn(),
+                    onDidChangeContent: jest.fn(() => ({ dispose: jest.fn() })),
+                    dispose: jest.fn(),
+                }
+                models.set(uri.toString(), model)
+                return model
+            }),
+        },
+    }
+}
+
 function createMockEditor(): any {
     return {
         setModel: jest.fn(),
@@ -955,6 +982,32 @@ describe('sqlEditorLogic', () => {
                     }),
                     outputActiveTab: OutputTab.Results,
                 })
+        })
+
+        it('reuses the existing Monaco model when editing an already-open view', async () => {
+            const monaco = createStatefulMockMonaco()
+            const editor = createMockEditor()
+            logic = sqlEditorLogic({
+                tabId: TAB_ID,
+                monaco,
+                editor,
+            })
+            logic.mount()
+
+            logic.actions.editView(MOCK_VIEW.query.query, MOCK_VIEW)
+            await expectLogic(logic).toDispatchActions(['createTab', 'updateTab'])
+
+            logic.actions.editView(MOCK_VIEW.query.query, MOCK_VIEW)
+
+            await expectLogic(logic)
+                .toDispatchActions(['createTab', 'updateTab'])
+                .toMatchValues({
+                    editingView: partial({
+                        id: MOCK_VIEW.id,
+                    }),
+                })
+            expect(monaco.editor.createModel).toHaveBeenCalledTimes(1)
+            expect(editor.setModel).toHaveBeenCalledTimes(2)
         })
     })
 

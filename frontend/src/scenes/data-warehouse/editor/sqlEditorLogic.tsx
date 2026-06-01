@@ -1030,7 +1030,6 @@ export const sqlEditorLogic = kea<sqlEditorLogicType>([
                         model = props.monaco.editor.createModel(query, 'hogQL', uri)
                         cache.createdModels = cache.createdModels || []
                         cache.createdModels.push(model)
-                        props.editor?.setModel(model)
                         initModel(
                             model,
                             codeEditorLogic({
@@ -1040,6 +1039,7 @@ export const sqlEditorLogic = kea<sqlEditorLogicType>([
                             })
                         )
                     }
+                    props.editor?.setModel(model)
 
                     actions.updateTab({
                         uri,
