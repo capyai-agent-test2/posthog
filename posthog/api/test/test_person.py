@@ -1021,6 +1021,46 @@ class TestPerson(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
             },
             process_person_profile=True,
         )
+        property_definition = PropertyDefinition.objects.get(
+            team=self.team, name="foo", type=PropertyDefinition.Type.PERSON
+        )
+        self.assertEqual(property_definition.property_type, "String")
+        self.assertFalse(property_definition.is_numerical)
+
+        response = self.client.get(f"/api/projects/{self.team.id}/property_definitions/?type=person&search=foo")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["results"][0]["name"], "foo")
+
+    @mock.patch("posthog.api.person.capture_internal")
+    def test_update_multiple_person_properties_creates_property_definitions(self, mock_capture) -> None:
+        person = _create_person(
+            team=self.team,
+            distinct_ids=["some_distinct_id"],
+            properties={"$browser": "whatever", "$os": "Mac OS X"},
+            immediate=True,
+        )
+
+        response = self.client.patch(
+            f"/api/person/{person.uuid}",
+            {"properties": {"plan": "paid", "age": 42, "is_admin": False}},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 202)
+        property_definitions = {
+            property_definition.name: property_definition
+            for property_definition in PropertyDefinition.objects.filter(
+                team=self.team,
+                name__in=["plan", "age", "is_admin"],
+                type=PropertyDefinition.Type.PERSON,
+            )
+        }
+        self.assertEqual(property_definitions["plan"].property_type, "String")
+        self.assertFalse(property_definitions["plan"].is_numerical)
+        self.assertEqual(property_definitions["age"].property_type, "Numeric")
+        self.assertTrue(property_definitions["age"].is_numerical)
+        self.assertEqual(property_definitions["is_admin"].property_type, "Boolean")
+        self.assertFalse(property_definitions["is_admin"].is_numerical)
 
     @mock.patch("posthog.api.person.capture_internal")
     def test_new_delete_person_properties(self, mock_capture) -> None:
