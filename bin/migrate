@@ -16,6 +16,10 @@ run_scope() {
     return 1
 }
 
+requires_rust_migrations() {
+    run_scope "cyclotron" || run_scope "behavioral-cohorts" || run_scope "flags-read-store"
+}
+
 # timestamp function with nanosecond precision if supported, otherwise fallback to seconds with .000000000 suffix for uniform formatting
 if [ "$(date +%N)" != "N" ]; then
     timestamp() { date +%s.%N; }
@@ -25,6 +29,13 @@ fi
 
 # NOTE when running in docker, rust might not exist so we need to check for it
 if [ -d "$SCRIPT_DIR/../rust/bin" ] && [ "${DEPLOYMENT:-}" != "hobby" ]; then
+    if requires_rust_migrations && ! command -v sqlx >/dev/null 2>&1; then
+        echo "Error: sqlx-cli is required to run Rust-backed database migrations, but 'sqlx' was not found in PATH." >&2
+        echo "Install Rust with rustup, then install sqlx-cli:" >&2
+        echo "  cargo install sqlx-cli --features postgres --no-default-features --locked" >&2
+        exit 1
+    fi
+
     if run_scope "cyclotron"; then
         bash $SCRIPT_DIR/../rust/bin/migrate-cyclotron
         if [ $? -ne 0 ]; then
