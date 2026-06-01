@@ -425,6 +425,65 @@ describe('person-update', () => {
                 expect(result.hasChanges).toBe(true)
                 expect(result.shouldForceUpdate).toBe(false)
             })
+
+            it('should ignore geoip person property updates when geoip is disabled on merge events', () => {
+                const event: PluginEvent = {
+                    event: '$merge_dangerously',
+                    properties: {
+                        $geoip_disable: true,
+                        $set: {
+                            $geoip_city_name: 'San Francisco',
+                            $geoip_country_name: 'United States',
+                            custom_prop: 'new_value',
+                        },
+                        $set_once: {
+                            $geoip_time_zone: 'America/Los_Angeles',
+                            first_seen: '2024-01-01',
+                        },
+                    },
+                } as any
+
+                const personProperties = {
+                    $geoip_city_name: 'New York',
+                    $geoip_country_name: 'Canada',
+                    custom_prop: 'old_value',
+                }
+
+                const result = computeEventPropertyUpdates(event, personProperties)
+
+                expect(result.hasChanges).toBe(true)
+                expect(result.toSet).toEqual({
+                    custom_prop: 'new_value',
+                    first_seen: '2024-01-01',
+                })
+                expect(result.shouldForceUpdate).toBe(true)
+                expect(mockPersonProfileUpdateOutcomeCounter.labels).toHaveBeenCalledWith({ outcome: 'changed' })
+            })
+
+            it('should return no changes when geoip is disabled and only geoip properties changed', () => {
+                const event: PluginEvent = {
+                    event: '$merge_dangerously',
+                    properties: {
+                        $geoip_disable: true,
+                        $set: {
+                            $geoip_city_name: 'San Francisco',
+                            $geoip_country_name: 'United States',
+                        },
+                    },
+                } as any
+
+                const personProperties = {
+                    $geoip_city_name: 'New York',
+                    $geoip_country_name: 'Canada',
+                }
+
+                const result = computeEventPropertyUpdates(event, personProperties)
+
+                expect(result.hasChanges).toBe(false)
+                expect(result.toSet).toEqual({})
+                expect(result.shouldForceUpdate).toBe(true)
+                expect(mockPersonProfileUpdateOutcomeCounter.labels).toHaveBeenCalledWith({ outcome: 'no_change' })
+            })
         })
 
         describe('NO_PERSON_UPDATE_EVENTS behavior', () => {

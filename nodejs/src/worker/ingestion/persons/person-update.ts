@@ -62,6 +62,7 @@ export function computeEventPropertyUpdates(
     const propertiesOnce: Properties = event.properties!['$set_once'] || {}
     const unsetProps = event.properties!['$unset']
     const unsetProperties: Array<string> = Array.isArray(unsetProps) ? unsetProps : Object.keys(unsetProps || {}) || []
+    const geoipDisabled = !!event.properties?.['$geoip_disable']
 
     let hasChanges = false
     let hasNonFilteredChanges = false
@@ -70,6 +71,9 @@ export function computeEventPropertyUpdates(
     const ignoredProperties: string[] = []
 
     Object.entries(propertiesOnce).forEach(([key, value]) => {
+        if (geoipDisabled && key.startsWith('$geoip_')) {
+            return
+        }
         if (typeof personProperties[key] === 'undefined') {
             hasChanges = true
             toSet[key] = value
@@ -85,6 +89,9 @@ export function computeEventPropertyUpdates(
     const changedProperties: Array<[string, unknown]> = []
 
     Object.entries(properties).forEach(([key, value]) => {
+        if (geoipDisabled && key.startsWith('$geoip_')) {
+            return
+        }
         if (personProperties[key] !== value) {
             changedProperties.push([key, value])
             const isNewProperty = typeof personProperties[key] === 'undefined'
