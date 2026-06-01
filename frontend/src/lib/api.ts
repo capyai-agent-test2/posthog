@@ -7083,6 +7083,7 @@ const api = {
 
 const warnedSharedViewLeaks = new Set<string>()
 const SENSITIVE_ACTION_REAUTH_CODE = 'sensitive_action_required_reauth'
+let sensitiveActionReauthenticationPromise: Promise<boolean> | null = null
 
 async function waitForSensitiveActionReauthentication(): Promise<boolean> {
     const logic = apiStatusLogic.findMounted()
@@ -7091,14 +7092,18 @@ async function waitForSensitiveActionReauthentication(): Promise<boolean> {
         return false
     }
 
-    try {
-        await new Promise<void>((resolve, reject) =>
+    if (!sensitiveActionReauthenticationPromise) {
+        sensitiveActionReauthenticationPromise = new Promise<void>((resolve, reject) =>
             logic.actions.setTimeSensitiveAuthenticationRequired([resolve, reject])
         )
-        return true
-    } catch {
-        return false
+            .then(() => true)
+            .catch(() => false)
+            .finally(() => {
+                sensitiveActionReauthenticationPromise = null
+            })
     }
+
+    return await sensitiveActionReauthenticationPromise
 }
 
 async function handleFetch(

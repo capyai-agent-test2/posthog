@@ -32,11 +32,11 @@ describe('apiStatusLogic', () => {
                 '/api/organizations/': () => {
                     requestCount += 1
 
-                    if (requestCount === 1) {
+                    if (requestCount <= 2) {
                         return [403, { code: 'sensitive_action_required_reauth', detail: 'Re-authentication required' }]
                     }
 
-                    return [200, { id: 'new-organization' }]
+                    return [200, { id: `new-organization-${requestCount}` }]
                 },
             },
         })
@@ -44,7 +44,8 @@ describe('apiStatusLogic', () => {
         logic = apiStatusLogic()
         logic.mount()
 
-        const request = api.create('api/organizations/', { name: 'Acme Inc.' })
+        const firstRequest = api.create('api/organizations/', { name: 'Acme Inc.' })
+        const secondRequest = api.create('api/organizations/', { name: 'Hedgehog Ltd.' })
 
         await waitFor(() => {
             if (!Array.isArray(logic.values.timeSensitiveAuthenticationRequired)) {
@@ -55,8 +56,11 @@ describe('apiStatusLogic', () => {
         const [resolve] = logic.values.timeSensitiveAuthenticationRequired as [resolve: () => void, reject: () => void]
         resolve()
 
-        await expect(request).resolves.toEqual({ id: 'new-organization' })
-        expect(requestCount).toBe(2)
+        await expect(Promise.all([firstRequest, secondRequest])).resolves.toEqual([
+            { id: 'new-organization-3' },
+            { id: 'new-organization-4' },
+        ])
+        expect(requestCount).toBe(4)
     })
 
     describe('401 handling during impersonation', () => {
