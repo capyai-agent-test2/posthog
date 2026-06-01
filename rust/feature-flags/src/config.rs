@@ -462,6 +462,9 @@ pub struct Config {
     #[envconfig(default = "redis://localhost:6379/")]
     pub redis_url: String,
 
+    #[envconfig(from = "SECRET_KEY", default = "")]
+    pub secret_key: String,
+
     #[envconfig(default = "")]
     pub redis_reader_url: String,
 
@@ -1015,6 +1018,7 @@ impl Config {
             continuous_profiling: ContinuousProfilingConfig::default(),
             address: SocketAddr::from_str("127.0.0.1:0").unwrap(),
             redis_url: "redis://localhost:6379/".to_string(),
+            secret_key: "secret".to_string(),
             redis_reader_url: "".to_string(),
             flags_redis_url: "".to_string(),
             flags_redis_reader_url: "".to_string(),

@@ -39,6 +39,7 @@ use crate::{
         endpoint, flag_definitions,
         flag_definitions_rate_limiter::FlagDefinitionsRateLimiter,
         flags_rate_limiter::{FlagsRateLimiter, IpRateLimiter},
+        remote_config,
     },
     cohorts::{cohort_cache_manager::CohortCacheManager, membership::CohortMembershipProvider},
     config::{Config, ServiceMode, TeamIdCollection},
@@ -322,6 +323,14 @@ pub fn router(
             .route(
                 "/api/feature_flag/local_evaluation/",
                 any(flag_definitions::flags_definitions),
+            )
+            .route(
+                "/api/projects/:project_id/feature_flags/:flag_key/remote_config",
+                any(remote_config::remote_config),
+            )
+            .route(
+                "/api/projects/:project_id/feature_flags/:flag_key/remote_config/",
+                any(remote_config::remote_config),
             );
     }
 
