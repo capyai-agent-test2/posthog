@@ -12,7 +12,12 @@ from posthog.models.filters.base_filter import BaseFilter
 from posthog.models.filters.mixins.interval import IntervalMixin
 from posthog.models.team import Team
 from posthog.queries.util import TIME_IN_SECONDS, get_earliest_timestamp, get_start_of_interval_sql
-from posthog.utils import DEFAULT_DATE_FROM_DAYS, relative_date_parse, relative_date_parse_with_delta_mapping
+from posthog.utils import (
+    DEFAULT_DATE_FROM_DAYS,
+    is_date_only_string,
+    relative_date_parse,
+    relative_date_parse_with_delta_mapping,
+)
 
 
 class QueryDateRange:
@@ -59,7 +64,7 @@ class QueryDateRange:
 
         is_relative = not self._filter._date_to or delta_mapping is not None
         if not self._filter.use_explicit_dates:
-            if not self.is_hourly(self._filter._date_to):
+            if is_date_only_string(self._filter._date_to) or not self.is_hourly(self._filter._date_to):
                 date_to = date_to.replace(hour=23, minute=59, second=59, microsecond=999999)
             elif is_relative and not position:
                 date_to = date_to.replace(minute=59, second=59, microsecond=999999)

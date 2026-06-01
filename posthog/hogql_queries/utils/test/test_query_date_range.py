@@ -42,6 +42,14 @@ class TestQueryDateRange(APIBaseTest):
             query_date_range.date_to(), parser.isoparse("2021-08-26 07:00:00Z")
         )  # ensure last hour is included
 
+    def test_parsed_date_hour_with_date_only_date_to(self):
+        now = parser.isoparse("2021-08-25T00:00:00.000Z")
+        date_range = DateRange(date_from="2021-08-23", date_to="2021-08-23")
+        query_date_range = QueryDateRange(team=self.team, date_range=date_range, interval=IntervalType.HOUR, now=now)
+
+        self.assertEqual(query_date_range.date_from(), parser.isoparse("2021-08-23 00:00:00Z"))
+        self.assertEqual(query_date_range.date_to(), parser.isoparse("2021-08-23 23:59:59.999999Z"))
+
     def test_parsed_date_week(self):
         now = parser.isoparse("2021-08-25T00:00:00.000Z")
         date_range = DateRange(date_from="-7d")

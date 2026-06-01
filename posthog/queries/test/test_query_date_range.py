@@ -76,6 +76,29 @@ class TestQueryDateRange(APIBaseTest):
             "AND toTimeZone(timestamp, UTC) <= toDateTime(2021-08-26 07:00:00, UTC)",
         )  # ensure last hour is included
 
+    def test_parsed_date_hour_with_date_only_date_to(self):
+        filter = Filter(
+            data={
+                "date_from": "2021-08-23",
+                "date_to": "2021-08-23",
+                "interval": "hour",
+                "events": [{"id": "sign up"}],
+            }
+        )
+
+        query_date_range = QueryDateRange(filter=filter, team=self.team, should_round=False)
+        parsed_date_from, date_from_params = query_date_range.date_from
+        parsed_date_to, date_to_params = query_date_range.date_to
+
+        self.assertEqual(
+            parsed_date_from % date_from_params,
+            "AND toTimeZone(timestamp, UTC) >= toDateTime(2021-08-23 00:00:00, UTC)",
+        )
+        self.assertEqual(
+            parsed_date_to % date_to_params,
+            "AND toTimeZone(timestamp, UTC) <= toDateTime(2021-08-23 23:59:59, UTC)",
+        )
+
     def test_parsed_date_week_rounded(self):
         with freeze_time("2021-08-25T00:00:00.000Z"):
             filter = Filter(
