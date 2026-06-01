@@ -62,12 +62,13 @@ const makeClickEvent = (timestamp: number, x = 100, y = 100): SnapshotEvent =>
         },
     }) as unknown as SnapshotEvent
 
-const makeKeypressEvent = (timestamp: number): SnapshotEvent =>
+const makeKeypressEvent = (timestamp: number, data: Record<string, unknown> = {}): SnapshotEvent =>
     ({
         type: RRWebEventType.IncrementalSnapshot,
         timestamp,
         data: {
             source: RRWebEventSource.Input,
+            ...data,
         },
     }) as unknown as SnapshotEvent
 
@@ -634,6 +635,19 @@ describe('SessionFeatureRecorder', () => {
         it('should count keypress events', () => {
             const events = [makeKeypressEvent(1000), makeKeypressEvent(2000)]
             recorder.recordMessage(createMessage(events))
+            const result = recorder.end()!
+
+            expect(result.keypressCount).toBe(2)
+        })
+
+        it('should not recount unchanged input states across messages', () => {
+            recorder.recordMessage(createMessage([makeKeypressEvent(1000, { id: 1, text: 'hello' })]))
+            recorder.recordMessage(
+                createMessage([
+                    makeKeypressEvent(2000, { id: 1, text: 'hello' }),
+                    makeKeypressEvent(3000, { id: 1, text: 'hello!' }),
+                ])
+            )
             const result = recorder.end()!
 
             expect(result.keypressCount).toBe(2)

@@ -61,6 +61,7 @@ interface RRWebEventData {
         y?: number
         id?: number
         text?: string
+        isChecked?: boolean
         positions?: Array<{ x: number; y: number; id: number; timeOffset: number }>
         plugin?: string
         payload?: {
@@ -322,6 +323,7 @@ export class SessionFeatureRecorder {
     // Per-element last input length for backspace heuristic.
     // Bounded by MAX_UNIQUE_VALUES to keep memory cost predictable.
     private inputTextLengths: Map<number, number> = new Map()
+    private inputEventSignatures: Map<string, string> = new Map()
 
     // Text selection
     private textSelectionCount = 0
@@ -364,9 +366,9 @@ export class SessionFeatureRecorder {
             this.endDateTime = message.eventsRange.end
         }
 
-        for (const [_windowId, events] of Object.entries(message.eventsByWindowId)) {
+        for (const [windowId, events] of Object.entries(message.eventsByWindowId)) {
             for (const event of events) {
-                this.aggregateFeatures(event)
+                this.aggregateFeatures(windowId, event)
                 this.eventCount++
             }
         }
@@ -387,12 +389,12 @@ export class SessionFeatureRecorder {
         return percentage < rolloutPercentage
     }
 
-    private aggregateFeatures(event: SnapshotEvent): void {
+    private aggregateFeatures(windowId: string, event: SnapshotEvent): void {
         const e = event as RRWebEventData
         this.trackMousePosition(e)
         this.trackScroll(e)
         this.trackClicks(event, e)
-        this.trackKeypress(event, e)
+        this.trackKeypress(windowId, event, e)
         this.trackInterActionTiming(event, e.timestamp)
         this.trackNavigation(event, e.timestamp)
         this.trackConsoleLogs(e)
@@ -566,10 +568,15 @@ export class SessionFeatureRecorder {
         this.lastClickY = clickY ?? null
     }
 
-    private trackKeypress(event: SnapshotEvent, e: RRWebEventData): void {
+    private trackKeypress(windowId: string, event: SnapshotEvent, e: RRWebEventData): void {
         if (!isKeypress(event)) {
             return
         }
+
+        if (this.hasAlreadySeenInputState(windowId, e)) {
+            return
+        }
+
         this.keypressCount++
         this.lastUserActionTimestamp = e.timestamp
 
@@ -598,6 +605,28 @@ export class SessionFeatureRecorder {
             this.selectionCopyCount++
             this.lastSelectionTimestamp = null
         }
+    }
+
+    private hasAlreadySeenInputState(windowId: string, e: RRWebEventData): boolean {
+        const targetId = e.data?.id
+        if (targetId === undefined) {
+            return false
+        }
+
+        const text = e.data?.text
+        const isChecked = e.data?.isChecked
+        if (text === undefined && isChecked === undefined) {
+            return false
+        }
+
+        const signature = JSON.stringify([text, isChecked])
+        const stateKey = `${windowId}:${targetId}`
+        if (this.inputEventSignatures.get(stateKey) === signature) {
+            return true
+        }
+
+        this.inputEventSignatures.set(stateKey, signature)
+        return false
     }
 
     private trackInterActionTiming(event: SnapshotEvent, timestamp: number): void {
