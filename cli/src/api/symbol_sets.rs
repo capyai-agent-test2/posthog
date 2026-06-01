@@ -19,6 +19,12 @@ pub enum UploadError {
     ReleaseIdMismatch,
     #[error("Content mismatch: use --skip-on-conflict or --force")]
     ContentHashMismatch,
+    #[error("Symbol set {chunk_id} is {size_bytes} bytes, larger than the {max_size_bytes} byte upload limit")]
+    FileTooLarge {
+        chunk_id: String,
+        size_bytes: usize,
+        max_size_bytes: usize,
+    },
     #[error("{0}")]
     Other(#[from] anyhow::Error),
 }
@@ -102,18 +108,11 @@ fn upload_inner(
     force: bool,
     skip_on_conflict: bool,
 ) -> Result<(), UploadError> {
-    let upload_requests: Vec<_> = input_sets
-        .iter()
-        .filter(|s| {
-            if s.data.len() > MAX_FILE_SIZE {
-                warn!(
-                    "Skipping symbol set with id: {}, file too large",
-                    s.chunk_id
-                );
-            }
-            s.data.len() <= MAX_FILE_SIZE
-        })
-        .collect();
+    for upload in input_sets {
+        validate_symbol_set_size(upload, MAX_FILE_SIZE)?;
+    }
+
+    let upload_requests: Vec<_> = input_sets.iter().collect();
 
     for (i, batch) in upload_requests.chunks(batch_size).enumerate() {
         info!("Starting upload of batch {i}, {} symbol sets", batch.len());
@@ -148,6 +147,21 @@ fn upload_inner(
     }
 
     Ok(())
+}
+
+pub fn validate_symbol_set_size(
+    upload: &SymbolSetUpload,
+    max_file_size: usize,
+) -> Result<(), UploadError> {
+    if upload.data.len() <= max_file_size {
+        return Ok(());
+    }
+
+    Err(UploadError::FileTooLarge {
+        chunk_id: upload.chunk_id.clone(),
+        size_bytes: upload.data.len(),
+        max_size_bytes: max_file_size,
+    })
 }
 
 fn start_upload(

@@ -1,4 +1,5 @@
 use posthog_cli::{
+    api::symbol_sets::{validate_symbol_set_size, SymbolSetUpload, UploadError},
     sourcemaps::{
         content::SourceMapContent, inject::inject_pairs, plain::inject::is_javascript_file,
         source_pairs::SourcePair,
@@ -284,7 +285,6 @@ fn test_upload_set() {
     assert_ne!(source_chunk_id, sourcemap_chunk_id);
 
     // Convert to UploadSet
-    use posthog_cli::api::symbol_sets::SymbolSetUpload;
     let upload_set: SymbolSetUpload = pair_with_different_ids
         .try_into()
         .expect("Failed to convert to SymbolSetUpload");
@@ -292,6 +292,27 @@ fn test_upload_set() {
     // Verify that the upload set uses the source's chunk ID, not the sourcemap's
     assert_eq!(upload_set.chunk_id, source_chunk_id);
     assert_ne!(upload_set.chunk_id, sourcemap_chunk_id);
+}
+
+#[test]
+fn test_upload_set_size_limit() {
+    let upload_set = SymbolSetUpload {
+        chunk_id: "chunk-id".to_string(),
+        release_id: None,
+        data: vec![0; 4],
+    };
+
+    validate_symbol_set_size(&upload_set, 4).expect("upload at limit should pass");
+
+    let err = validate_symbol_set_size(&upload_set, 3).expect_err("upload over limit should fail");
+    assert!(matches!(
+        err,
+        UploadError::FileTooLarge {
+            chunk_id,
+            size_bytes: 4,
+            max_size_bytes: 3,
+        } if chunk_id == "chunk-id"
+    ));
 }
 
 #[test]
