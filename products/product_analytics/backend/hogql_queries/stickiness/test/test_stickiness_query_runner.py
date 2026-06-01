@@ -755,7 +755,7 @@ class TestStickinessQueryRunner(ClickhouseTestMixin, APIBaseTest):
         assert [item.value for item in response.compare] == ["current", "previous"]
 
     def test_compare_actors_query_filters_period(self):
-        self._create_events(
+        persons = self._create_events(
             [
                 SeriesTestData(
                     distinct_id="current-period",
@@ -807,7 +807,21 @@ class TestStickinessQueryRunner(ClickhouseTestMixin, APIBaseTest):
 
         assert len(current_response.results) == 1
         assert len(previous_response.results) == 1
-        assert current_response.results != previous_response.results
+        assert current_response.results[0][0] == persons[0].uuid
+        assert previous_response.results[0][0] == persons[1].uuid
+
+    def test_compare_actors_query_returns_empty_query_for_unmatched_series(self):
+        query = self._get_query(
+            date_from="2020-01-12",
+            date_to="2020-01-13",
+            filters=StickinessFilter(),
+            compare_filters=CompareFilter(compare=True),
+        )
+        runner = StickinessQueryRunner(team=self.team, query=query)
+
+        actors_query = runner.to_actors_query(interval_num=2, series_index=99, compare_value=Compare.CURRENT)
+
+        assert actors_query.select[0].alias == "actor_id"
 
     def test_criteria(self):
         self._create_events(

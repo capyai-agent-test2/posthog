@@ -316,6 +316,9 @@ class StickinessQueryRunner(AnalyticsQueryRunner[StickinessQueryResponse]):
 
             queries.append(events_query)
 
+        if not queries:
+            return cast(ast.SelectQuery, parse_select("SELECT NULL AS actor_id WHERE 1 = 2"))
+
         return ast.SelectSetQuery.create_from_queries(queries, "UNION ALL")
 
     def to_actors_query_options(self) -> InsightActorsQueryOptionsResponse:
