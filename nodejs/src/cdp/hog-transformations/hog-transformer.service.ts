@@ -347,6 +347,7 @@ export class HogTransformerService {
             globals.event.properties = event.properties
             globals.event.event = event.event
             globals.event.distinct_id = event.distinct_id
+            globals.event.ip = event.ip
 
             transformationsSucceeded.push(transformationIdentifier)
         }
