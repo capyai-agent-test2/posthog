@@ -1,6 +1,7 @@
 import orjson
 from rest_framework.renderers import BaseRenderer, JSONRenderer
-from rest_framework.utils.encoders import JSONEncoder
+
+from posthog.json_utils import orjson_default
 
 CleaningMarker = bool | dict[int, "CleaningMarker"]
 
@@ -15,7 +16,7 @@ class SafeJSONRenderer(JSONRenderer):
         if renderer_context and renderer_context.get("indent"):
             option |= orjson.OPT_INDENT_2
 
-        return orjson.dumps(data, default=JSONEncoder().default, option=option)
+        return orjson.dumps(data, default=orjson_default, option=option)
 
 
 class ServerSentEventRenderer(BaseRenderer):

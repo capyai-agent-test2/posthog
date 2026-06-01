@@ -49,7 +49,6 @@ from opentelemetry import trace
 from prometheus_client import Histogram
 from rest_framework import serializers
 from rest_framework.request import Request
-from rest_framework.utils.encoders import JSONEncoder
 from user_agents import parse
 
 from posthog.cloud_utils import get_cached_instance_license, is_cloud
@@ -57,6 +56,7 @@ from posthog.constants import AvailableFeature
 from posthog.exceptions import RequestParsingError, UnspecifiedCompressionFallbackParsingError
 from posthog.exceptions_capture import capture_exception
 from posthog.git import get_git_branch, get_git_commit_short
+from posthog.json_utils import orjson_default
 from posthog.metrics import KLUDGES_COUNTER
 from posthog.redis import get_client
 from posthog.security.url_validation import has_authority_bypass_chars
@@ -1938,7 +1938,7 @@ def is_relative_url(url: str | None) -> bool:
 def to_json(obj: dict) -> bytes:
     # pydantic doesn't sort keys reliably, so use orjson to serialize to json
     option = orjson.OPT_SORT_KEYS | orjson.OPT_NON_STR_KEYS
-    json_string = orjson.dumps(obj, default=JSONEncoder().default, option=option)
+    json_string = orjson.dumps(obj, default=orjson_default, option=option)
 
     return json_string
 
