@@ -1817,6 +1817,40 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_first_matching_condition_stops_when_rollout_fails() {
+        let context = TestContext::new(None).await;
+        let cohort_cache = Arc::new(CohortCacheManager::new(
+            context.non_persons_reader.clone(),
+            None,
+            None,
+        ));
+        let flag = mock!(FeatureFlag,
+            filters: mock!(FlagFilters,
+                groups: vec![
+                    mock!(FlagPropertyGroup, rollout_percentage: Some(0.0)),
+                    mock!(FlagPropertyGroup, rollout_percentage: Some(100.0)),
+                ]
+            )
+        );
+
+        let matcher = FeatureFlagMatcher::new(
+            "test_user".to_string(),
+            None,
+            1,
+            context.create_postgres_router(),
+            cohort_cache,
+            empty_group_type_cache(),
+            None,
+        );
+
+        let result = matcher.get_match(&flag, None, None, None, &None).unwrap();
+
+        assert!(!result.matches);
+        assert_eq!(result.reason, FeatureFlagMatchReason::OutOfRolloutBound);
+        assert_eq!(result.condition_index, Some(0));
+    }
+
+    #[tokio::test]
     async fn test_uneven_variant_distribution() {
         let context = TestContext::new(None).await;
         let cohort_cache = Arc::new(CohortCacheManager::new(

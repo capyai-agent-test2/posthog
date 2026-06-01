@@ -223,6 +223,14 @@ class FeatureFlagMatcher:
                     payload=payload,
                 )
 
+            if evaluation_reason == FeatureFlagMatchReason.OUT_OF_ROLLOUT_BOUND:
+                return FeatureFlagMatch(
+                    match=False,
+                    reason=evaluation_reason,
+                    condition_index=index,
+                    payload=None,
+                )
+
             (
                 highest_priority_evaluation_reason,
                 highest_priority_index,
