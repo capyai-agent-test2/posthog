@@ -28,4 +28,12 @@ describe('getToolbarHeatmapJsData', () => {
         expect(fixedHeatmapJsData.data).toEqual([{ x: 500, y: 100, value: 5 }])
         expect(fixedHeatmapJsData.max).toBe(5)
     })
+
+    it('excludes hidden fixed target points from the visible layer intensity scale', () => {
+        const { scrolledHeatmapJsData, fixedHeatmapJsData } = getToolbarHeatmapJsData(heatmapElements, 1000, 'hidden')
+
+        expect(scrolledHeatmapJsData.data).toEqual([{ x: 250, y: 200, value: 3 }])
+        expect(scrolledHeatmapJsData.max).toBe(3)
+        expect(fixedHeatmapJsData.data).toEqual([])
+    })
 })

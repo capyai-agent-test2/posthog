@@ -55,7 +55,8 @@ export function getToolbarHeatmapJsData(
             : heatmapElements.filter((element) => !element.targetFixed)
     const fixedElements =
         heatmapFixedPositionMode === 'fixed' ? heatmapElements.filter((element) => element.targetFixed) : []
-    const max = heatmapElements.reduce((max, { count }) => Math.max(max, count), 0)
+    const elementsForMax = heatmapFixedPositionMode === 'hidden' ? scrolledElements : heatmapElements
+    const max = elementsForMax.reduce((max, { count }) => Math.max(max, count), 0)
 
     return {
         scrolledHeatmapJsData: getHeatmapJsData(scrolledElements, width, max),
