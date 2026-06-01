@@ -928,31 +928,55 @@ class PathsQueryRunner(AnalyticsQueryRunner[PathsQueryResponse]):
 
         path_per_person_query = self.paths_per_person_query()
 
-        conditions = []
         if self.query.pathsFilter.pathDropoffKey:
+            path_dropoff_key = ast.Constant(value=self.query.pathsFilter.pathDropoffKey)
+            return parse_select(
+                """
+                    SELECT
+                        current_path.person_id as actor_id,
+                        groupUniqArray(100)((current_path.timestamp, current_path.uuid, current_path.session_id, current_path.window_id)) as matching_events,
+                        COUNT(*) as event_count
+                    FROM {paths_per_person_query} AS current_path
+                    LEFT JOIN (
+                        SELECT DISTINCT person_id
+                        FROM {next_paths_per_person_query} AS next_path
+                        WHERE
+                            next_path.last_path_key = {key}
+                            AND next_path.path_key IN (
+                                SELECT target_event
+                                FROM {paths_query}
+                                WHERE source_event = {key}
+                            )
+                    ) AS continuing_paths ON current_path.person_id = continuing_paths.person_id
+                    WHERE current_path.path_key = {key} AND continuing_paths.person_id IS NULL
+                    GROUP BY current_path.person_id
+                """,
+                placeholders={
+                    "paths_per_person_query": path_per_person_query,
+                    "next_paths_per_person_query": self.paths_per_person_query(),
+                    "paths_query": self.to_query(),
+                    "key": path_dropoff_key,
+                },
+                timings=self.timings,
+            )
+
+        conditions = []
+        if self.query.pathsFilter.pathStartKey:
             conditions.append(
                 parse_expr(
-                    "path_dropoff_key = {key} AND path_dropoff_key = path_key",
-                    {"key": ast.Constant(value=self.query.pathsFilter.pathDropoffKey)},
+                    "last_path_key = {key}",
+                    {"key": ast.Constant(value=self.query.pathsFilter.pathStartKey)},
+                )
+            )
+        if self.query.pathsFilter.pathEndKey:
+            conditions.append(
+                parse_expr(
+                    "path_key = {key}",
+                    {"key": ast.Constant(value=self.query.pathsFilter.pathEndKey)},
                 )
             )
         else:
-            if self.query.pathsFilter.pathStartKey:
-                conditions.append(
-                    parse_expr(
-                        "last_path_key = {key}",
-                        {"key": ast.Constant(value=self.query.pathsFilter.pathStartKey)},
-                    )
-                )
-            if self.query.pathsFilter.pathEndKey:
-                conditions.append(
-                    parse_expr(
-                        "path_key = {key}",
-                        {"key": ast.Constant(value=self.query.pathsFilter.pathEndKey)},
-                    )
-                )
-            else:
-                conditions.append(parse_expr("1=1"))
+            conditions.append(parse_expr("1=1"))
 
         actors_query = parse_select(
             """

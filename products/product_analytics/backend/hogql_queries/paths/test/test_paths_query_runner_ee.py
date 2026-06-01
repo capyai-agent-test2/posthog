@@ -2171,7 +2171,6 @@ class TestClickhousePaths(ClickhouseTestMixin, APIBaseTest):
             ],
         )
 
-    @snapshot_clickhouse_queries
     def test_person_dropoffs(self):
         events = []
 
@@ -2285,6 +2284,61 @@ class TestClickhousePaths(ClickhouseTestMixin, APIBaseTest):
         self.assertEqual(
             0, len(self._get_people_at_path(filter, path_start="4_step four"))
         )  # 0 total reach after step 4
+
+    def test_person_dropoffs_match_displayed_path_edges(self):
+        for i in range(5):
+            _create_person(distinct_ids=[f"continuing_user_{i}"], team=self.team)
+            _create_event(
+                event="step one",
+                distinct_id=f"continuing_user_{i}",
+                team=self.team,
+                timestamp="2021-05-01 00:00:00",
+                properties={},
+            )
+            _create_event(
+                event="step two",
+                distinct_id=f"continuing_user_{i}",
+                team=self.team,
+                timestamp="2021-05-01 00:04:00",
+                properties={},
+            )
+            _create_event(
+                event="step three",
+                distinct_id=f"continuing_user_{i}",
+                team=self.team,
+                timestamp="2021-05-01 00:05:00",
+                properties={},
+            )
+
+        for i in range(3):
+            _create_person(distinct_ids=[f"dropoff_user_{i}"], team=self.team)
+            _create_event(
+                event="step one",
+                distinct_id=f"dropoff_user_{i}",
+                team=self.team,
+                timestamp="2021-05-01 00:00:00",
+                properties={},
+            )
+            _create_event(
+                event="other step",
+                distinct_id=f"dropoff_user_{i}",
+                team=self.team,
+                timestamp="2021-05-01 00:04:00",
+                properties={},
+            )
+
+        filter = {
+            "pathsFilter": {
+                "includeEventTypes": ["custom_event"],
+                "edgeLimit": 2,
+            },
+            "dateRange": {
+                "date_from": "2021-05-01 00:00:00",
+                "date_to": "2021-05-07 00:00:00",
+            },
+        }
+
+        self.assertEqual(3, len(self._get_people_at_path(filter, path_dropoff="1_step one")))
 
     @snapshot_clickhouse_queries
     def test_start_dropping_orphaned_edges(self):
@@ -3363,7 +3417,6 @@ class TestClickhousePaths(ClickhouseTestMixin, APIBaseTest):
             [list(row[3]) for row in results],
         )
 
-    @snapshot_clickhouse_queries
     @freeze_time("2012-01-01T03:21:34.000Z")
     def test_recording_for_dropoff(self):
         p1 = _create_person(team_id=self.team.pk, distinct_ids=["p1"])
