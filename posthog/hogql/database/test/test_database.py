@@ -201,7 +201,7 @@ class TestDatabase(BaseTest, QueryMatchingTest):
             },
             columns={"parent_event": {"hogql": "StringDatabaseField", "clickhouse": "String", "valid": True}},
         )
-        DataWarehouseSavedQuery.objects.create(
+        child_saved_query = DataWarehouseSavedQuery.objects.create(
             team=child_team,
             name="shared_saved_query",
             query={
@@ -216,6 +216,9 @@ class TestDatabase(BaseTest, QueryMatchingTest):
         saved_query = database.get_table("shared_saved_query")
         assert isinstance(saved_query, SavedQuery)
         assert saved_query.query == "select event as child_event from events LIMIT 100"
+
+        serialized_database = database.serialize(HogQLContext(team_id=child_team.pk, database=database))
+        assert serialized_database["shared_saved_query"].id == str(child_saved_query.id)
 
     def test_serialize_database_warehouse_table_s3_with_unknown_field(self):
         credentials = DataWarehouseCredential.objects.create(access_key="blah", access_secret="blah", team=self.team)

@@ -832,6 +832,8 @@ class Database(BaseModel):
             DataWarehouseSavedQuery.objects.select_related("table")
             .exclude(deleted=True)
             .filter(team_id__in=_team_and_parent_ids_for_team_id(context.team_id))
+            .alias(team_priority=_saved_query_team_priority(context.team_id))
+            .order_by("name", "-team_priority")
             .all()
             if views
             else []
