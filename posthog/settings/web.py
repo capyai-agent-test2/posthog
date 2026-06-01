@@ -806,6 +806,7 @@ TOOLBAR_OAUTH_APPLICATION_NAME = "PostHog Toolbar"
 TOOLBAR_OAUTH_SCOPES = [
     "openid",
     "user:read",
+    "user:write",
     "action:read",
     "action:write",
     "feature_flag:read",
