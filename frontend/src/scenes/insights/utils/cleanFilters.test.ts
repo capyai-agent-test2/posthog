@@ -319,6 +319,23 @@ describe('cleanFilters', () => {
         expect(cleanedFilters).toHaveProperty('funnel_step_reference', FunnelStepReference.previous)
     })
 
+    it('keeps historical funnel conversion step ranges valid after a funnel step is removed', () => {
+        const cleanedFilters = cleanFilters({
+            events: [
+                { id: 'signed up', name: 'signed up', type: 'events', order: 0 },
+                { id: 'paid', name: 'paid', type: 'events', order: 1 },
+            ],
+            funnel_from_step: 1,
+            funnel_to_step: 2,
+            funnel_step_reference: FunnelStepReference.total,
+            funnel_viz_type: FunnelVizType.Trends,
+            insight: InsightType.FUNNELS,
+        } as FunnelsFilterType)
+
+        expect(cleanedFilters).toHaveProperty('funnel_from_step', 0)
+        expect(cleanedFilters).toHaveProperty('funnel_to_step', 1)
+    })
+
     it('removes the interval from funnels', () => {
         const cleanedFilters = cleanFilters({
             insight: InsightType.FUNNELS,
