@@ -4,6 +4,8 @@ from unittest.mock import MagicMock, patch
 from posthog.hogql_queries.hogql_cohort_query import HogQLCohortQuery, HogQLRealtimeCohortQuery
 from posthog.models import Cohort
 
+from products.actions.backend.models.action import Action
+
 
 class TestHogQLCohortQuery(ClickhouseTestMixin, APIBaseTest):
     """Tests for HogQLCohortQuery, particularly the optimization for multiple person property filters."""
@@ -149,6 +151,30 @@ class TestHogQLCohortQuery(ClickhouseTestMixin, APIBaseTest):
 
         # Should use INTERSECT DISTINCT because properties are mixed
         self.assertIn("INTERSECT DISTINCT", query_str)
+
+    def test_performed_action_uses_uncapped_event_query(self) -> None:
+        action = Action.objects.create(name="Sign up", team=self.team, steps_json=[{"event": "account_created"}])
+        cohort_filters = {
+            "type": "AND",
+            "values": [
+                {
+                    "key": str(action.id),
+                    "type": "behavioral",
+                    "value": "performed_event",
+                    "event_type": "actions",
+                    "time_value": 999,
+                    "time_interval": "day",
+                }
+            ],
+        }
+
+        cohort = Cohort.objects.create(team=self.team, name="Signed up users", filters={"properties": cohort_filters})
+
+        query_str = HogQLCohortQuery(cohort=cohort).query_str("clickhouse")
+
+        self.assertIn("SELECT DISTINCT person_id AS id", query_str)
+        self.assertIn("equals(events.event, %(hogql_val_0)s)", query_str)
+        self.assertNotIn("actor_id", query_str)
 
     @patch("posthoganalytics.feature_enabled", return_value=True)
     def test_optimization_skipped_for_properties_with_negation(self, mock_feature_enabled: MagicMock) -> None:

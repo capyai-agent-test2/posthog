@@ -156,6 +156,41 @@ class HogQLCohortQuery:
         return ActorsQueryRunner(team=self.team, query=actors_query).to_query()
 
     def get_performed_event_condition(self, prop: Property, first_time: bool = False) -> ast.SelectQuery:
+        if not first_time:
+            if prop.explicit_datetime:
+                date_from = prop.explicit_datetime
+                date_to = prop.explicit_datetime_to
+            else:
+                date_value = parse_and_validate_positive_integer(prop.time_value, "time_value")
+                date_interval = validate_interval(prop.time_interval)
+                date_from = f"-{date_value}{date_interval[:1]}"
+                date_to = None
+
+            events_query = EventsQuery(after=date_from, before=date_to, select=["person_id"])
+            if prop.event_type == "events":
+                events_query.event = prop.key
+            elif prop.event_type == "actions":
+                events_query.actionId = int(prop.key)
+            else:
+                raise ValueError(f"Event type must be 'events' or 'actions'")
+
+            if prop.event_filters:
+                property_groups = Filter(data={"properties": prop.event_filters}).property_groups
+                typed_properties: list[AnyPropertyFilter] = []
+                for property in property_groups.values:
+                    if isinstance(property, PropertyGroup):
+                        raise ValidationError("Property groups are not supported in this behavioral cohort type")
+                    typed_properties.append(property_to_typed_property(property))
+                events_query.properties = typed_properties
+
+            events_query_runner = EventsQueryRunner(
+                team=self.team, query=events_query, limit_context=LimitContext.COHORT_CALCULATION
+            )
+            return cast(
+                ast.SelectQuery,
+                parse_select("select distinct person_id as id from {event_query}", {"event_query": events_query_runner.to_query()}),
+            )
+
         math = None
         if first_time:
             math = BaseMathType.FIRST_TIME_FOR_USER
