@@ -800,8 +800,10 @@ export const sessionRecordingsPlaylistLogic = kea<sessionRecordingsPlaylistLogic
 
                         const newState = {
                             ...state,
-                            date_to: filters.date_from && isRelativeDate(filters.date_from) ? null : state.date_to,
                             ...filters,
+                        }
+                        if (newState.date_from && isRelativeDate(newState.date_from)) {
+                            newState.date_to = null
                         }
                         if (props.pinnedFilters) {
                             newState.filter_group = mergePinnedFilters(newState.filter_group, props.pinnedFilters)
