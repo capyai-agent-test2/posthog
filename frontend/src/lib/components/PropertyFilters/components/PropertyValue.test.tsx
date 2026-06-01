@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom'
 
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'kea'
 
@@ -76,6 +76,51 @@ describe('PropertyValue', () => {
 
         // loadPropertyValues should not have been called again
         expect(loadPropertyValuesSpy.mock.calls.length).toBe(callCountAfterLoad)
+    })
+
+    it('keeps suggested values in their initial order when refreshed results are reordered', async () => {
+        const onSet = jest.fn()
+        render(
+            <Provider>
+                <PropertyValue
+                    propertyKey="$browser"
+                    type={PropertyFilterType.Event}
+                    operator={PropertyOperator.Exact}
+                    onSet={onSet}
+                    value={[]}
+                />
+            </Provider>
+        )
+
+        const input = screen.getByRole('textbox')
+        userEvent.click(input)
+
+        await waitFor(
+            () => {
+                expect(screen.getByText('Chrome')).toBeInTheDocument()
+            },
+            { timeout: 3000 }
+        )
+
+        const optionNames = (): string[] =>
+            Array.from(document.querySelectorAll('[data-attr^="prop-val-"]')).map(
+                (element) => element.textContent ?? ''
+            )
+
+        expect(optionNames()).toEqual(['Chrome', 'Firefox', 'Safari'])
+
+        act(() => {
+            propertyDefinitionsModel.actions.setOptions(
+                '$browser',
+                [{ name: 'Safari' }, { name: 'Chrome' }, { name: 'Firefox' }, { name: 'Edge' }],
+                true,
+                false
+            )
+        })
+
+        await waitFor(() => {
+            expect(optionNames()).toEqual(['Chrome', 'Firefox', 'Safari', 'Edge'])
+        })
     })
 
     it('renders with showInlineValidationErrors prop', () => {
