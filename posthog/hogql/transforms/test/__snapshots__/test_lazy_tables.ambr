@@ -135,7 +135,7 @@
   '''
   
   SELECT events.event AS event, events__pdi.person_id AS person_id 
-  FROM events INNER JOIN (
+  FROM events LEFT OUTER JOIN (
   SELECT tupleElement(argMax(tuple(person_distinct_id2.person_id), person_distinct_id2.version), 1) AS person_id, person_distinct_id2.distinct_id AS distinct_id 
   FROM person_distinct_id2 
   WHERE equals(person_distinct_id2.team_id, 420) 
@@ -205,7 +205,7 @@
   '''
   
   SELECT events.event AS event, events__pdi__person.id AS id 
-  FROM events INNER JOIN (
+  FROM events LEFT OUTER JOIN (
   SELECT tupleElement(argMax(tuple(person_distinct_id2.person_id), person_distinct_id2.version), 1) AS events__pdi___person_id, tupleElement(argMax(tuple(person_distinct_id2.person_id), person_distinct_id2.version), 1) AS person_id, person_distinct_id2.distinct_id AS distinct_id 
   FROM person_distinct_id2 
   WHERE equals(person_distinct_id2.team_id, 420) 
@@ -226,7 +226,7 @@
   '''
   
   SELECT events.event AS event, events__pdi__person.`properties___$browser` AS `$browser` 
-  FROM events INNER JOIN (
+  FROM events LEFT OUTER JOIN (
   SELECT tupleElement(argMax(tuple(person_distinct_id2.person_id), person_distinct_id2.version), 1) AS events__pdi___person_id, tupleElement(argMax(tuple(person_distinct_id2.person_id), person_distinct_id2.version), 1) AS person_id, person_distinct_id2.distinct_id AS distinct_id 
   FROM person_distinct_id2 
   WHERE equals(person_distinct_id2.team_id, 420) 
