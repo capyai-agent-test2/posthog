@@ -1408,9 +1408,13 @@ export const sessionRecordingsPlaylistLogic = kea<sessionRecordingsPlaylistLogic
         ],
 
         activeSessionRecording: [
-            (s) => [s.activeSessionRecordingId, s.recordings],
-            (activeSessionRecordingId, recordings): SessionRecordingType | undefined => {
-                return recordings.find((rec) => rec.id === activeSessionRecordingId)
+            (s) => [s.activeSessionRecordingId, s.recordings, s.selectedRecordingId],
+            (activeSessionRecordingId, recordings, selectedRecordingId): SessionRecordingType | undefined => {
+                const recording = recordings.find((rec) => rec.id === activeSessionRecordingId)
+                if (recording || activeSessionRecordingId !== selectedRecordingId) {
+                    return recording
+                }
+                return activeSessionRecordingId ? ({ id: activeSessionRecordingId } as SessionRecordingType) : undefined
             },
         ],
 
