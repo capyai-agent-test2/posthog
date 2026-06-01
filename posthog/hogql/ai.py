@@ -1411,7 +1411,7 @@ Here is the taxonomy for event properties:
             "label": "Session entry rdt_cid",
         },
         "$session_entry_referrer": {
-            "description": "URL of where the user came from. Captured at the start of the session and remains constant for the duration of the session.",
+            "description": "Browser-provided previous page URL. Can be empty when the browser suppresses referrer data, such as links with rel='noreferrer'. Captured at the start of the session and remains constant for the duration of the session.",
             "examples": ["https://google.com/search?q=posthog&rlz=1C..."],
             "label": "Session entry Referrer URL",
         },
@@ -2091,7 +2091,7 @@ Here is the taxonomy for event properties:
         },
         "$referrer": {
             "label": "Referrer URL",
-            "description": "URL of where the user came from.",
+            "description": "Browser-provided previous page URL. Can be empty when the browser suppresses referrer data, such as links with rel='noreferrer'.",
             "examples": ["https://google.com/search?q=posthog&rlz=1C..."],
         },
         "$referring_domain": {

@@ -736,7 +736,7 @@ CORE_FILTER_DEFINITIONS_BY_GROUP: dict[str, dict[str, CoreFilterDefinition]] = {
             "ignored_in_assistant": True,
         },
         "$session_entry_referrer": {
-            "description": "URL of where the user came from. Captured at the start of the session and remains constant for the duration of the session.",
+            "description": "Browser-provided previous page URL. Can be empty when the browser suppresses referrer data, such as links with rel='noreferrer'. Captured at the start of the session and remains constant for the duration of the session.",
             "examples": ["https://google.com/search?q=posthog&rlz=1C..."],
             "label": "Session entry Referrer URL",
             "ignored_in_assistant": True,
@@ -1502,7 +1502,7 @@ CORE_FILTER_DEFINITIONS_BY_GROUP: dict[str, dict[str, CoreFilterDefinition]] = {
         },
         "$referrer": {
             "label": "Referrer URL",
-            "description": "URL of where the user came from.",
+            "description": "Browser-provided previous page URL. Can be empty when the browser suppresses referrer data, such as links with rel='noreferrer'.",
             "examples": ["https://google.com/search?q=posthog&rlz=1C..."],
         },
         "$referring_domain": {
