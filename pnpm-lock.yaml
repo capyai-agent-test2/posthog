@@ -121,6 +121,9 @@ patchedDependencies:
   heatmap.js@2.0.5:
     hash: d95e6638894935a75bd93b60b5243cb825892a1eedcc4c9a125a3e7dce8b64f0
     path: patches/heatmap.js@2.0.5.patch
+  posthog-js@1.376.5:
+    hash: d638615549fa6c17b10c40257be81b2b1c466c9a6f66e4ed030fa12c9416343a
+    path: patches/posthog-js@1.376.5.patch
 
 importers:
 
