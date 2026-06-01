@@ -470,6 +470,7 @@ class TestTrendsDashboardFilters(BaseTest):
         assert query_runner.query.breakdownFilter is None
         assert query_runner.query.trendsFilter == TrendsFilter()
         assert query_runner.query.compareFilter == CompareFilter(compare=True)
+        assert [series.is_previous_period_series for series in query_runner.series] == [False, True]
 
         query_runner.apply_dashboard_filters(DashboardFilter(date_from="all"))
 
@@ -481,6 +482,7 @@ class TestTrendsDashboardFilters(BaseTest):
         assert query_runner.query.compareFilter == CompareFilter(
             compare=False
         )  # There's no previous period for the "all time" date range
+        assert [series.is_previous_period_series for series in query_runner.series] == [None]
 
     def test_dashboard_property_filters_are_ignored_for_data_warehouse_series(self):
         query_runner = self._create_query_runner(
