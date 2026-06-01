@@ -2229,6 +2229,29 @@ describe('processResultsForSurveyQuestions', () => {
             expect(dataMap.get('Yes')).toEqual({ label: 'Yes', value: 5, isPredefined: true })
             expect(dataMap.get('Yess')).toBeUndefined()
         })
+
+        it('does not remap an alias when that label is also a current choice', () => {
+            const questions = [
+                {
+                    id: 'single-q1',
+                    type: SurveyQuestionType.SingleChoice as const,
+                    question: 'Pick one',
+                    choices: ['Old label', 'New label'],
+                    choiceAliases: { 'New label': ['Old label'] },
+                },
+            ]
+            const rows: [string, string, number][] = [
+                ['single-q1', 'Old label', 2],
+                ['single-q1', 'New label', 3],
+            ]
+
+            const processed = processResultsForSurveyQuestions(questions, rows)
+            const singleData = processed['single-q1'] as ChoiceQuestionProcessedResponses
+
+            const dataMap = new Map(singleData.data.map((item) => [item.label, item]))
+            expect(dataMap.get('Old label')).toEqual({ label: 'Old label', value: 2, isPredefined: true })
+            expect(dataMap.get('New label')).toEqual({ label: 'New label', value: 3, isPredefined: true })
+        })
     })
 
     describe('Multiple Choice Questions', () => {

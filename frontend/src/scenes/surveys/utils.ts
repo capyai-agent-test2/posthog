@@ -769,6 +769,44 @@ interface SanitizeSurveyOptions {
     keepEmptyConditions?: boolean
 }
 
+export function cleanChoiceAliasesForChoices(
+    currentAliases: Record<string, string[]> | undefined,
+    currentChoices: string[]
+): Record<string, string[]> | undefined {
+    const currentChoiceSet = new Set(currentChoices)
+    const cleanedAliases = Object.fromEntries(
+        Object.entries(currentAliases ?? {}).filter(
+            ([choice, aliases]) => currentChoiceSet.has(choice) && aliases.length > 0
+        )
+    )
+    return Object.keys(cleanedAliases).length > 0 ? cleanedAliases : undefined
+}
+
+export function getChoiceAliasesForRename(
+    currentAliases: Record<string, string[]> | undefined,
+    previousChoice: string,
+    renamedChoice: string,
+    currentChoices: string[]
+): Record<string, string[]> | undefined {
+    if (previousChoice === renamedChoice) {
+        return cleanChoiceAliasesForChoices(currentAliases, currentChoices)
+    }
+
+    const updatedAliases = { ...currentAliases }
+    const previousAliases = updatedAliases[previousChoice] ?? []
+    delete updatedAliases[previousChoice]
+
+    updatedAliases[renamedChoice] = Array.from(
+        new Set([
+            ...(updatedAliases[renamedChoice] ?? []),
+            ...previousAliases,
+            ...(previousChoice ? [previousChoice] : []),
+        ])
+    ).filter((alias) => alias !== renamedChoice)
+
+    return cleanChoiceAliasesForChoices(updatedAliases, currentChoices)
+}
+
 export function sanitizeSurvey(survey: Partial<Survey>, options?: SanitizeSurveyOptions): Partial<Survey> {
     const sanitizedQuestions =
         survey.questions?.map((question) => {

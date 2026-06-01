@@ -27,7 +27,7 @@ import { NewSurvey, SCALE_OPTIONS, SURVEY_RATING_SCALE, SurveyQuestionLabel } fr
 import { HTMLEditor } from './SurveyAppearanceUtils'
 import { SurveyDragHandle } from './SurveyDragHandle'
 import { surveyLogic } from './surveyLogic'
-import { isThumbQuestion, splitChoicesOnPaste } from './utils'
+import { cleanChoiceAliasesForChoices, getChoiceAliasesForRename, isThumbQuestion, splitChoicesOnPaste } from './utils'
 
 type SurveyQuestionHeaderProps = {
     index: number
@@ -252,40 +252,6 @@ export function SurveyEditQuestionGroup({ index, question }: { index: number; qu
         question.type === SurveyQuestionType.Rating && question.scale === SURVEY_RATING_SCALE.NPS_10_POINT
 
     const hasTranslations = question.translations && Object.keys(question.translations).length > 0
-
-    const cleanChoiceAliasesForChoices = (
-        currentAliases: Record<string, string[]> | undefined,
-        currentChoices: string[]
-    ): Record<string, string[]> | undefined => {
-        const currentChoiceSet = new Set(currentChoices)
-        const cleanedAliases = Object.fromEntries(
-            Object.entries(currentAliases ?? {}).filter(
-                ([choice, aliases]) => currentChoiceSet.has(choice) && aliases.length > 0
-            )
-        )
-        return Object.keys(cleanedAliases).length > 0 ? cleanedAliases : undefined
-    }
-
-    const getChoiceAliasesForRename = (
-        currentAliases: Record<string, string[]> | undefined,
-        previousChoice: string,
-        renamedChoice: string,
-        currentChoices: string[]
-    ): Record<string, string[]> | undefined => {
-        if (previousChoice === renamedChoice || !previousChoice || !renamedChoice) {
-            return cleanChoiceAliasesForChoices(currentAliases, currentChoices)
-        }
-
-        const updatedAliases = { ...currentAliases }
-        const previousAliases = updatedAliases[previousChoice] ?? []
-        delete updatedAliases[previousChoice]
-
-        updatedAliases[renamedChoice] = Array.from(
-            new Set([...(updatedAliases[renamedChoice] ?? []), ...previousAliases, previousChoice])
-        ).filter((alias) => alias !== renamedChoice)
-
-        return cleanChoiceAliasesForChoices(updatedAliases, currentChoices)
-    }
 
     // Helper to synchronize choices in all translations when default choices change
     const updateDefaultChoices = (newChoices: string[], renamedChoice?: { from: string; to: string }): void => {

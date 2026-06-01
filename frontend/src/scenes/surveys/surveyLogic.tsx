@@ -373,6 +373,7 @@ function processChoiceQuestion(
 ): ChoiceQuestionProcessedResponses {
     const totalEntry = entries.find(([l]) => l === '__total__')
     const dataEntries = entries.filter(([l]) => l !== '__total__')
+    const currentChoices = new Set(question.choices ?? [])
     const predefined = getPredefinedChoiceLabels(question)
     const labelAliases = getChoiceLabelAliases(question)
 
@@ -383,7 +384,7 @@ function processChoiceQuestion(
     const choiceCounts = new Map<string, number>()
 
     filteredEntries.forEach(([label, count]) => {
-        const displayLabel = labelAliases[label] ?? label
+        const displayLabel = currentChoices.has(label) ? label : (labelAliases[label] ?? label)
         choiceCounts.set(displayLabel, (choiceCounts.get(displayLabel) ?? 0) + count)
     })
 
