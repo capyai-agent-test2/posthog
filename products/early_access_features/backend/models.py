@@ -1,7 +1,9 @@
 from typing import TYPE_CHECKING
 
-from django.db import models
+from django.db import models, transaction
 from django.db.models import QuerySet
+from django.db.models.signals import post_delete, post_save
+from django.dispatch import receiver
 
 from posthog.models.file_system.file_system_mixin import FileSystemSyncMixin
 from posthog.models.file_system.file_system_representation import FileSystemRepresentation
@@ -72,3 +74,13 @@ class EarlyAccessFeature(FileSystemSyncMixin, RootTeamMixin, UUIDTModel):
             },
             should_delete=False,
         )
+
+
+@receiver(post_save, sender=EarlyAccessFeature)
+@receiver(post_delete, sender=EarlyAccessFeature)
+def early_access_feature_changed(_sender: object, instance: EarlyAccessFeature, **_kwargs: object) -> None:
+    from products.feature_flags.backend.tasks import (
+        update_team_flags_cache,  # noqa: PLC0415 — avoids importing Celery tasks on model import
+    )
+
+    transaction.on_commit(lambda: update_team_flags_cache.delay(instance.team_id))

@@ -43,6 +43,7 @@ from posthog.person_db_router import PERSONS_DB_FOR_READ
 from posthog.storage.hypercache import HyperCache, emit_cache_sync_metrics
 from posthog.storage.hypercache_manager import HyperCacheManagementConfig
 
+from products.early_access_features.backend.models import EarlyAccessFeature
 from products.feature_flags.backend.flags_cache import _compare_flag_fields, get_teams_with_flags_queryset
 from products.feature_flags.backend.models.evaluation_context import EvaluationContext, FeatureFlagEvaluationContext
 from products.feature_flags.backend.models.feature_flag import FeatureFlag
@@ -524,6 +525,12 @@ def _get_flags_response_for_local_evaluation_batch(
     ):
         survey_flag_ids.update(fid for fid in row if fid is not None)
 
+    early_access_feature_flag_ids = set(
+        EarlyAccessFeature.objects.db_manager(DATABASE_FOR_LOCAL_EVALUATION)
+        .filter(team_id__in=team_ids, feature_flag_id__isnull=False)
+        .values_list("feature_flag_id", flat=True)
+    )
+
     # Load all eligible flags once, ordered for groupby and ETag stability.
     # Materializing allows two passes: first to extract cohort IDs, then to
     # serialize — one DB round trip instead of two.
@@ -532,6 +539,7 @@ def _get_flags_response_for_local_evaluation_batch(
         .filter(team_id__in=team_ids)
         .exclude(has_encrypted_payloads=True)
         .exclude(id__in=survey_flag_ids)
+        .exclude(id__in=early_access_feature_flag_ids)
         .annotate(
             evaluation_tag_names_agg=ArrayAgg(
                 "flag_evaluation_contexts__evaluation_context__name",
