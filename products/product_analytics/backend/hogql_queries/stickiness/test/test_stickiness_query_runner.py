@@ -820,8 +820,14 @@ class TestStickinessQueryRunner(ClickhouseTestMixin, APIBaseTest):
         runner = StickinessQueryRunner(team=self.team, query=query)
 
         actors_query = runner.to_actors_query(interval_num=2, series_index=99, compare_value=Compare.CURRENT)
+        response = execute_hogql_query(
+            query_type="StickinessActorsQuery",
+            query=actors_query,
+            team=self.team,
+        )
 
         assert actors_query.select[0].alias == "actor_id"
+        assert response.results == []
 
     def test_criteria(self):
         self._create_events(
