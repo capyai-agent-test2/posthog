@@ -1,11 +1,13 @@
 import json
 
-from django.test import TestCase
+from django.test import SimpleTestCase
+
+from posthog.schema import HogQLQuery
 
 from posthog.renderers import SafeJSONRenderer
 
 
-class TestCleanDataForJSON(TestCase):
+class TestCleanDataForJSON(SimpleTestCase):
     def test_cleans_dict_with_nan_and_inf_scalars(self):
         response = {
             "control": 1.0,
@@ -91,5 +93,29 @@ class TestCleanDataForJSON(TestCase):
                         "nope": None,
                     }
                 ],
+            },
+        )
+
+    def test_renders_pydantic_models_as_json_objects(self):
+        data = SafeJSONRenderer().render({"query": HogQLQuery(query="select 1")})
+
+        self.assertDictEqual(
+            json.loads(data),
+            {
+                "query": {
+                    "connectionId": None,
+                    "explain": None,
+                    "filters": None,
+                    "kind": "HogQLQuery",
+                    "modifiers": None,
+                    "name": None,
+                    "query": "select 1",
+                    "response": None,
+                    "sendRawQuery": None,
+                    "tags": None,
+                    "values": None,
+                    "variables": None,
+                    "version": None,
+                }
             },
         )
