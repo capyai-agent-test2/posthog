@@ -445,7 +445,7 @@ def prop_filter_json_extract(
             "v{}_{}".format(prepend, idx): value,
         }
         return (
-            " {property_operator} {left} ILIKE %(v{prepend}_{idx})s".format(
+            " {property_operator} toString({left}) ILIKE %(v{prepend}_{idx})s".format(
                 idx=idx,
                 prepend=prepend,
                 left=property_expr,
@@ -460,7 +460,7 @@ def prop_filter_json_extract(
             "v{}_{}".format(prepend, idx): value,
         }
         return (
-            " {property_operator} NOT ({left} ILIKE %(v{prepend}_{idx})s)".format(
+            " {property_operator} NOT (toString({left}) ILIKE %(v{prepend}_{idx})s)".format(
                 idx=idx,
                 prepend=prepend,
                 left=property_expr,
