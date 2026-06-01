@@ -297,9 +297,10 @@ export const insightLogic: LogicWrapper<insightLogicType> = kea<insightLogicType
                       },
             setInsight: (state, { insight }) => {
                 // Preserve the user-edited name when loading new data for the same insight,
-                // but not when switching to a brand new insight
+                // or when the first persisted response for a new insight omits its name.
                 const isSameInsight = insight.short_id && insight.short_id === state.short_id
-                if (!insight.name && state.name && isSameInsight) {
+                const isPersistingNewInsight = !state.short_id && !!insight.short_id
+                if (!insight.name && state.name && (isSameInsight || isPersistingNewInsight)) {
                     return {
                         ...insight,
                         name: state.name,

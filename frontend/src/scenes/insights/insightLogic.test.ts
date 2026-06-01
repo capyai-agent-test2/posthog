@@ -810,6 +810,26 @@ describe('insightLogic', () => {
             })
         })
 
+        it('preserves user-edited name when a new insight first receives its short id', async () => {
+            logic = insightLogic({ dashboardItemId: 'new' })
+            logic.mount()
+
+            logic.actions.setInsightMetadataLocal({ name: 'User Edited SQL Insight' })
+
+            await expectLogic(logic).toMatchValues({
+                insight: partial({ name: 'User Edited SQL Insight', short_id: undefined }),
+            })
+
+            logic.actions.setInsight(
+                { ...logic.values.insight, name: '', short_id: 'abc123' as InsightShortId },
+                { fromPersistentApi: false, overrideQuery: false }
+            )
+
+            await expectLogic(logic).toMatchValues({
+                insight: partial({ name: 'User Edited SQL Insight', short_id: 'abc123' }),
+            })
+        })
+
         it('does not preserve name when switching to a new insight', async () => {
             logic = insightLogic({ dashboardItemId: Insight42 })
             logic.mount()
