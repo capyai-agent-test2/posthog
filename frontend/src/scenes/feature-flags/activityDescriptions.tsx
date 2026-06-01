@@ -25,6 +25,8 @@ import {
     FeatureFlagType,
 } from '~/types'
 
+import { featureFlagJsonStringify } from './jsonUtils'
+
 const getChangedPayloadKeys = (
     filtersBefore: FeatureFlagFilters | undefined,
     filtersAfter: FeatureFlagFilters
@@ -103,7 +105,10 @@ const featureFlagActionsMapping: Record<
                     .filter((groupAfter, index) => {
                         const groupBefore = filtersBefore?.groups?.[index]
                         // only keep changes with no "before" state, or those where before and after are different
-                        return !groupBefore || JSON.stringify(groupBefore) !== JSON.stringify(groupAfter)
+                        return (
+                            !groupBefore ||
+                            featureFlagJsonStringify(groupBefore) !== featureFlagJsonStringify(groupAfter)
+                        )
                     })
                     .forEach((groupAfter: FeatureFlagGroupType) => {
                         const { properties, rollout_percentage = null } = groupAfter

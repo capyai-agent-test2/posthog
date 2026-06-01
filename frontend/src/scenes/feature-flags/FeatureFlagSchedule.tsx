@@ -62,6 +62,7 @@ import { FeatureFlagReleaseConditionsCollapsible } from './FeatureFlagReleaseCon
 import { groupFilters } from './FeatureFlags'
 import { featureFlagScheduleEditLogic } from './featureFlagScheduleEditLogic'
 import { FeatureFlagVariantsForm } from './FeatureFlagVariantsForm'
+import { featureFlagJsonStringify } from './jsonUtils'
 
 export const DAYJS_FORMAT = 'MMMM DD, YYYY h:mm A'
 
@@ -257,7 +258,7 @@ function ChangeDescription({
         )
     }
 
-    return <span className="text-muted">{JSON.stringify(payload)}</span>
+    return <span className="text-muted">{featureFlagJsonStringify(payload)}</span>
 }
 
 function ScheduleTiming({ scheduledChange }: { scheduledChange: ScheduledChangeType }): JSX.Element {
@@ -1221,7 +1222,7 @@ function FeatureFlagScheduleLegacy(): JSX.Element {
                     )
                 }
 
-                return JSON.stringify(payload)
+                return featureFlagJsonStringify(payload)
             },
         },
         {

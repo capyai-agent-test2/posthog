@@ -13,6 +13,7 @@ import { PropertyDefinitionType } from '~/types'
 
 import type { ConditionAnalysis } from './featureFlagTestingLogic'
 import { featureFlagTestingLogic } from './featureFlagTestingLogic'
+import { featureFlagJsonStringify } from './jsonUtils'
 
 const CONDITION_DISPLAY_STYLES = {
     success: {
@@ -264,7 +265,7 @@ export function FeatureFlagTestingTab({ featureFlag }: { featureFlag: FeatureFla
                                     <div className="space-y-2">
                                         <LemonLabel>Payload</LemonLabel>
                                         <div className="px-3 py-2 rounded text-sm font-mono bg-bg-light">
-                                            {JSON.stringify(result.payload, null, 2)}
+                                            {featureFlagJsonStringify(result.payload, 2)}
                                         </div>
                                     </div>
                                 )}

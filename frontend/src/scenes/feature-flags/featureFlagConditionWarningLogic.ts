@@ -6,6 +6,7 @@ import { cohortsModel } from '~/models/cohortsModel'
 import { AnyPropertyFilter, CohortType, FeatureFlagEvaluationRuntime, PropertyFilterType } from '~/types'
 
 import type { featureFlagConditionWarningLogicType } from './featureFlagConditionWarningLogicType'
+import { featureFlagJsonStringify } from './jsonUtils'
 
 export interface FeatureFlagConditionWarningLogicProps {
     properties: AnyPropertyFilter[]
@@ -19,7 +20,7 @@ const REGEX_BACKREFERENCE = /(?<!\\)\\[1-9]/ // \1 through \9
 export const featureFlagConditionWarningLogic = kea<featureFlagConditionWarningLogicType>([
     path(['scenes', 'feature-flags', 'featureFlagConditionWarningLogic']),
     props({} as FeatureFlagConditionWarningLogicProps),
-    key((props) => JSON.stringify(props.properties)),
+    key((props) => featureFlagJsonStringify(props.properties)),
     connect(() => ({
         values: [cohortsModel, ['cohortsById']],
     })),

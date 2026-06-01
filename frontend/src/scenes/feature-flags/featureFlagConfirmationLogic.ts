@@ -5,6 +5,7 @@ import { FeatureFlagType } from '~/types'
 import { openConfirmationModal } from './ConfirmationModal'
 import type { featureFlagConfirmationLogicType } from './featureFlagConfirmationLogicType'
 import { DependentFlag } from './featureFlagLogic'
+import { featureFlagJsonStringify } from './jsonUtils'
 
 /**
  * Detects feature flag changes that warrant confirmation.
@@ -43,8 +44,8 @@ function detectFeatureFlagChanges(
     }
 
     // Check for any filter changes (comprehensive detection)
-    const originalFilters = JSON.stringify(originalFlag.filters || {})
-    const updatedFilters = JSON.stringify(updatedFlag.filters || {})
+    const originalFilters = featureFlagJsonStringify(originalFlag.filters || {})
+    const updatedFilters = featureFlagJsonStringify(updatedFlag.filters || {})
 
     if (originalFilters !== updatedFilters) {
         // Try to detect specific types of changes for better messaging
@@ -60,20 +61,22 @@ function detectFeatureFlagChanges(
         // Check for variant changes
         const originalVariants = originalFlag.filters?.multivariate?.variants || []
         const updatedVariants = updatedFlag.filters?.multivariate?.variants || []
-        const variantsChanged = JSON.stringify(originalVariants) !== JSON.stringify(updatedVariants)
+        const variantsChanged = featureFlagJsonStringify(originalVariants) !== featureFlagJsonStringify(updatedVariants)
 
         // Check for release condition changes (properties, etc.)
         const conditionsChanged = originalGroups.some((group, index) => {
             const updatedGroup = updatedGroups[index]
             return (
-                updatedGroup && JSON.stringify(group.properties || []) !== JSON.stringify(updatedGroup.properties || [])
+                updatedGroup &&
+                featureFlagJsonStringify(group.properties || []) !==
+                    featureFlagJsonStringify(updatedGroup.properties || [])
             )
         })
 
         // Check for payload changes
         const originalPayloads = originalFlag.filters?.payloads || {}
         const updatedPayloads = updatedFlag.filters?.payloads || {}
-        const payloadsChanged = JSON.stringify(originalPayloads) !== JSON.stringify(updatedPayloads)
+        const payloadsChanged = featureFlagJsonStringify(originalPayloads) !== featureFlagJsonStringify(updatedPayloads)
 
         // Add specific change messages
         if (rolloutChanged) {
