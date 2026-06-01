@@ -114,6 +114,7 @@ def to_dict(query: BaseModel) -> dict:
                         "excludeBoxPlotOutliers",
                         "showFullUrls",
                         "selectedInterval",
+                        "retentionReference",
                         "funnelStepReference",
                         "breakdownSorting",
                     ]

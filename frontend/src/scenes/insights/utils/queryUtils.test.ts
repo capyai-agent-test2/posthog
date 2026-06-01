@@ -1,6 +1,8 @@
 import { NodeKind } from '~/queries/schema/schema-general'
+import type { RetentionQuery } from '~/queries/schema/schema-general'
 
 import {
+    compareDataNodeQuery,
     filterVariablesReferencedInQuery,
     hasInvalidRegexFilter,
     isBoxPlotMissingProperty,
@@ -190,6 +192,32 @@ describe('validateQuery', () => {
             properties: [{ type: 'event', key: 'url', operator: 'exact', value: '/home' }],
         }
         expect(validateQuery(trendsQuery)).toBe(true)
+    })
+})
+
+describe('compareDataNodeQuery', () => {
+    it('ignores retention reference when comparing visualization-only changes', () => {
+        const baseQuery: RetentionQuery = {
+            kind: NodeKind.RetentionQuery,
+            retentionFilter: {
+                period: 'Day',
+                totalIntervals: 7,
+                retentionReference: 'total',
+            },
+        }
+        const previousReferenceQuery: RetentionQuery = {
+            ...baseQuery,
+            retentionFilter: {
+                ...baseQuery.retentionFilter,
+                retentionReference: 'previous',
+            },
+        }
+
+        expect(
+            compareDataNodeQuery(baseQuery, previousReferenceQuery, {
+                ignoreVisualizationOnlyChanges: true,
+            })
+        ).toBe(true)
     })
 })
 
