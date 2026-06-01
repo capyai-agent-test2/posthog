@@ -791,9 +791,20 @@ class Cohort(FileSystemSyncMixin, RootTeamMixin, models.Model):
             try:
                 count = count_cohort_members(cohort_id=self.id, team_id=team_id, consistency="strong")
                 if insert_in_clickhouse and count == 0:
-                    clickhouse_count = get_static_cohort_size_from_clickhouse(cohort_id=self.id, team_id=team_id)
-                    if clickhouse_count > 0:
-                        count = clickhouse_count
+                    try:
+                        clickhouse_count = get_static_cohort_size_from_clickhouse(cohort_id=self.id, team_id=team_id)
+                        if clickhouse_count > 0:
+                            count = clickhouse_count
+                    except Exception as clickhouse_count_err:
+                        logger.exception(
+                            "Failed to calculate static cohort size from ClickHouse",
+                            cohort_id=self.id,
+                            team_id=team_id,
+                        )
+                        capture_exception(
+                            clickhouse_count_err,
+                            additional_properties={"cohort_id": self.id, "team_id": team_id},
+                        )
                 self.count = count
             except Exception as count_err:
                 # If count calculation fails, log the error but don't override the processing error.
