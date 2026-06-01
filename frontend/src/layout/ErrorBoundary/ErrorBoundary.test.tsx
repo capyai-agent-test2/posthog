@@ -1,8 +1,12 @@
 import { AppErrorBoundary } from './ErrorBoundary'
 
 describe('AppErrorBoundary', () => {
+    afterEach(() => {
+        jest.restoreAllMocks()
+    })
+
     it('does not switch to fallback UI for browser DOM modification errors', () => {
-        const warnSpy = jest.spyOn(console, 'warn').mockImplementation()
+        jest.spyOn(console, 'warn').mockImplementation()
         const captureException = jest.fn()
         const boundary = new AppErrorBoundary({ children: 'content' })
         boundary.context = {
@@ -17,7 +21,5 @@ describe('AppErrorBoundary', () => {
         expect(captureException).not.toHaveBeenCalled()
         expect(boundary.state.componentStack).toBeNull()
         expect(boundary.render()).toBe('content')
-
-        warnSpy.mockRestore()
     })
 })
