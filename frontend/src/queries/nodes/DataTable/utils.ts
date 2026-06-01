@@ -67,6 +67,13 @@ export function getColumnsForQuery(query: DataTableNode): HogQLExpression[] {
     return query.columns ?? getDataNodeDefaultColumns(query.source)
 }
 
+export function getColumnsForQueryMutation(
+    columnsInQuery: HogQLExpression[],
+    columnsInResponse: HogQLExpression[] | null
+): HogQLExpression[] {
+    return columnsInQuery.length > 0 ? columnsInQuery : (columnsInResponse ?? [])
+}
+
 export function extractExpressionComment(query: string): string {
     if (query.includes('--')) {
         return query.split('--').pop()?.trim() || query
