@@ -1,6 +1,7 @@
 import { MOCK_DEFAULT_USER } from 'lib/api.mock'
 
 import { expectLogic } from 'kea-test-utils'
+import posthog from 'posthog-js'
 
 import api from 'lib/api'
 
@@ -184,6 +185,27 @@ describe('userLogic', () => {
                     },
                 }),
             })
+        })
+    })
+
+    describe('product analytics tracking properties', () => {
+        afterEach(() => {
+            jest.restoreAllMocks()
+        })
+
+        it('registers impersonation state for subsequent captured events', async () => {
+            const registerSpy = jest.spyOn(posthog, 'register')
+            const impersonatedUser = { ...userWithLightTheme, is_impersonated: true }
+
+            await expectLogic(userLogic, () => {
+                userLogic.actions.loadUserSuccess(impersonatedUser)
+            }).toMatchValues({ user: impersonatedUser })
+
+            expect(registerSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    was_impersonated: true,
+                })
+            )
         })
     })
 })

@@ -80,6 +80,7 @@ class RelatedActorsQuery:
                   WHERE team_id = %(team_id)s
                     AND timestamp > %(after)s
                     AND timestamp < %(before)s
+                    AND ifNull(JSONExtractBool(properties, 'was_impersonated'), 0) = 0
                     AND {self._filter_clause}
             )
             GROUP BY distinct_id
@@ -106,6 +107,7 @@ class RelatedActorsQuery:
                       WHERE team_id = %(team_id)s
                         AND e.timestamp > %(after)s
                         AND e.timestamp < %(before)s
+                        AND ifNull(JSONExtractBool(e.properties, 'was_impersonated'), 0) = 0
                         AND {f"e.$group_{self.group_type_index} = %(id)s" if self.is_aggregating_by_groups else f"e.person_id = %(id)s"}
                   )
                 ORDER BY group_type_index, group_key

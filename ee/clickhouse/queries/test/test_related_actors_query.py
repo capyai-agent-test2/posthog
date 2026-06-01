@@ -66,13 +66,15 @@ class BaseRelatedActorsTest(ABC, ClickhouseTestMixin, APIBaseTest):
         self._create_group_event("user4", RECENT_DATE - timedelta(days=100), self.org1)
         flush_persons_and_events()
 
-    def _create_group_event(self, distinct_id: str, timestamp: datetime, group: Group) -> None:
+    def _create_group_event(
+        self, distinct_id: str, timestamp: datetime, group: Group, properties: dict[str, object] | None = None
+    ) -> None:
         _create_event(
             team=self.team,
             event="$pageview",
             distinct_id=distinct_id,
             timestamp=timestamp,
-            properties={f"$group_{group.group_type_index}": group.group_key},
+            properties={f"$group_{group.group_type_index}": group.group_key, **(properties or {})},
         )
 
     def _insert_pdi2_row(self, distinct_id: str, person_id: str, version: int, is_deleted: int = 0) -> None:
@@ -113,6 +115,15 @@ class TestRelatedPersonsQuery(BaseRelatedActorsTest):
         assert str(self.another_person.uuid) in ids
         assert str(self.unrelated_person.uuid) not in ids
         assert str(self.old_related_person.uuid) not in ids
+
+    def test_excludes_people_from_impersonated_events(self):
+        self._create_group_event("user3", RECENT_DATE, self.org1, {"was_impersonated": True})
+        flush_persons_and_events()
+
+        results = self.run_query()
+
+        ids = self.get_ids_from_results(results)
+        assert str(self.unrelated_person.uuid) not in ids
 
     def test_excludes_deleted_person_mapping(self):
         self._insert_pdi2_row("user2", str(self.another_person.uuid), version=100, is_deleted=1)
@@ -164,6 +175,15 @@ class TestRelatedGroupsQuery(BaseRelatedActorsTest):
         assert "instance:1" in ids
 
     def test_excludes_unrelated_groups(self):
+        results = self.run_query()
+
+        ids = self.get_ids_from_results(results)
+        assert "another-org" not in ids
+
+    def test_excludes_groups_from_impersonated_events(self):
+        self._create_group_event("user1", RECENT_DATE, self.another_org, {"was_impersonated": True})
+        flush_persons_and_events()
+
         results = self.run_query()
 
         ids = self.get_ids_from_results(results)
