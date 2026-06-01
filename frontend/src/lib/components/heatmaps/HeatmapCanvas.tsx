@@ -23,7 +23,7 @@ const HEATMAP_CONFIG = {
     maxOpacity: 0.8,
 }
 
-function getHeatmapJsData(heatmapElements: HeatmapAreaPointWithCount[], width: number): HeatmapJsData {
+function getHeatmapJsData(heatmapElements: HeatmapAreaPointWithCount[], width: number, max?: number): HeatmapJsData {
     const data = heatmapElements.map((element) => ({
         x: Math.round(element.xPercentage * width),
         y: Math.round(element.y),
@@ -32,7 +32,7 @@ function getHeatmapJsData(heatmapElements: HeatmapAreaPointWithCount[], width: n
 
     return {
         min: 0,
-        max: data.reduce((max, { value }) => Math.max(max, value), 0),
+        max: max ?? data.reduce((max, { value }) => Math.max(max, value), 0),
         data,
     }
 }
@@ -55,10 +55,11 @@ export function getToolbarHeatmapJsData(
             : heatmapElements.filter((element) => !element.targetFixed)
     const fixedElements =
         heatmapFixedPositionMode === 'fixed' ? heatmapElements.filter((element) => element.targetFixed) : []
+    const max = heatmapElements.reduce((max, { count }) => Math.max(max, count), 0)
 
     return {
-        scrolledHeatmapJsData: getHeatmapJsData(scrolledElements, width),
-        fixedHeatmapJsData: getHeatmapJsData(fixedElements, width),
+        scrolledHeatmapJsData: getHeatmapJsData(scrolledElements, width, max),
+        fixedHeatmapJsData: getHeatmapJsData(fixedElements, width, max),
     }
 }
 
