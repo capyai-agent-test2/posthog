@@ -6,16 +6,19 @@ import { IconThumbsDown, IconThumbsUp } from '@posthog/icons'
 import { LemonBanner, LemonButton } from '@posthog/lemon-ui'
 
 import { AccessDenied } from 'lib/components/AccessDenied'
+import { keyBinds } from 'lib/components/AppShortcuts/shortcuts'
+import { useAppShortcut } from 'lib/components/AppShortcuts/useAppShortcut'
 import { NotFound } from 'lib/components/NotFound'
 import { useFileSystemLogView } from 'lib/hooks/useFileSystemLogView'
 import { useOnMountEffect } from 'lib/hooks/useOnMountEffect'
 import { cn } from 'lib/utils/css-classes'
+import { DashboardEventSource } from 'lib/utils/eventUsageLogic'
 import { DashboardFilterBar } from 'scenes/dashboard/DashboardFilters'
 import { DashboardItems } from 'scenes/dashboard/DashboardItems'
 import { DashboardLogicProps, dashboardLogic } from 'scenes/dashboard/dashboardLogic'
 import { dataThemeLogic } from 'scenes/dataThemeLogic'
 import { InsightErrorState } from 'scenes/insights/EmptyStates'
-import { SceneExport } from 'scenes/sceneTypes'
+import { Scene, SceneExport } from 'scenes/sceneTypes'
 
 import { SceneContent } from '~/layout/scenes/components/SceneContent'
 import { SceneStickyBar } from '~/layout/scenes/components/SceneStickyBar'
@@ -73,6 +76,7 @@ function DashboardScene({ backTo }: { backTo?: { url: string; name: string } }):
         tiles,
         itemsLoading,
         dashboardMode,
+        dashboardLoading,
         dashboardFailedToLoad,
         accessDeniedToDashboard,
         refreshAnalysisResult,
@@ -80,8 +84,14 @@ function DashboardScene({ backTo }: { backTo?: { url: string; name: string } }):
     } = useValues(dashboardLogic)
     const { layoutZoom } = useValues(dashboardLogic)
     const { currentTeamId } = useValues(teamLogic)
-    const { reportDashboardViewed, abortAnyRunningQuery, setRefreshAnalysisResult, setAnalysisRating, setLayoutZoom } =
-        useActions(dashboardLogic)
+    const {
+        reportDashboardViewed,
+        abortAnyRunningQuery,
+        setRefreshAnalysisResult,
+        setAnalysisRating,
+        setLayoutZoom,
+        setDashboardMode,
+    } = useActions(dashboardLogic)
     const { addInsightToDashboardModalVisible } = useValues(addInsightToDashboardLogic)
 
     useFileSystemLogView({
@@ -95,6 +105,16 @@ function DashboardScene({ backTo }: { backTo?: { url: string; name: string } }):
 
         // request cancellation of any running queries when this component is no longer in the dom
         return () => abortAnyRunningQuery()
+    })
+
+    useAppShortcut({
+        name: 'SaveDashboardEditMode',
+        keybind: [keyBinds.edit],
+        intent: 'Save dashboard',
+        interaction: 'function',
+        scope: Scene.Dashboard,
+        disabled: dashboardMode !== DashboardMode.Edit || dashboardLoading || !canEditDashboard,
+        callback: () => setDashboardMode(null, DashboardEventSource.DashboardHeaderSaveDashboard),
     })
 
     if (!dashboard && !itemsLoading && !dashboardFailedToLoad) {

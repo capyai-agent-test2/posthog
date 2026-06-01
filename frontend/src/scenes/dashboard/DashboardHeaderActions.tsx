@@ -107,7 +107,7 @@ export function EditModeActions(): JSX.Element {
             </AppShortcut>
             <AppShortcut
                 name="SaveDashboard"
-                keybind={[keyBinds.edit, keyBinds.save]}
+                keybind={[keyBinds.save]}
                 intent="Save dashboard"
                 interaction="click"
                 scope={Scene.Dashboard}
