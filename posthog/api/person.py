@@ -78,6 +78,7 @@ from posthog.settings import EE_AVAILABLE
 from posthog.tasks.split_person import split_person
 from posthog.utils import format_query_params_absolute_url, is_anonymous_id, refresh_requested_by_client
 
+from products.event_definitions.backend.models.property_definition import PropertyDefinition, PropertyType
 from products.product_analytics.backend.api.insight import capture_legacy_api_call
 
 logger = structlog.get_logger(__name__)
@@ -1097,6 +1098,7 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
                 process_person_profile=True,
             )
             resp.raise_for_status()
+            self._ensure_person_property_definitions(properties["$set"])
 
         # Failures in this codepath (old and new) are ignored here
         except Exception:
@@ -1113,6 +1115,29 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
                 activity="updated",
                 detail=Detail(changes=[Change(type="Person", action="changed", field="properties")]),
             )
+
+    def _ensure_person_property_definitions(self, properties: dict[str, Any]) -> None:
+        for key, value in properties.items():
+            property_type = self._infer_property_definition_type(value)
+            PropertyDefinition.objects.get_or_create(
+                team=self.team,
+                name=key,
+                type=PropertyDefinition.Type.PERSON,
+                group_type_index=None,
+                defaults={
+                    "property_type": property_type,
+                    "is_numerical": property_type == PropertyType.Numeric,
+                },
+            )
+
+    def _infer_property_definition_type(self, value: Any) -> PropertyType | None:
+        if isinstance(value, bool):
+            return PropertyType.Boolean
+        if isinstance(value, int | float):
+            return PropertyType.Numeric
+        if isinstance(value, str):
+            return PropertyType.String
+        return None
 
     # PRAGMA: Methods for getting Persons via clickhouse queries
     def _respond_with_cached_results(
