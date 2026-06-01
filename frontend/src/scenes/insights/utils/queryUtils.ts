@@ -208,6 +208,7 @@ export const cleanInsightQuery = (query: InsightQueryNode, opts?: CompareQueryOp
 
     // remove undefined values, empty arrays and empty objects
     const cleanedQuery = objectCleanWithEmpty(dupQuery) as InsightQueryNode
+    delete cleanedQuery.tags
 
     if (isInsightQueryWithSeries(cleanedQuery)) {
         cleanedQuery.series?.forEach((series) => {

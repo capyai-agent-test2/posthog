@@ -74,6 +74,7 @@ describe('insightSceneLogic', () => {
 
         const query = logic.values.insightLogicRef?.logic.values.insight.query as InsightVizNode
         expect(query.source?.tags?.productKey).toEqual(ProductKey.PRODUCT_ANALYTICS)
+        expect(logic.values.insightDataLogicRef?.logic.values.queryChanged).toBe(false)
     })
 
     it('tags new typed insights with product_analytics productKey', async () => {
