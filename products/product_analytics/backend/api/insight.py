@@ -114,7 +114,7 @@ from posthog.resource_limits import LimitKey, check_count_limit
 from posthog.schema_migrations.upgrade import upgrade
 from posthog.schema_migrations.upgrade_manager import upgrade_query
 from posthog.settings import CAPTURE_TIME_TO_SEE_DATA, SITE_URL
-from posthog.user_permissions import UserPermissionsSerializerMixin
+from posthog.user_permissions import UserPermissions, UserPermissionsSerializerMixin
 from posthog.utils import (
     filters_override_requested_by_client,
     refresh_requested_by_client,
@@ -297,6 +297,19 @@ class _DashboardsFromTilesManyField(serializers.ManyRelatedField):
 
 
 class TeamScopedDashboardsField(TeamScopedPrimaryKeyRelatedField):
+    def get_queryset(self) -> QuerySet | None:
+        queryset = getattr(self, "queryset", None)
+        if queryset is None:
+            return None
+        qs = queryset.all()
+        get_team = self.context.get("get_team")
+        if get_team is None:
+            return qs.none()
+        team = get_team()
+        if team.project_id is None:
+            return qs.filter(team_id=team.id)
+        return qs.filter(team__project_id=team.project_id)
+
     @classmethod
     def many_init(cls, *args, **kwargs):
         list_kwargs: dict[str, Any] = {"child_relation": cls(*args, **kwargs)}
@@ -596,8 +609,19 @@ class InsightSerializer(InsightBasicSerializer):
                     current_count=current_tiles,
                     user=self.context["request"].user,
                 )
+                self._ensure_can_edit_dashboard(dashboard, "add insights to")
 
         return super().validate(attrs)
+
+    def _dashboard_belongs_to_insight_project(self, dashboard: Dashboard, insight_team: Team) -> bool:
+        if insight_team.project_id is None:
+            return dashboard.team_id == insight_team.id
+        return dashboard.team.project_id == insight_team.project_id
+
+    def _ensure_can_edit_dashboard(self, dashboard: Dashboard, action: str) -> None:
+        target_permissions = UserPermissions(cast(User, self.context["request"].user), dashboard.team)
+        if target_permissions.dashboard(dashboard).effective_privilege_level != Dashboard.PrivilegeLevel.CAN_EDIT:
+            raise PermissionDenied(f"You don't have permission to {action} dashboard: {dashboard.id}")
 
     @monitor(feature=Feature.INSIGHT, endpoint="insight", method="POST")
     def create(self, validated_data: dict, *args: Any, **kwargs: Any) -> Insight:
@@ -622,8 +646,9 @@ class InsightSerializer(InsightBasicSerializer):
             # in validate(); see InsightSerializer.validate above.
             # nosemgrep: idor-lookup-without-team
             for dashboard in Dashboard.objects.filter(id__in=[d.id for d in dashboards]).all():
-                if dashboard.team != insight.team:
+                if not self._dashboard_belongs_to_insight_project(dashboard, insight.team):
                     raise serializers.ValidationError("Dashboard not found")
+                self._ensure_can_edit_dashboard(dashboard, "add insights to")
 
                 DashboardTile.objects.create(
                     insight=insight, dashboard=dashboard, team_id=dashboard.team_id, last_refresh=now()
@@ -781,14 +806,9 @@ class InsightSerializer(InsightBasicSerializer):
         for dashboard in candidate_dashboards:
             # does this user have permission on dashboards to add... if they are restricted
             # it will mean this dashboard becomes restricted because of the patch
-            if (
-                self.user_permissions.dashboard(dashboard).effective_privilege_level
-                != Dashboard.PrivilegeLevel.CAN_EDIT
-            ):
-                raise PermissionDenied(f"You don't have permission to add insights to dashboard: {dashboard.id}")
-
-            if dashboard.team != instance.team:
+            if not self._dashboard_belongs_to_insight_project(dashboard, instance.team):
                 raise serializers.ValidationError("Dashboard not found")
+            self._ensure_can_edit_dashboard(dashboard, "add insights to")
 
             tile, _ = DashboardTile.objects_including_soft_deleted.get_or_create(insight=instance, dashboard=dashboard)
 
@@ -813,13 +833,7 @@ class InsightSerializer(InsightBasicSerializer):
             # nosemgrep: idor-lookup-without-team (team check after lookup)
             dashboards_to_remove = Dashboard.objects.filter(id__in=ids_to_remove)
             for dashboard in dashboards_to_remove:
-                if (
-                    self.user_permissions.dashboard(dashboard).effective_privilege_level
-                    != Dashboard.PrivilegeLevel.CAN_EDIT
-                ):
-                    raise PermissionDenied(
-                        f"You don't have permission to remove insights from dashboard: {dashboard.id}"
-                    )
+                self._ensure_can_edit_dashboard(dashboard, "remove insights from")
 
             DashboardTile.objects.filter(dashboard_id__in=ids_to_remove, insight=instance).update(deleted=True)
 

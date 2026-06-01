@@ -1199,6 +1199,39 @@ class TestInsight(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
         assert insight_json["dashboards"] == [dashboard_id]
         assert insight_json["dashboard_tiles"] == [{"id": mock.ANY, "deleted": False, "dashboard_id": dashboard_id}]
 
+    def test_can_add_insight_to_dashboard_in_same_project_environment(self) -> None:
+        other_team_in_project = Team.objects.create(organization=self.organization, project=self.project)
+        dashboard = Dashboard.objects.create(name="another environment dashboard", team=other_team_in_project)
+        insight = Insight.objects.create(team=self.team, created_by=self.user, name="cross environment insight")
+
+        _, insight_json = self.dashboard_api.update_insight(insight.id, {"dashboards": [dashboard.id]})
+
+        assert insight_json["dashboards"] == [dashboard.id]
+        assert insight_json["dashboard_tiles"] == [{"id": mock.ANY, "deleted": None, "dashboard_id": dashboard.id}]
+        tile = DashboardTile.objects.get(insight=insight, dashboard=dashboard)
+        assert tile.team_id == other_team_in_project.id
+
+    def test_cannot_add_insight_to_same_project_dashboard_without_target_environment_access(self) -> None:
+        self.organization.available_product_features = [
+            {"key": AvailableFeature.ACCESS_CONTROL, "name": AvailableFeature.ACCESS_CONTROL},
+        ]
+        self.organization.save()
+        user = self._create_user("dashboard-target-access-test@posthog.com", level=OrganizationMembership.Level.MEMBER)
+        other_team_in_project = Team.objects.create(organization=self.organization, project=self.project)
+        AccessControl.objects.create(
+            resource="project", resource_id=str(other_team_in_project.id), team=other_team_in_project, access_level="none"
+        )
+        dashboard = Dashboard.objects.create(name="restricted dashboard", team=other_team_in_project)
+        insight = Insight.objects.create(team=self.team, created_by=user, name="cross environment insight")
+
+        self.client.force_login(user)
+        _, response = self.dashboard_api.update_insight(
+            insight.id, {"dashboards": [dashboard.id]}, expected_status=status.HTTP_403_FORBIDDEN
+        )
+
+        assert "add insights to dashboard" in response.json()["detail"]
+        assert not DashboardTile.objects.filter(insight=insight, dashboard=dashboard).exists()
+
     def test_can_update_insight_with_inconsistent_dashboards(self) -> None:
         """
         Regression test because there are some DashboardTiles in production that should not exist.
