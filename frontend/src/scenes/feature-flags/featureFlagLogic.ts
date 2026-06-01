@@ -87,6 +87,7 @@ import { defaultReleaseConditionsLogic } from './defaultReleaseConditionsLogic'
 import { checkFeatureFlagConfirmation } from './featureFlagConfirmationLogic'
 import type { FlagIntent } from './featureFlagIntentWarningLogic'
 import type { featureFlagLogicType } from './featureFlagLogicType'
+import { featureFlagJsonStringify } from './jsonUtils'
 
 const VALID_INTENTS: FlagIntent[] = ['local-eval', 'first-page-load']
 
@@ -1337,7 +1338,8 @@ export const featureFlagLogic = kea<featureFlagLogicType>([
                         // If we've got a cached flag and the filters have changed, we've updated the release conditions
                         if (
                             cachedFlag &&
-                            JSON.stringify(cachedFlag?.filters) !== JSON.stringify(values.featureFlag.filters)
+                            featureFlagJsonStringify(cachedFlag?.filters) !==
+                                featureFlagJsonStringify(values.featureFlag.filters)
                         ) {
                             globalSetupLogic
                                 .findMounted()
@@ -1982,7 +1984,7 @@ export const featureFlagLogic = kea<featureFlagLogicType>([
                 lemonToast.success(`Feature flag ${operation} successfully!`)
                 eventUsageLogic.actions.reportFeatureFlagCopySuccess()
             } else {
-                const errorMessage = JSON.stringify(featureFlagCopy?.failed) || featureFlagCopy
+                const errorMessage = featureFlagJsonStringify(featureFlagCopy?.failed) || featureFlagCopy
                 lemonToast.error(`Error while saving feature flag: ${errorMessage}`)
                 eventUsageLogic.actions.reportFeatureFlagCopyFailure(errorMessage)
             }

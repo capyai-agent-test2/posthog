@@ -26,6 +26,7 @@ import {
     slugifyFeatureFlagKey,
     validateFeatureFlagKey,
 } from './featureFlagLogic'
+import { featureFlagJsonStringify } from './jsonUtils'
 
 const MOCK_FEATURE_FLAG = {
     ...NEW_FLAG,
@@ -476,6 +477,36 @@ describe('featureFlagLogic', () => {
 
             const changes = detectFeatureFlagChanges(originalFlag, changedFlag)
             expect(changes.length).toBe(0)
+        })
+
+        it('handles BigInt values in filters', () => {
+            const originalFlag = {
+                ...MOCK_FEATURE_FLAG,
+                filters: {
+                    groups: [
+                        {
+                            properties: [{ key: 'count', value: BigInt(123), type: 'person' }],
+                            rollout_percentage: 100,
+                            variant: null,
+                        },
+                    ],
+                },
+            } as unknown as FeatureFlagType
+            const changedFlag = {
+                ...originalFlag,
+                filters: {
+                    groups: [
+                        {
+                            properties: [{ key: 'count', value: BigInt(456), type: 'person' }],
+                            rollout_percentage: 100,
+                            variant: null,
+                        },
+                    ],
+                },
+            } as unknown as FeatureFlagType
+
+            expect(featureFlagJsonStringify(originalFlag.filters)).toContain('"123"')
+            expect(detectFeatureFlagChanges(originalFlag, changedFlag)).toContain('Release conditions changed')
         })
     })
 

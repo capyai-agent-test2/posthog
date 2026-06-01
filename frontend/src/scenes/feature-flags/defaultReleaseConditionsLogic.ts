@@ -8,6 +8,7 @@ import { teamLogic } from 'scenes/teamLogic'
 import { FeatureFlagFilters, FeatureFlagGroupType } from '~/types'
 
 import type { defaultReleaseConditionsLogicType } from './defaultReleaseConditionsLogicType'
+import { featureFlagJsonStringify } from './jsonUtils'
 
 export interface DefaultReleaseConditionsResponse {
     enabled: boolean
@@ -108,7 +109,7 @@ export const defaultReleaseConditionsLogic = kea<defaultReleaseConditionsLogicTy
                 }
                 return (
                     localEnabled !== saved.enabled ||
-                    JSON.stringify(localGroups) !== JSON.stringify(saved.default_groups)
+                    featureFlagJsonStringify(localGroups) !== featureFlagJsonStringify(saved.default_groups)
                 )
             },
         ],

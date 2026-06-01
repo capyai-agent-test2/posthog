@@ -6,6 +6,8 @@ import { CodeEditorResizeable } from 'lib/monaco/CodeEditorResizable'
 
 import { JsonType } from '~/types'
 
+import { featureFlagJsonStringify } from './jsonUtils'
+
 interface EditorProps {
     onChange?: (val: string | undefined) => void
     value?: JsonType
@@ -19,7 +21,7 @@ export function JSONEditorInput({ onChange, placeholder, value = '', readOnly = 
     // Memoize the string conversion to avoid recalculating on every render
     // In practice, `value` is always a string, but the type allows for object too
     const valString = useMemo(
-        () => (typeof value === 'object' ? JSON.stringify(value, null, 2) : value?.toString() || ''),
+        () => (typeof value === 'object' ? featureFlagJsonStringify(value, 2) : value?.toString() || ''),
         [value]
     )
 
