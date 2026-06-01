@@ -5,7 +5,7 @@ import pytest
 
 from requests import Request, Response
 
-from posthog.temporal.data_imports.sources.zendesk.zendesk import ZendeskTicketsCursorIncrementalPaginator
+from posthog.temporal.data_imports.sources.zendesk.zendesk import ZendeskTicketsCursorIncrementalPaginator, get_resource
 
 
 def _make_response(json_body: dict[str, Any] | None = None) -> Response:
@@ -25,7 +25,7 @@ class TestZendeskTicketsCursorIncrementalPaginator:
 
         assert p.has_next_page is True
 
-        req = Request(method="GET", url="https://x.zendesk.com/api/v2/incremental/tickets/cursor")
+        req = Request(method="GET", url="https://x.zendesk.com/api/v2/incremental/tickets/cursor.json")
         req.params = {"per_page": 1000, "start_time": 1591394586}
         p.update_request(req)
 
@@ -41,7 +41,7 @@ class TestZendeskTicketsCursorIncrementalPaginator:
         # first request must go out untouched (with its seed start_time).
         assert p.has_next_page is True
 
-        req = Request(method="GET", url="https://x.zendesk.com/api/v2/incremental/tickets/cursor")
+        req = Request(method="GET", url="https://x.zendesk.com/api/v2/incremental/tickets/cursor.json")
         req.params = {"per_page": 1000, "start_time": 1591394586}
         p.init_request(req)
 
@@ -91,7 +91,7 @@ class TestZendeskTicketsCursorIncrementalPaginator:
 
     def test_paginates_across_multiple_pages(self) -> None:
         p = ZendeskTicketsCursorIncrementalPaginator()
-        req = Request(method="GET", url="https://x.zendesk.com/api/v2/incremental/tickets/cursor")
+        req = Request(method="GET", url="https://x.zendesk.com/api/v2/incremental/tickets/cursor.json")
         req.params = {"per_page": 1000, "start_time": 1591394586}
 
         p.update_state(_make_response({"tickets": [{"id": 1}], "after_cursor": "cursor_1", "end_of_stream": False}))
@@ -104,3 +104,9 @@ class TestZendeskTicketsCursorIncrementalPaginator:
 
         p.update_state(_make_response({"tickets": [{"id": 3}], "after_cursor": "cursor_3", "end_of_stream": True}))
         assert p.has_next_page is False
+
+
+def test_tickets_resource_uses_zendesk_cursor_export_endpoint() -> None:
+    resource = get_resource("tickets", should_use_incremental_field=True)
+
+    assert resource["endpoint"]["path"] == "/api/v2/incremental/tickets/cursor.json"
