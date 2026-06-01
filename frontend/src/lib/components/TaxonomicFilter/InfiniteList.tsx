@@ -108,6 +108,18 @@ const staleIndicator = (parsedLastSeen: dayjs.Dayjs | null): JSX.Element => {
 }
 
 const VALUE_MATCH_MAX_LENGTH = 30
+const DEFINITION_POPOVER_MIN_VISIBLE_WIDTH = 272
+
+export function hasEnoughHorizontalSpaceForDefinitionPopover(
+    popupAnchorElement: HTMLDivElement | null,
+    viewportWidth: number
+): boolean {
+    if (!popupAnchorElement) {
+        return true
+    }
+
+    return viewportWidth - popupAnchorElement.getBoundingClientRect().right >= DEFINITION_POPOVER_MIN_VISIBLE_WIDTH
+}
 
 const valueMatchIndicator = (matchedValue: string): JSX.Element => {
     const truncated =
@@ -740,6 +752,7 @@ export function InfiniteList({ popupAnchorElement, definitionPopoverRenderer }: 
     } = useValues(infiniteListLogic)
     const { onRowsRendered, setIndex, togglePinnedRow, expand, updateRemoteItem } = useActions(infiniteListLogic)
     const [highlightedItemElement, setHighlightedItemElement] = useState<HTMLDivElement | null>(null)
+    const [hasRoomForDefinitionPopover, setHasRoomForDefinitionPopover] = useState(true)
     const listRef = useListRef(null)
 
     useEffect(() => {
@@ -748,9 +761,23 @@ export function InfiniteList({ popupAnchorElement, definitionPopoverRenderer }: 
         }
     }, [index, listRef])
 
+    useEffect(() => {
+        const updateHasRoomForDefinitionPopover = (): void => {
+            setHasRoomForDefinitionPopover(
+                hasEnoughHorizontalSpaceForDefinitionPopover(popupAnchorElement, window.innerWidth)
+            )
+        }
+
+        updateHasRoomForDefinitionPopover()
+        window.addEventListener('resize', updateHasRoomForDefinitionPopover)
+
+        return () => window.removeEventListener('resize', updateHasRoomForDefinitionPopover)
+    }, [popupAnchorElement])
+
     const selectedItemGroup = getItemGroup(selectedItem, taxonomicGroups, group)
     const selectedItemIsRecent = selectedItem ? hasRecentContext(selectedItem) : false
     const selectedItemIsQuickFilter = selectedItem ? isQuickFilterItem(selectedItem) : false
+    const shouldShowDefinitionPopover = showPopover && hasRoomForDefinitionPopover
 
     return (
         <div
@@ -790,7 +817,7 @@ export function InfiniteList({ popupAnchorElement, definitionPopoverRenderer }: 
                                     highlightedIndex: index,
                                     isActiveTab,
                                     mouseInteractionsEnabled,
-                                    showPopover,
+                                    showPopover: shouldShowDefinitionPopover,
                                     totalListCount,
                                     totalResultCount,
                                     expandedCount,
@@ -823,7 +850,7 @@ export function InfiniteList({ popupAnchorElement, definitionPopoverRenderer }: 
             )}
             {isActiveTab &&
             selectedItemHasPopover(selectedItem, selectedItemGroup, taxonomicGroups) &&
-            showPopover &&
+            shouldShowDefinitionPopover &&
             selectedItem ? (
                 <BindLogic
                     logic={definitionPopoverLogic}

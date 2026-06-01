@@ -21,6 +21,7 @@ import {
 } from '~/test/mocks'
 import { PropertyFilterType, PropertyOperator } from '~/types'
 
+import { hasEnoughHorizontalSpaceForDefinitionPopover } from './InfiniteList'
 import { recentTaxonomicFiltersLogic } from './recentTaxonomicFiltersLogic'
 import { TaxonomicFilter } from './TaxonomicFilter'
 import { TaxonomicFilterGroupType } from './types'
@@ -90,6 +91,27 @@ describe('TaxonomicFilter', () => {
             expect(screen.getByTestId(inactiveTestId)).not.toHaveClass('LemonTag--primary')
         }
     }
+
+    describe('definition popover positioning', () => {
+        function elementWithRight(right: number): HTMLDivElement {
+            const element = document.createElement('div')
+            element.getBoundingClientRect = jest.fn(
+                () =>
+                    ({
+                        right,
+                    }) as DOMRect
+            )
+            return element
+        }
+
+        it('allows definition popovers when there is horizontal room to the right', () => {
+            expect(hasEnoughHorizontalSpaceForDefinitionPopover(elementWithRight(400), 700)).toBe(true)
+        })
+
+        it('hides definition popovers instead of letting them cover categories on narrow viewports', () => {
+            expect(hasEnoughHorizontalSpaceForDefinitionPopover(elementWithRight(500), 700)).toBe(false)
+        })
+    })
 
     describe('rendering', () => {
         it('renders search input and loads results from the API', async () => {
