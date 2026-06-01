@@ -64,7 +64,8 @@ _SAFE_TABLE_FUNCTION_NAME_RE = re2.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 EMPTY_SCOPE = ast.SelectQueryType()
 
-CLICKHOUSE_DATE_UNIT_FUNCTIONS = frozenset({"dateAdd", "dateSub", "dateDiff", "date_diff"})
+CLICKHOUSE_INTERVAL_DATE_UNIT_FUNCTIONS = frozenset({"dateAdd", "dateSub"})
+CLICKHOUSE_DATE_DIFF_FUNCTIONS = frozenset({"dateDiff", "date_diff"})
 
 CLICKHOUSE_DATE_UNITS = frozenset(
     {
@@ -1491,7 +1492,10 @@ class Resolver(CloningVisitor):
     def visit_call(self, node: ast.Call):
         """Visit function calls."""
 
-        if node.name in CLICKHOUSE_DATE_UNIT_FUNCTIONS and node.args:
+        if node.args and (
+            (node.name in CLICKHOUSE_INTERVAL_DATE_UNIT_FUNCTIONS and len(node.args) == 3)
+            or node.name in CLICKHOUSE_DATE_DIFF_FUNCTIONS
+        ):
             first_arg = node.args[0]
             if isinstance(first_arg, ast.Field) and len(first_arg.chain) == 1:
                 unit = str(first_arg.chain[0]).lower()
