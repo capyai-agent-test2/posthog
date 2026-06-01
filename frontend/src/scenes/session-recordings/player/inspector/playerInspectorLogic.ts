@@ -54,8 +54,13 @@ import type { playerInspectorLogicType } from './playerInspectorLogicType'
 import { playerInspectorLogsLogic } from './playerInspectorLogsLogic'
 
 const CONSOLE_LOG_PLUGIN_NAME = 'rrweb/console@1'
+const POSTHOG_PERSISTENCE_STORAGE_LOG_REGEX = /^localStorage\.setItem\(['"]ph_[^'"]+_posthog['"],/
 
 const MAX_SEEKBAR_ITEMS = 100
+
+export const isPostHogPersistenceStorageLog = (content: string): boolean => {
+    return POSTHOG_PERSISTENCE_STORAGE_LOG_REGEX.test(content.trim())
+}
 
 export const IMAGE_WEB_EXTENSIONS = [
     'png',
@@ -673,6 +678,11 @@ export const playerInspectorLogic = kea<playerInspectorLogicType>([
                             const { level, payload, trace } = data
                             const lines = (Array.isArray(payload) ? payload : [payload]).filter((x) => !!x) as string[]
                             const content = lines.join('\n')
+
+                            if (isPostHogPersistenceStorageLog(content)) {
+                                return
+                            }
+
                             const cacheKey = `${snapshot.timestamp}::${content}`
 
                             if (!consoleLogSeenCache.has(cacheKey)) {
