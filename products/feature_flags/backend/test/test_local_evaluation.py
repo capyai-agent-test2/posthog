@@ -13,6 +13,7 @@ from posthog.models.tag import Tag
 from posthog.models.team.team import Team
 from posthog.test.test_utils import create_group_type_mapping_without_created_at
 
+from products.early_access_features.backend.models import EarlyAccessFeature
 from products.feature_flags.backend.local_evaluation import (
     FLAG_DEFINITIONS_HYPERCACHE_MANAGEMENT_CONFIG,
     FLAG_DEFINITIONS_NO_COHORTS_HYPERCACHE_MANAGEMENT_CONFIG,
@@ -610,6 +611,66 @@ class TestSurveyFlagExclusion(BaseTest):
         assert flag_a.key not in flag_keys
         assert flag_b.key not in flag_keys
         assert regular_flag.key in flag_keys
+
+
+class TestEarlyAccessFeatureFlagExclusion(BaseTest):
+    def setUp(self):
+        super().setUp()
+        FeatureFlag.objects.filter(team=self.team).delete()
+        EarlyAccessFeature.objects.filter(team=self.team).delete()
+        clear_flag_definition_caches(self.team)
+
+    @parameterized.expand([(stage.value,) for stage in EarlyAccessFeature.Stage])
+    def test_early_access_feature_flag_excluded_from_local_evaluation(self, stage: str):
+        regular_flag = FeatureFlag.objects.create(
+            team=self.team,
+            key="regular-flag",
+            filters={"groups": [{"rollout_percentage": 100}]},
+        )
+        early_access_feature_flag = FeatureFlag.objects.create(
+            team=self.team,
+            key=f"early-access-feature-flag-{stage}",
+            filters={"groups": [{"rollout_percentage": 100}]},
+        )
+
+        EarlyAccessFeature.objects.create(
+            team=self.team,
+            feature_flag=early_access_feature_flag,
+            name="Test early access feature",
+            stage=stage,
+        )
+
+        response = _get_flags_response_for_local_evaluation(self.team, include_cohorts=True)
+        flag_keys = [f["key"] for f in response["flags"]]
+
+        assert regular_flag.key in flag_keys
+        assert early_access_feature_flag.key not in flag_keys
+
+    @patch("products.feature_flags.backend.tasks.update_team_flags_cache")
+    @patch("django.db.transaction.on_commit", lambda fn: fn())
+    def test_flag_cache_invalidated_on_early_access_feature_change(self, mock_task):
+        early_access_feature_flag = FeatureFlag.objects.create(
+            team=self.team,
+            key="early-access-feature-flag",
+            filters={"groups": [{"rollout_percentage": 100}]},
+        )
+
+        mock_task.reset_mock()
+
+        early_access_feature = EarlyAccessFeature.objects.create(
+            team=self.team,
+            feature_flag=early_access_feature_flag,
+            name="Test early access feature",
+            stage=EarlyAccessFeature.Stage.BETA,
+        )
+
+        mock_task.delay.assert_called_with(self.team.id)
+
+        mock_task.reset_mock()
+
+        early_access_feature.delete()
+
+        mock_task.delay.assert_called_with(self.team.id)
 
 
 class TestExtractCohortIdsFromFilters(BaseTest):
