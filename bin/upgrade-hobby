@@ -28,9 +28,6 @@ set_env_default() {
     fi
 }
 
-set_env_default REGISTRY_URL "posthog/posthog"
-set_env_default POSTHOG_APP_TAG "latest"
-
 echo "Checking for named postgres and clickhouse volumes to avoid data loss when upgrading from < 1.39"
 if docker volume ls | grep -Pzoq 'clickhouse-data\n(.|\n)*postgres-data\n'
 then
