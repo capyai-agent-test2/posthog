@@ -199,10 +199,11 @@ export interface TooltipConfig {
     enabled?: boolean
     /** When true, clicking a data point with multiple series pins the tooltip in place. */
     pinnable?: boolean
-    /** Where the tooltip anchors vertically. `follow-data` (default) tracks the highest data point
-     *  at the hovered x; `top` fixes the tooltip to the top of the chart so it doesn't jump
-     *  vertically as the cursor moves between data points. */
-    placement?: 'follow-data' | 'top'
+    /** Where the tooltip anchors. `follow-data` (default) tracks the highest data point at the
+     *  hovered x; `top` fixes the tooltip to the top of the chart so it doesn't jump vertically
+     *  as the cursor moves between data points; `cursor` tracks the mouse, so the tooltip sits
+     *  beside the cursor and the hovered bar (chart.js-style) rather than at a fixed anchor. */
+    placement?: 'follow-data' | 'top' | 'cursor'
 }
 
 /** Bar appearance + band-layout details. Grouped under {@link BarChartConfig.bars} to keep the
@@ -231,6 +232,16 @@ export interface BarsConfig {
      *  an unreadable strip, the chart expands its container height so each row has at least this
      *  much vertical space (label height + breathing room). Defaults to `24`. Pass `0` to opt out. */
     minBandSize?: number
+    /** Fix the value-axis domain (no data-derived range, no `d3.nice()`) so independent charts
+     *  sharing a logical scale stay comparable. Takes precedence over `barLayout: 'percent'`. */
+    valueDomain?: [number, number]
+    /** Stacked layouts only — round both *outer* ends of the whole stack so it reads as one pill,
+     *  rather than only the topmost segment's cap. Implemented by clipping the bar layer to a
+     *  rounded rect spanning each band's full extent and drawing the segments square, so the outer
+     *  corners round at the full `cornerRadius` even when the edge segment is a thin sliver (e.g.
+     *  the last breakdown of a near-100% funnel step) — which per-segment rounding can't, as it
+     *  clamps the radius to the sliver's half-width. Defaults to `false`. */
+    roundStackEnds?: boolean
 }
 
 export interface BarChartConfig extends ChartConfig {
