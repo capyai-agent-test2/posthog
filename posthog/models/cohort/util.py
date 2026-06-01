@@ -44,6 +44,7 @@ from posthog.models.cohort.sql import (
     GET_COHORT_SIZE_SQL,
     GET_COHORTS_BY_PERSON_UUID,
     GET_PERSON_ID_BY_PRECALCULATED_COHORT_ID,
+    GET_STATIC_COHORTPEOPLE_BY_COHORT_ID,
     GET_STATIC_COHORTPEOPLE_BY_PERSON_UUID,
     RECALCULATE_COHORT_BY_ID,
 )
@@ -649,6 +650,22 @@ def get_static_cohort_size(
     consistency: ReadConsistency = "eventual",
 ) -> int:
     return count_cohort_members(team_id=team_id, cohort_id=cohort_id, consistency=consistency)
+
+
+def get_static_cohort_size_from_clickhouse(*, cohort_id: int, team_id: int) -> int:
+    tag_queries(product=ProductKey.COHORTS, feature=Feature.COHORT, cohort_id=cohort_id, team_id=team_id)
+    result = sync_execute(
+        """
+        SELECT count()
+        FROM (
+        """
+        + GET_STATIC_COHORTPEOPLE_BY_COHORT_ID
+        + """
+        )
+        """,
+        {"team_id": team_id, "cohort_id": cohort_id},
+    )
+    return int(result[0][0]) if result else 0
 
 
 def recalculate_cohortpeople(

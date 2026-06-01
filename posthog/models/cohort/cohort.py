@@ -706,7 +706,11 @@ class Cohort(FileSystemSyncMixin, RootTeamMixin, models.Model):
         Returns:
             Number of batches processed.
         """
-        from posthog.models.cohort.util import count_cohort_members, insert_static_cohort
+        from posthog.models.cohort.util import (
+            count_cohort_members,
+            get_static_cohort_size_from_clickhouse,
+            insert_static_cohort,
+        )
         from posthog.personhog_client.gate import use_personhog
 
         current_batch_index = -1
@@ -785,7 +789,22 @@ class Cohort(FileSystemSyncMixin, RootTeamMixin, models.Model):
         finally:
             # Always update the count and cohort state, even if processing failed
             try:
-                count = count_cohort_members(cohort_id=self.id, team_id=self.team_id, consistency="strong")
+                count = count_cohort_members(cohort_id=self.id, team_id=team_id, consistency="strong")
+                if insert_in_clickhouse and count == 0:
+                    try:
+                        clickhouse_count = get_static_cohort_size_from_clickhouse(cohort_id=self.id, team_id=team_id)
+                        if clickhouse_count > 0:
+                            count = clickhouse_count
+                    except Exception as clickhouse_count_err:
+                        logger.exception(
+                            "Failed to calculate static cohort size from ClickHouse",
+                            cohort_id=self.id,
+                            team_id=team_id,
+                        )
+                        capture_exception(
+                            clickhouse_count_err,
+                            additional_properties={"cohort_id": self.id, "team_id": team_id},
+                        )
                 self.count = count
             except Exception as count_err:
                 # If count calculation fails, log the error but don't override the processing error.
