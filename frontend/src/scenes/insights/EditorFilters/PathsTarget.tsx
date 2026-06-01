@@ -31,6 +31,8 @@ function PathsTarget({ position, insightProps }: PathTargetProps): JSX.Element {
     const { startPoint, endPoint, pathGroupings } = pathsFilter || {}
     const { funnelPathType, funnelSource, funnelStep } = funnelPathsFilter || {}
 
+    const isDropoffFunnelStep = typeof funnelStep === 'number' && funnelStep < 0
+    const allowsDropoffStartInput = funnelPathType === FunnelPathType.before && isDropoffFunnelStep
     const overrideStartInput = funnelPathType && [FunnelPathType.between, FunnelPathType.after].includes(funnelPathType)
     const overrideEndInput = funnelPathType && [FunnelPathType.between, FunnelPathType.before].includes(funnelPathType)
     const overrideInputs = overrideStartInput || overrideEndInput
@@ -65,6 +67,14 @@ function PathsTarget({ position, insightProps }: PathTargetProps): JSX.Element {
     }
 
     function getStartPointLabel(): JSX.Element {
+        if (allowsDropoffStartInput) {
+            return startPoint ? (
+                <span className="label">{startPoint}</span>
+            ) : (
+                <span className="label text-secondary">Add start point</span>
+            )
+        }
+
         if (funnelPathType) {
             if (funnelPathType === FunnelPathType.after) {
                 return _getStepLabel(funnelSource, funnelStep)
@@ -101,7 +111,7 @@ function PathsTarget({ position, insightProps }: PathTargetProps): JSX.Element {
             getLabel: getStartPointLabel,
             pathItem: startPoint,
             closeButtonEnabled: startPoint || overrideStartInput,
-            disabled: overrideEndInput && !overrideStartInput,
+            disabled: overrideEndInput && !overrideStartInput && !allowsDropoffStartInput,
             funnelFilterLink: funnelSource && overrideStartInput,
         },
         end: {
@@ -120,7 +130,7 @@ function PathsTarget({ position, insightProps }: PathTargetProps): JSX.Element {
             index={positionOptions.index}
             onChange={onChange}
             taxonomicGroupTypes={taxonomicGroupTypes}
-            disabled={overrideInputs}
+            disabled={positionOptions.disabled || !!positionOptions.funnelFilterLink}
             wildcardOptions={pathGroupings?.map((name) => ({ name }))}
         >
             <LemonButton
