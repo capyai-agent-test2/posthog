@@ -1,6 +1,8 @@
-import { NodeKind } from '~/queries/schema/schema-general'
+import { examples } from '~/queries/examples'
+import { InsightVizNode, NodeKind, ProductKey } from '~/queries/schema/schema-general'
 
 import {
+    compareQuery,
     filterVariablesReferencedInQuery,
     hasInvalidRegexFilter,
     isBoxPlotMissingProperty,
@@ -13,6 +15,24 @@ const AVAILABLE_VARIABLES = [
     { id: 'product-id', code_name: 'product' },
     { id: 'region-id', code_name: 'region' },
 ]
+
+describe('compareQuery', () => {
+    it('ignores query tags when comparing semantic equality', () => {
+        const taggedQuery: InsightVizNode = {
+            kind: NodeKind.InsightVizNode,
+            source: {
+                ...examples.InsightTrendsQuery,
+                tags: { productKey: ProductKey.PRODUCT_ANALYTICS },
+            },
+        }
+        const untaggedQuery: InsightVizNode = {
+            kind: NodeKind.InsightVizNode,
+            source: examples.InsightTrendsQuery,
+        }
+
+        expect(compareQuery(taggedQuery, untaggedQuery)).toBe(true)
+    })
+})
 
 describe('filterVariablesReferencedInQuery', () => {
     it('keeps only variables referenced in the current query', () => {
