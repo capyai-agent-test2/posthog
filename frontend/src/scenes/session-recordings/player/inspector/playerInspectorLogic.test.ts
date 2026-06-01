@@ -1,7 +1,10 @@
 import { expectLogic } from 'kea-test-utils'
 
 import { featureFlagLogic } from 'lib/logic/featureFlagLogic'
-import { playerInspectorLogic } from 'scenes/session-recordings/player/inspector/playerInspectorLogic'
+import {
+    isPostHogPersistenceStorageLog,
+    playerInspectorLogic,
+} from 'scenes/session-recordings/player/inspector/playerInspectorLogic'
 import { sessionRecordingDataCoordinatorLogic } from 'scenes/session-recordings/player/sessionRecordingDataCoordinatorLogic'
 
 import { setupSessionRecordingTest } from '../__mocks__/test-setup'
@@ -203,5 +206,27 @@ describe('playerInspectorLogic', () => {
                     trackedWindow: 1,
                 })
         })
+    })
+})
+
+describe('isPostHogPersistenceStorageLog', () => {
+    it('detects internal PostHog persistence storage writes', () => {
+        expect(
+            isPostHogPersistenceStorageLog(
+                `localStorage.setItem('ph_phc_abc_posthog', '{"distinct_id":"1","$sesid":[1,"session",2]}')`
+            )
+        ).toBe(true)
+        expect(
+            isPostHogPersistenceStorageLog(
+                `localStorage.setItem("ph_phc_abc_posthog", '{"distinct_id":"1","$sesid":[1,"session",2]}')`
+            )
+        ).toBe(true)
+    })
+
+    it('keeps unrelated storage and console logs visible', () => {
+        expect(isPostHogPersistenceStorageLog(`localStorage.setItem('bcNavigation', '[{"totalCount":302}]')`)).toBe(
+            false
+        )
+        expect(isPostHogPersistenceStorageLog(`console.log('ph_phc_abc_posthog')`)).toBe(false)
     })
 })
