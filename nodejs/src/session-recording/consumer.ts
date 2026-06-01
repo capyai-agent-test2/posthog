@@ -266,9 +266,7 @@ export class SessionRecordingIngester {
         this.kafkaConsumer.heartbeat()
 
         if (this.sessionBatchManager.shouldFlush()) {
-            await instrumentFn(`recordingingesterv2.handleEachBatch.flush`, async () =>
-                this.sessionBatchManager.flush()
-            )
+            await instrumentFn(`recordingingesterv2.handleEachBatch.flush`, async () => this.flushCurrentBatch())
         }
     }
 
@@ -379,6 +377,15 @@ export class SessionRecordingIngester {
             this.kafkaConsumer.offsetsStore(offsets)
             return Promise.resolve()
         })
+    }
+
+    private async flushCurrentBatch(): Promise<void> {
+        try {
+            await this.sessionBatchManager.flush()
+        } catch (error) {
+            logger.error('🔁', 'blob_ingester_consumer_v2 - failed to flush session batch', { error })
+            captureException(error)
+        }
     }
 
     private overflowEnabled(): boolean {
