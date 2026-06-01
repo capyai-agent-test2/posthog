@@ -103,6 +103,10 @@ describe('API helper', () => {
                 url: 'https://some/url',
                 expected: 'https://some/url',
             },
+            {
+                url: `${window.location.protocol === 'https:' ? 'http:' : 'https:'}//${window.location.host}/same-origin/url?with=parameters`,
+                expected: '/same-origin/url?with=parameters',
+            },
         ]
 
         const verbs = [

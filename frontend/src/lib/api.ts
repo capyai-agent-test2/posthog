@@ -2029,13 +2029,22 @@ export class ApiRequest {
 }
 
 const normalizeUrl = (url: string): string => {
-    if (url.indexOf('http') !== 0) {
-        if (!url.startsWith('/')) {
-            url = '/' + url
+    if (/^https?:\/\//.test(url)) {
+        const parsedUrl = new URL(url)
+
+        if (parsedUrl.host !== window.location.host) {
+            return url
         }
 
-        url = url + (url.indexOf('?') === -1 && url[url.length - 1] !== '/' ? '/' : '')
+        url = `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`
     }
+
+    if (!url.startsWith('/')) {
+        url = '/' + url
+    }
+
+    url = url + (url.indexOf('?') === -1 && url[url.length - 1] !== '/' ? '/' : '')
+
     return url
 }
 
