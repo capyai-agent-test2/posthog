@@ -292,7 +292,16 @@ export function getCurrentVisualizationQuery(
         key: dataLogicKey,
     } as any)
 
-    return mountedVisualizationLogic?.values.query ?? fallbackQuery
+    const mountedQuery = mountedVisualizationLogic?.values.query
+
+    if (!mountedQuery) {
+        return fallbackQuery
+    }
+
+    return {
+        ...mountedQuery,
+        source: fallbackQuery.source,
+    }
 }
 
 function getTabHash(values: sqlEditorLogicType['values']): Record<string, any> {
@@ -1737,20 +1746,24 @@ export const sqlEditorLogic = kea<sqlEditorLogicType>([
                     throw e
                 }
                 actions.setInsightLoading(false)
+                const locallyUpdatedInsight = {
+                    ...savedInsight,
+                    query: insightRequest.query,
+                }
 
                 if (values.activeTab) {
                     actions.updateTab({
                         ...values.activeTab,
-                        insight: savedInsight,
+                        insight: locallyUpdatedInsight,
                     })
                 }
-                insightsModel.findMounted()?.actions.renameInsightSuccess(savedInsight)
+                insightsModel.findMounted()?.actions.renameInsightSuccess(locallyUpdatedInsight)
                 const loadedLogic = insightLogic.findMounted({
                     dashboardItemId: values.editingInsight.short_id,
                     dashboardId: undefined,
                 })
                 if (loadedLogic) {
-                    loadedLogic.actions.setInsight(savedInsight, {
+                    loadedLogic.actions.setInsight(locallyUpdatedInsight, {
                         overrideQuery: true,
                         fromPersistentApi: true,
                     })
@@ -1758,7 +1771,7 @@ export const sqlEditorLogic = kea<sqlEditorLogicType>([
 
                 const dashboardId = values.dashboardId
                 if (dashboardId) {
-                    dashboardsModel.findMounted()?.actions.updateDashboardInsight(savedInsight)
+                    dashboardsModel.findMounted()?.actions.updateDashboardInsight(locallyUpdatedInsight)
                     dashboardLogic.findMounted({ id: dashboardId })?.actions.loadDashboard({
                         action: DashboardLoadAction.Update,
                     })
@@ -1769,12 +1782,12 @@ export const sqlEditorLogic = kea<sqlEditorLogicType>([
                         },
                     })
                     actions.setDashboardId(null)
-                    router.actions.push(urls.dashboard(dashboardId, savedInsight.short_id))
+                    router.actions.push(urls.dashboard(dashboardId, locallyUpdatedInsight.short_id))
                 } else {
                     lemonToast.info(
-                        `You're now viewing ${savedInsight.name || savedInsight.derived_name || insightName || 'Untitled'}`
+                        `You're now viewing ${locallyUpdatedInsight.name || locallyUpdatedInsight.derived_name || insightName || 'Untitled'}`
                     )
-                    router.actions.push(urls.insightView(savedInsight.short_id))
+                    router.actions.push(urls.insightView(locallyUpdatedInsight.short_id))
                 }
             },
             closeEditingObject: () => {
