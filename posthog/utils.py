@@ -257,8 +257,8 @@ def relative_date_parse_with_delta_mapping(
     return parsed_dt, delta_mapping, match.group("position") or None
 
 
-def is_date_only_string(input: str | None) -> bool:
-    return bool(input and re.fullmatch(r"\d{4}-\d{1,2}-\d{1,2}", input))
+def is_date_only_string(input: object) -> bool:
+    return isinstance(input, str) and bool(re.fullmatch(r"\d{4}-\d{1,2}-\d{1,2}", input))
 
 
 def get_weekday_index(
