@@ -9,7 +9,7 @@ import { captureException } from '../../utils/posthog'
 import { KafkaOffsetManager } from '../kafka/offset-manager'
 import { MessageWithTeam } from '../teams/types'
 import { SessionBatchMetrics } from './metrics'
-import { SessionBatchFileStorage } from './session-batch-file-storage'
+import { SessionBatchFileStorage, WriteSessionData } from './session-batch-file-storage'
 import { SessionConsoleLogRecorder } from './session-console-log-recorder'
 import { SessionConsoleLogStore } from './session-console-log-store'
 import { SessionFeatureRecorder } from './session-feature-recorder'
@@ -17,6 +17,17 @@ import { SessionFilter } from './session-filter'
 import { SessionRateLimiter } from './session-rate-limiter'
 import { SessionTracker } from './session-tracker'
 import { SnappySessionRecorder } from './snappy-session-recorder'
+
+type PendingSessionBlock = Omit<SessionBlockMetadata, 'blockLength' | 'blockUrl' | 'retentionPeriodDays'> & {
+    writeData: WriteSessionData
+}
+
+interface PendingFlushData {
+    sessionBlocks: PendingSessionBlock[]
+    featureBlocks: SessionFeatureBlock[]
+    totalEvents: number
+    totalSessions: number
+}
 
 /**
  * Manages the recording of a batch of session recordings:
@@ -70,6 +81,7 @@ export class SessionBatchRecorder {
     private _size: number = 0
     private readonly batchId: string
     private readonly rateLimiter: SessionRateLimiter
+    private pendingFlushData: PendingFlushData | null = null
 
     constructor(
         private readonly offsetManager: KafkaOffsetManager,
@@ -286,14 +298,72 @@ export class SessionBatchRecorder {
             return []
         }
 
-        const writer = this.storage.newBatch()
+        const pendingFlushData = await this.getPendingFlushData()
 
-        const blockMetadata: SessionBlockMetadata[] = []
+        try {
+            const writer = this.storage.newBatch()
+            const blockMetadata: SessionBlockMetadata[] = []
+            let totalBytes = 0
+
+            for (const sessionBlock of pendingFlushData.sessionBlocks) {
+                const { bytesWritten, url, retentionPeriodDays } = await writer.writeSession(sessionBlock.writeData)
+                const { writeData: _writeData, ...metadata } = sessionBlock
+
+                blockMetadata.push({
+                    ...metadata,
+                    blockLength: bytesWritten,
+                    blockUrl: url,
+                    retentionPeriodDays,
+                })
+
+                totalBytes += bytesWritten
+            }
+
+            await writer.finish()
+            await this.consoleLogStore.flush()
+            await this.featureStore.storeSessionFeatures(pendingFlushData.featureBlocks)
+            await this.metadataStore.storeSessionBlocks(blockMetadata)
+            await this.offsetManager.commit()
+
+            // Update metrics
+            SessionBatchMetrics.incrementBatchesFlushed()
+            SessionBatchMetrics.incrementSessionsFlushed(pendingFlushData.totalSessions)
+            SessionBatchMetrics.incrementEventsFlushed(pendingFlushData.totalEvents)
+            SessionBatchMetrics.incrementBytesWritten(totalBytes)
+
+            // Clear sessions, partition sizes, total size, and rate limiter state after successful flush
+            this.partitionSessions.clear()
+            this.partitionSizes.clear()
+            this._size = 0
+            this.rateLimiter.clear()
+            this.pendingFlushData = null
+
+            logger.info('🔁', 'session_batch_recorder_flushed', {
+                totalEvents: pendingFlushData.totalEvents,
+                totalSessions: pendingFlushData.totalSessions,
+                totalBytes,
+            })
+
+            return blockMetadata
+        } catch (error) {
+            logger.error('🔁', 'session_batch_recorder_flush_error', {
+                error,
+                totalEvents: pendingFlushData.totalEvents,
+                totalSessions: pendingFlushData.totalSessions,
+            })
+            throw error
+        }
+    }
+
+    private async getPendingFlushData(): Promise<PendingFlushData> {
+        if (this.pendingFlushData) {
+            return this.pendingFlushData
+        }
+
+        const sessionBlocks: PendingSessionBlock[] = []
         const featureBlocks: SessionFeatureBlock[] = []
-
         let totalEvents = 0
         let totalSessions = 0
-        let totalBytes = 0
 
         try {
             for (const sessions of this.partitionSessions.values()) {
@@ -341,20 +411,12 @@ export class SessionBatchRecorder {
                         sessionKey
                     )
 
-                    const { bytesWritten, url, retentionPeriodDays } = await writer.writeSession({
-                        buffer: encryptedBuffer,
-                        teamId: sessionBlockRecorder.teamId,
-                        sessionId: sessionBlockRecorder.sessionId,
-                    })
-
-                    blockMetadata.push({
+                    sessionBlocks.push({
                         sessionId: sessionBlockRecorder.sessionId,
                         teamId: sessionBlockRecorder.teamId,
                         distinctId: sessionBlockRecorder.distinctId,
-                        blockLength: bytesWritten,
                         startDateTime,
                         endDateTime,
-                        blockUrl: url,
                         firstUrl,
                         urls,
                         clickCount,
@@ -370,47 +432,26 @@ export class SessionBatchRecorder {
                         snapshotLibrary,
                         batchId,
                         eventCount,
-                        retentionPeriodDays,
                         isDeleted: false,
+                        writeData: {
+                            buffer: encryptedBuffer,
+                            teamId: sessionBlockRecorder.teamId,
+                            sessionId: sessionBlockRecorder.sessionId,
+                        },
                     })
 
                     totalEvents += eventCount
-                    totalBytes += bytesWritten
                 }
                 totalSessions += sessions.size
             }
 
-            await writer.finish()
-            await this.consoleLogStore.flush()
-            await this.featureStore.storeSessionFeatures(featureBlocks)
-            await this.metadataStore.storeSessionBlocks(blockMetadata)
-            await this.offsetManager.commit()
-
-            // Update metrics
-            SessionBatchMetrics.incrementBatchesFlushed()
-            SessionBatchMetrics.incrementSessionsFlushed(totalSessions)
-            SessionBatchMetrics.incrementEventsFlushed(totalEvents)
-            SessionBatchMetrics.incrementBytesWritten(totalBytes)
-
-            // Clear sessions, partition sizes, total size, and rate limiter state after successful flush
-            this.partitionSessions.clear()
-            this.partitionSizes.clear()
-            this._size = 0
-            this.rateLimiter.clear()
-
-            logger.info('🔁', 'session_batch_recorder_flushed', {
-                totalEvents,
-                totalSessions,
-                totalBytes,
-            })
-
-            return blockMetadata
+            this.pendingFlushData = { sessionBlocks, featureBlocks, totalEvents, totalSessions }
+            return this.pendingFlushData
         } catch (error) {
             logger.error('🔁', 'session_batch_recorder_flush_error', {
                 error,
                 totalEvents,
                 totalSessions,
-                totalBytes,
             })
             throw error
         }

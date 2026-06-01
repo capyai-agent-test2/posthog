@@ -258,6 +258,10 @@ export class SessionRecordingIngester {
         SessionRecordingIngesterMetrics.observeKafkaBatchSize(batchSize)
         SessionRecordingIngesterMetrics.observeKafkaBatchSizeKb(batchSizeKb)
 
+        if (this.sessionBatchManager.shouldFlush() && !(await this.flushCurrentBatch())) {
+            return
+        }
+
         // Run messages through the pipeline (handles restrictions, parsing, team filtering, and recording)
         await instrumentFn(`recordingingesterv2.handleEachBatch.runPipeline`, async () =>
             runSessionReplayPipeline(this.sessionReplayPipeline, messages)
@@ -379,12 +383,14 @@ export class SessionRecordingIngester {
         })
     }
 
-    private async flushCurrentBatch(): Promise<void> {
+    private async flushCurrentBatch(): Promise<boolean> {
         try {
             await this.sessionBatchManager.flush()
+            return true
         } catch (error) {
             logger.error('🔁', 'blob_ingester_consumer_v2 - failed to flush session batch', { error })
             captureException(error)
+            return false
         }
     }
 

@@ -1059,6 +1059,29 @@ describe('SessionBatchRecorder', () => {
             expect(mockOffsetManager.commit).not.toHaveBeenCalled()
         })
 
+        it('should retry a failed flush without ending session recorders again', async () => {
+            const error = new Error('Metadata store failed')
+            const endSpy = jest.spyOn(SnappySessionRecorderMock.prototype, 'end')
+            mockMetadataStore.storeSessionBlocks.mockRejectedValueOnce(error)
+
+            const message = createMessage('session1', [
+                {
+                    type: EventType.FullSnapshot,
+                    timestamp: 1000,
+                    data: { source: 1 },
+                },
+            ])
+
+            await recorder.record(message)
+            await expect(recorder.flush()).rejects.toThrow(error)
+            await expect(recorder.flush()).resolves.toHaveLength(1)
+
+            expect(endSpy).toHaveBeenCalledTimes(1)
+            expect(mockWriter.writeSession).toHaveBeenCalledTimes(2)
+            expect(mockMetadataStore.storeSessionBlocks).toHaveBeenCalledTimes(2)
+            expect(mockOffsetManager.commit).toHaveBeenCalledTimes(1)
+        })
+
         it('should not commit offsets if console log flush fails', async () => {
             const error = new Error('Console log flush failed')
             mockConsoleLogStore.flush.mockRejectedValueOnce(error)
