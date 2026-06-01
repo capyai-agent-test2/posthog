@@ -6,8 +6,8 @@ function ServerSideWarning(): JSX.Element {
     return (
         <div className="warning">
             <p>
-                <b>Warning:</b> Server side experiment metrics require you to manually send the feature flag
-                information.{' '}
+                <b>Warning:</b> Server-side experiment metrics require evaluating the flag in a way that records an
+                exposure event.{' '}
                 <Link to="https://posthog.com/docs/experiments/adding-experiment-code" target="_blank">
                     See this tutorial for more information.
                 </Link>
@@ -55,7 +55,8 @@ export function NodeJSSnippet({ flagKey, variant }: SnippetProps): JSX.Element {
     return (
         <>
             <CodeSnippet language={Language.JavaScript} wrap>
-                {`const experimentFlagValue = await client.getFeatureFlag('${flagKey}', 'user distinct id')
+                {`const flags = await client.evaluateFlags('user_distinct_id')
+const experimentFlagValue = flags.getFlag('${flagKey}')
 
 if (experimentFlagValue === '${variant}' ) {
     // Do something differently for this user
@@ -146,7 +147,10 @@ export function PHPSnippet({ flagKey, variant }: SnippetProps): JSX.Element {
     return (
         <>
             <CodeSnippet language={Language.PHP} wrap>
-                {`if (PostHog::getFeatureFlag('${flagKey}', 'user distinct id') == '${variant}') {
+                {`$flags = PostHog::evaluateFlags('user_distinct_id');
+$experimentFlagValue = $flags->getFlag('${flagKey}');
+
+if ($experimentFlagValue === '${variant}') {
     // Do something differently for this user
 } else {
     // It's a good idea to let control variant always be the default behaviour,
@@ -162,13 +166,13 @@ export function GolangSnippet({ flagKey, variant }: SnippetProps): JSX.Element {
     return (
         <>
             <CodeSnippet language={Language.Go} wrap>
-                {`experimentFlagValue, err := client.GetFeatureFlag(posthog.FeatureFlagPayload{
-    Key:        '${flagKey}',
-    DistinctId: "distinct-id",
+                {`flags, err := client.EvaluateFlags(posthog.EvaluateFlagsPayload{
+    DistinctId: "user_distinct_id",
 })
 if err != nil {
     // Handle error (e.g. capture error and fallback to default behaviour)
 }
+experimentFlagValue := flags.GetFlag("${flagKey}")
 if experimentFlagValue == '${variant}' {
     // Do something differently for this user
 } else {
@@ -205,7 +209,8 @@ export function RubySnippet({ flagKey, variant }: SnippetProps): JSX.Element {
     return (
         <>
             <CodeSnippet language={Language.Ruby} wrap>
-                {`experimentFlagValue = posthog.get_feature_flag('${flagKey}', 'user distinct id')
+                {`flags = posthog.evaluate_flags('user_distinct_id')
+experimentFlagValue = flags.get_flag('${flagKey}')
 
 
 if experimentFlagValue == '${variant}'
@@ -225,7 +230,8 @@ export function PythonSnippet({ flagKey, variant }: SnippetProps): JSX.Element {
     return (
         <>
             <CodeSnippet language={Language.Python} wrap>
-                {`experiment_flag_value = posthog.get_feature_flag("${flagKey}", "user_distinct_id"):
+                {`flags = posthog.evaluate_flags("user_distinct_id")
+experiment_flag_value = flags.get_flag("${flagKey}")
 
 if experiment_flag_value == '${variant}':
     # Do something differently for this user
@@ -243,7 +249,8 @@ export function JavaSnippet({ flagKey, variant }: SnippetProps): JSX.Element {
     return (
         <>
             <CodeSnippet language={Language.Java} wrap>
-                {`Object flagValue = postHog.getFeatureFlag("user distinct id", "${flagKey}");
+                {`PostHogFeatureFlagEvaluations flags = posthog.evaluateFlags("user_distinct_id");
+Object flagValue = flags.getFlag("${flagKey}");
 if ("${variant}".equals(flagValue)) {
     // Do something differently for this user
 } else {
