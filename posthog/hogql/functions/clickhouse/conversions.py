@@ -122,6 +122,7 @@ DATE_CONVERSION_FUNCTIONS: dict[str, HogQLFunctionMeta] = {
             1,
             signatures=[
                 ((StringType(),), DateType()),
+                ((DateType(),), DateType()),
                 ((DateTimeType(),), DateType()),
             ],
             overloads=[((ast.DateTimeType, ast.DateType), "toDate")],
