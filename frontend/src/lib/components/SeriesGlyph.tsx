@@ -30,12 +30,13 @@ interface SeriesLetterProps {
 export function SeriesLetter({ className, hasBreakdown, seriesIndex, seriesColor }: SeriesLetterProps): JSX.Element {
     const color = seriesColor || getSeriesColor(seriesIndex)
     const { isDarkModeOn } = useValues(themeLogic)
+    const shouldUseSeriesColor = !!seriesColor || !hasBreakdown
 
     return (
         <SeriesGlyph
             className={className}
             style={
-                !hasBreakdown
+                shouldUseSeriesColor
                     ? {
                           borderColor: color,
                           color: color,
