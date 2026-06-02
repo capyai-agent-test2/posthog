@@ -88,9 +88,14 @@ MEASURE_CONTENT_HEIGHT_JS = """
                   document.querySelector('.heatmap-exporter');
     if (element) {
         const rect = element.getBoundingClientRect();
-        return Math.max(rect.height, document.body.scrollHeight);
+        return Math.max(
+            rect.height,
+            rect.top + element.scrollHeight,
+            document.documentElement.scrollHeight,
+            document.body.scrollHeight
+        );
     }
-    return document.body.scrollHeight;
+    return Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
 """
 
 MEASURE_CONTENT_WIDTH_JS = f"""

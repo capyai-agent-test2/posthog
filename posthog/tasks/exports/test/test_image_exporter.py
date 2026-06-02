@@ -690,6 +690,12 @@ class TestBuildCdpEndpoint(SimpleTestCase):
         assert params["timeout"] == ["1000"]
 
 
+class TestMeasureContentHeight(SimpleTestCase):
+    def test_content_height_includes_scrollable_element_content(self) -> None:
+        assert "rect.top + element.scrollHeight" in image_exporter.MEASURE_CONTENT_HEIGHT_JS
+        assert "document.documentElement.scrollHeight" in image_exporter.MEASURE_CONTENT_HEIGHT_JS
+
+
 class TestShouldUseBrowserless(SimpleTestCase):
     @staticmethod
     def _make_asset(created_by: Any) -> ExportedAsset:
