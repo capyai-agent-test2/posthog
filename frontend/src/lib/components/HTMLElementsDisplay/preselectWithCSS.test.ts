@@ -67,6 +67,10 @@ const elements = [
         text: 'Pageview count\nLast modified 2 days ago',
     },
 ] as ElementType[]
+
+const elementsWithNthChildren = (elements: ElementType[]): ElementType[] =>
+    elements.map((element) => ({ ...element, nth_child: element.nth_child ?? 1 }))
+
 describe('can preselect selectors for editing', () => {
     describe('can parse parts out of a single selector and they are mostly reversible', () => {
         const testcases = [
@@ -74,6 +78,30 @@ describe('can preselect selectors for editing', () => {
             { selector: '.Something__something--something', expected: { class: ['Something__something--something'] } },
             {
                 selector: '.Something__something--something:first-of-type',
+                expectedSelector: '.Something__something--something',
+                expected: { class: ['Something__something--something'] },
+            },
+            {
+                selector: '.Something__something--something:nth-child(2)',
+                expected: { class: ['Something__something--something'], 'nth-child': '2' },
+            },
+            {
+                selector: 'span:nth-of-type(3).Something__something--something',
+                expectedSelector: 'span.Something__something--something:nth-of-type(3)',
+                expected: { tag: 'span', class: ['Something__something--something'], 'nth-of-type': '3' },
+            },
+            {
+                selector: '.Something__something--something:not(.disabled)',
+                expectedSelector: '.Something__something--something',
+                expected: { class: ['Something__something--something'] },
+            },
+            {
+                selector: '.Something__something--something:is(:where(.enabled))',
+                expectedSelector: '.Something__something--something',
+                expected: { class: ['Something__something--something'] },
+            },
+            {
+                selector: '.Something__something--something:not(:nth-child(2))',
                 expectedSelector: '.Something__something--something',
                 expected: { class: ['Something__something--something'] },
             },
@@ -210,6 +238,22 @@ describe('can preselect selectors for editing', () => {
             const selector = parseCSSSelector('>')
             expect(matchesSelector(el, selector)).toBe(false)
         })
+
+        test('matches positional pseudo-classes exactly', () => {
+            const el = {
+                attributes: {
+                    class: 'result-item-wrapper',
+                },
+                tag_name: 'div',
+                nth_child: 2,
+                nth_of_type: 3,
+            } as ElementType
+
+            expect(matchesSelector(el, parseCSSSelector('.result-item-wrapper:nth-child(2)'))).toBe(true)
+            expect(matchesSelector(el, parseCSSSelector('.result-item-wrapper:nth-child(1)'))).toBe(false)
+            expect(matchesSelector(el, parseCSSSelector('.result-item-wrapper:nth-of-type(3)'))).toBe(true)
+            expect(matchesSelector(el, parseCSSSelector('.result-item-wrapper:nth-of-type(2)'))).toBe(false)
+        })
     })
 
     test('a single tag can be selected', () => {
@@ -274,13 +318,15 @@ describe('can preselect selectors for editing', () => {
             },
             5: {
                 class: ['top-list'],
+                'nth-child': '1',
             },
             8: {
                 class: ['LemonButton'],
+                'nth-child': '1',
             },
         }
 
-        expect(preselect(elements, autoSelector)).toEqual(expectedSelectedElements)
+        expect(preselect(elementsWithNthChildren(elements), autoSelector)).toEqual(expectedSelectedElements)
     })
 
     test('multiple css matches on single elements', () => {
@@ -293,13 +339,15 @@ describe('can preselect selectors for editing', () => {
             },
             5: {
                 class: ['top-list'],
+                'nth-child': '1',
             },
             8: {
                 class: ['LemonButton', 'LemonButton--status-primary'],
+                'nth-child': '1',
             },
         }
 
-        expect(preselect(elements, autoSelector)).toEqual(expectedSelectedElements)
+        expect(preselect(elementsWithNthChildren(elements), autoSelector)).toEqual(expectedSelectedElements)
     })
 
     test('multiple types of css matches', () => {
@@ -312,6 +360,7 @@ describe('can preselect selectors for editing', () => {
             },
             5: {
                 class: ['top-list'],
+                'nth-child': '1',
             },
             8: {
                 class: ['LemonButton', 'LemonButton--status-primary'],
@@ -319,7 +368,48 @@ describe('can preselect selectors for editing', () => {
             },
         }
 
-        expect(preselect(elements, autoSelector)).toEqual(expectedSelectedElements)
+        expect(preselect(elementsWithNthChildren(elements), autoSelector)).toEqual(expectedSelectedElements)
+    })
+
+    test('can preselect a specific positional child', () => {
+        const selector = '.ant-spin-container .w-relative:nth-child(1) .result-item-wrapper:nth-child(2)'
+        const elements = [
+            {
+                attributes: {
+                    class: 'ant-spin-container',
+                },
+                tag_name: 'div',
+                nth_child: 1,
+            },
+            {
+                attributes: {
+                    class: 'w-relative',
+                },
+                tag_name: 'div',
+                nth_child: 1,
+            },
+            {
+                attributes: {
+                    class: 'result-item-wrapper',
+                },
+                tag_name: 'div',
+                nth_child: 2,
+            },
+        ] as ElementType[]
+
+        expect(preselect(elements, selector)).toEqual({
+            0: {
+                class: ['ant-spin-container'],
+            },
+            1: {
+                class: ['w-relative'],
+                'nth-child': '1',
+            },
+            2: {
+                class: ['result-item-wrapper'],
+                'nth-child': '2',
+            },
+        })
     })
 
     test('when child combinator is necessary', () => {
@@ -411,7 +501,7 @@ describe('can preselect selectors for editing', () => {
 
         expect(
             preselect(
-                [
+                elementsWithNthChildren([
                     {
                         attributes: {
                             class: 'example-o-stack__item',
@@ -473,15 +563,17 @@ describe('can preselect selectors for editing', () => {
                         tag_name: 'a',
                         text: 'View',
                     },
-                ],
+                ]),
                 selector
             )
         ).toEqual({
             '1': {
                 class: ['search-box__result-item'],
+                'nth-child': '1',
             },
             '6': {
                 class: ['example-l-flex__item'],
+                'nth-child': '1',
             },
             '7': {
                 class: ['example-c-button-group'],

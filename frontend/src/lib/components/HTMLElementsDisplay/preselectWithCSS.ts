@@ -2,9 +2,50 @@ import { ElementType } from '~/types'
 
 export type ParsedCSSSelector = Record<string, string | string[] | undefined>
 
+const POSITIONAL_PSEUDO_CLASSES = ['nth-child', 'nth-of-type']
+const POSITIONAL_PSEUDO_CLASS_REGEX = /:(nth-child|nth-of-type)\((\d+)\)/g
+
+const stripUnsupportedPseudoFunctions = (selector: string): string => {
+    let strippedSelector = ''
+    let index = 0
+
+    while (index < selector.length) {
+        const pseudoFunctionMatch = selector.slice(index).match(/^:[\w-]+\(/)
+        if (!pseudoFunctionMatch) {
+            strippedSelector += selector[index]
+            index++
+            continue
+        }
+
+        const pseudoFunctionName = pseudoFunctionMatch[0].slice(1, -1)
+        const pseudoFunctionStartIndex = index
+        let depth = 0
+        index += pseudoFunctionMatch[0].length
+
+        while (index < selector.length) {
+            if (selector[index] === '(') {
+                depth++
+            } else if (selector[index] === ')') {
+                if (depth === 0) {
+                    index++
+                    break
+                }
+                depth--
+            }
+            index++
+        }
+
+        if (POSITIONAL_PSEUDO_CLASSES.includes(pseudoFunctionName)) {
+            strippedSelector += selector.slice(pseudoFunctionStartIndex, index)
+        }
+    }
+
+    return strippedSelector
+}
+
 export const parsedSelectorToSelectorString = (parsedSelector: ParsedCSSSelector): string => {
     const attributeSelectors = Object.entries(parsedSelector).reduce((acc, [key, value]) => {
-        if (!!value && key !== 'tag' && key !== 'text' && key !== 'id') {
+        if (!!value && key !== 'tag' && key !== 'text' && key !== 'id' && !POSITIONAL_PSEUDO_CLASSES.includes(key)) {
             if (key === 'class') {
                 if (!Array.isArray(value)) {
                     throw new Error(`Was expecting an array here. Attribute: ${key} has a string value: ${value}`)
@@ -28,12 +69,23 @@ export const parsedSelectorToSelectorString = (parsedSelector: ParsedCSSSelector
 
     const tagSelector = parsedSelector.tag ? parsedSelector.tag : ''
     const idSelector = parsedSelector.id ? `[id="${parsedSelector.id}"]` : ''
-    const builtSelector = `${tagSelector}${idSelector}${attributeSelectors.join('')}`
+    const positionalPseudoClassSelectors = POSITIONAL_PSEUDO_CLASSES.map((key) =>
+        parsedSelector[key] ? `:${key}(${parsedSelector[key]})` : ''
+    ).join('')
+    const builtSelector = `${tagSelector}${idSelector}${attributeSelectors.join('')}${positionalPseudoClassSelectors}`
     return builtSelector
 }
 
 export const parseCSSSelector = (s: string): ParsedCSSSelector => {
     const parts = {} as ParsedCSSSelector
+    const selectorWithSupportedPseudoFunctions = stripUnsupportedPseudoFunctions(s)
+    const positionalPseudoClasses = Array.from(
+        selectorWithSupportedPseudoFunctions.matchAll(POSITIONAL_PSEUDO_CLASS_REGEX)
+    )
+    const selectorWithoutPseudoFunctions = selectorWithSupportedPseudoFunctions.replace(
+        POSITIONAL_PSEUDO_CLASS_REGEX,
+        ''
+    )
     let processing: string | undefined = undefined
     let attributeKey = ''
     let current = ''
@@ -58,7 +110,7 @@ export const parseCSSSelector = (s: string): ParsedCSSSelector => {
     // pulling in a library like parsel is taking on a new dependency for a hopefully limited use case
     // we don't need to support all the css selectors,
     // so, we'll just do it manually (until we need the new dependency)
-    Array.from(s).forEach((char) => {
+    Array.from(selectorWithoutPseudoFunctions).forEach((char) => {
         if (char === '#') {
             closeItem()
             processing = 'id'
@@ -99,6 +151,9 @@ export const parseCSSSelector = (s: string): ParsedCSSSelector => {
     }
 
     delete parts.ignore
+    positionalPseudoClasses.forEach((match) => {
+        parts[match[1]] = match[2]
+    })
     return parts
 }
 
@@ -111,6 +166,10 @@ export const matchesSelector = (e: ElementType, s: ParsedCSSSelector): boolean =
         } else if (key === 'tag' && s.tag && s.tag === e.tag_name) {
             selectorKeysMatch.push(true)
         } else if (key === 'id' && s.id && e.attr_id && s.id === e.attr_id) {
+            selectorKeysMatch.push(true)
+        } else if (key === 'nth-child' && s[key] && Number(s[key]) === e.nth_child) {
+            selectorKeysMatch.push(true)
+        } else if (key === 'nth-of-type' && s[key] && Number(s[key]) === e.nth_of_type) {
             selectorKeysMatch.push(true)
         } else {
             // s.class is a string or a string[]
@@ -136,15 +195,9 @@ export const matchesSelector = (e: ElementType, s: ParsedCSSSelector): boolean =
 }
 
 export function preselect(elements: ElementType[], autoSelector: string): Record<number, ParsedCSSSelector> {
-    const selectors = autoSelector
-        .split(' ')
-        .map((selector) => {
-            // don't need to support things like :nth-child(1) or :nth-child(2)
-            return selector.split(':')[0]
-        })
-        .map((selector) => {
-            return parseCSSSelector(selector)
-        })
+    const selectors = autoSelector.split(' ').map((selector) => {
+        return parseCSSSelector(selector)
+    })
 
     const selections = {} as Record<number, Record<string, string | string[] | undefined>>
 
