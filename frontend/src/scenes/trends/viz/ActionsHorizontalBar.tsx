@@ -34,7 +34,7 @@ export function buildHorizontalBarDataset(
     return {
         labels: visibleResults.map((item) => item.label),
         data: visibleResults.map((item) => item.aggregated_value),
-        actions: visibleResults.map((item) => item.action ?? {}),
+        actions: visibleResults.map((item) => item.action ?? undefined),
         personsValues: visibleResults.map((item) => item.persons),
         breakdownValues: visibleResults.map((item) => item.breakdown_value),
         breakdownLabels: visibleResults.map(formatBreakdown),

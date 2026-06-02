@@ -14,6 +14,6 @@ describe('buildHorizontalBarDataset', () => {
             (item) => item.label
         )
 
-        expect(dataset.actions).toEqual([{}])
+        expect(dataset.actions).toEqual([undefined])
     })
 })
