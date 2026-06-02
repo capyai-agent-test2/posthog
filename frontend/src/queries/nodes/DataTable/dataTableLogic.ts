@@ -3,7 +3,7 @@ import { actions, connect, kea, key, listeners, path, props, propsChanged, reduc
 import { FEATURE_FLAGS } from 'lib/constants'
 import { dayjs } from 'lib/dayjs'
 import { featureFlagLogic } from 'lib/logic/featureFlagLogic'
-import { tabUiStateLogic } from 'lib/logic/tabUiStateLogic'
+import { tabUiStateLogic, type ExpandedRowKey } from 'lib/logic/tabUiStateLogic'
 import { objectsEqual, sortedKeys } from 'lib/utils'
 import { RequiredExcept } from 'lib/utils/types'
 import { teamLogic } from 'scenes/teamLogic'
@@ -43,6 +43,26 @@ export interface DataTableRow {
     result?: Record<string, any> | any[]
 }
 
+export function getDataTableRowKey(
+    row: DataTableRow,
+    rowIndex: number,
+    columnsInResponse: string[] | null | undefined
+): ExpandedRowKey {
+    const { result } = row
+
+    if (Array.isArray(result)) {
+        const eventColumnIndex = columnsInResponse?.indexOf('*') ?? -1
+        const event = eventColumnIndex >= 0 ? result[eventColumnIndex] : null
+        if (event && typeof event === 'object' && typeof event.uuid === 'string') {
+            return event.uuid
+        }
+    } else if (result && typeof result === 'object' && typeof result.uuid === 'string') {
+        return result.uuid
+    }
+
+    return rowIndex
+}
+
 export const loadingColumn = Symbol('...')
 export const errorColumn = Symbol('Error!')
 
@@ -60,7 +80,7 @@ export const dataTableLogic = kea<dataTableLogicType>([
     path(['queries', 'nodes', 'DataTable', 'dataTableLogic']),
     actions({
         setColumnsInQuery: (columns: HogQLExpression[]) => ({ columns }),
-        toggleRowExpanded: (rowIndex: number) => ({ rowIndex }),
+        toggleRowExpanded: (rowKey: ExpandedRowKey) => ({ rowKey }),
     }),
     reducers(({ props }) => ({
         columnsInQuery: [getColumnsForQuery(props.query), { setColumnsInQuery: (_, { columns }) => columns }],
@@ -87,11 +107,11 @@ export const dataTableLogic = kea<dataTableLogicType>([
         actions: [tabUiStateLogic, ['toggleExpandedRow']],
     })),
     listeners(({ props, actions }) => ({
-        toggleRowExpanded: ({ rowIndex }) => {
+        toggleRowExpanded: ({ rowKey }) => {
             if (props.tabId === undefined) {
                 return
             }
-            actions.toggleExpandedRow(props.tabId, props.vizKey, rowIndex)
+            actions.toggleExpandedRow(props.tabId, props.vizKey, rowKey)
         },
     })),
     selectors({
@@ -99,10 +119,10 @@ export const dataTableLogic = kea<dataTableLogicType>([
         expandedRows: [
             (s) => [s.expandedRowsFor, (_, p) => p.tabId, (_, p) => p.vizKey],
             (
-                expandedRowsFor: (tabId: string | undefined, vizKey: string) => number[],
+                expandedRowsFor: (tabId: string | undefined, vizKey: string) => ExpandedRowKey[],
                 tabId: string | undefined,
                 vizKey: string
-            ): number[] => expandedRowsFor(tabId, vizKey),
+            ): ExpandedRowKey[] => expandedRowsFor(tabId, vizKey),
             { resultEqualityCheck: objectsEqual },
         ],
         sourceKind: [(_, p) => [p.query], (query): NodeKind | null => query.source?.kind],
