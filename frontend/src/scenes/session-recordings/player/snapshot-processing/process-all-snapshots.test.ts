@@ -190,6 +190,218 @@ describe('process all snapshots', () => {
             expect(results).toHaveLength(3)
             expect(results.map((r) => (r.data as any).value)).toEqual(['A', 'B', 'C'])
         })
+
+        it('marks the option matching a select value as selected', async () => {
+            const sessionId = '1234'
+            const source = {
+                source: 'blob_v2',
+                blob_key: '0',
+            } as SessionRecordingSnapshotSource
+            const key = keyForSource(source)
+            const fullSnapshot = {
+                windowId: 1,
+                timestamp: 1234567890,
+                type: 2,
+                data: {
+                    node: {
+                        type: 0,
+                        childNodes: [
+                            {
+                                type: 2,
+                                tagName: 'select',
+                                attributes: { value: 'private' },
+                                childNodes: [
+                                    {
+                                        type: 2,
+                                        tagName: 'option',
+                                        attributes: { value: 'public', selected: true },
+                                        childNodes: [{ type: 3, textContent: 'Public' }],
+                                    },
+                                    {
+                                        type: 2,
+                                        tagName: 'option',
+                                        attributes: { value: 'private' },
+                                        childNodes: [{ type: 3, textContent: 'Private' }],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                },
+            } as unknown as RecordingSnapshot
+
+            const results = await processAllSnapshots(
+                [source],
+                { [key]: { snapshots: [fullSnapshot] } },
+                { snapshots: {} },
+                () => ({ width: '100', height: '100', href: 'https://example.com' }),
+                sessionId
+            )
+
+            const processedFullSnapshot = results.find((result) => result.type === 2) as any
+            const selectNode = processedFullSnapshot.data.node.childNodes[0]
+            expect(selectNode.childNodes[0].attributes.selected).toBeUndefined()
+            expect(selectNode.childNodes[1].attributes.selected).toBe(true)
+        })
+
+        it('does not rewrite multi-select selected options from the select value', async () => {
+            const sessionId = '1234'
+            const source = {
+                source: 'blob_v2',
+                blob_key: '0',
+            } as SessionRecordingSnapshotSource
+            const key = keyForSource(source)
+            const fullSnapshot = {
+                windowId: 1,
+                timestamp: 1234567890,
+                type: 2,
+                data: {
+                    node: {
+                        type: 0,
+                        childNodes: [
+                            {
+                                type: 2,
+                                tagName: 'select',
+                                attributes: { multiple: true, value: 'public' },
+                                childNodes: [
+                                    {
+                                        type: 2,
+                                        tagName: 'option',
+                                        attributes: { value: 'public', selected: true },
+                                        childNodes: [{ type: 3, textContent: 'Public' }],
+                                    },
+                                    {
+                                        type: 2,
+                                        tagName: 'option',
+                                        attributes: { value: 'private', selected: true },
+                                        childNodes: [{ type: 3, textContent: 'Private' }],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                },
+            } as unknown as RecordingSnapshot
+
+            const results = await processAllSnapshots(
+                [source],
+                { [key]: { snapshots: [fullSnapshot] } },
+                { snapshots: {} },
+                () => ({ width: '100', height: '100', href: 'https://example.com' }),
+                sessionId
+            )
+
+            const processedFullSnapshot = results.find((result) => result.type === 2) as any
+            const selectNode = processedFullSnapshot.data.node.childNodes[0]
+            expect(selectNode.childNodes[0].attributes.selected).toBe(true)
+            expect(selectNode.childNodes[1].attributes.selected).toBe(true)
+        })
+
+        it('matches options without values using normalized text', async () => {
+            const sessionId = '1234'
+            const source = {
+                source: 'blob_v2',
+                blob_key: '0',
+            } as SessionRecordingSnapshotSource
+            const key = keyForSource(source)
+            const fullSnapshot = {
+                windowId: 1,
+                timestamp: 1234567890,
+                type: 2,
+                data: {
+                    node: {
+                        type: 0,
+                        childNodes: [
+                            {
+                                type: 2,
+                                tagName: 'select',
+                                attributes: { value: 'Private option' },
+                                childNodes: [
+                                    {
+                                        type: 2,
+                                        tagName: 'option',
+                                        attributes: { selected: true },
+                                        childNodes: [{ type: 3, textContent: 'Public option' }],
+                                    },
+                                    {
+                                        type: 2,
+                                        tagName: 'option',
+                                        attributes: {},
+                                        childNodes: [{ type: 3, textContent: '\n  Private   option\n' }],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                },
+            } as unknown as RecordingSnapshot
+
+            const results = await processAllSnapshots(
+                [source],
+                { [key]: { snapshots: [fullSnapshot] } },
+                { snapshots: {} },
+                () => ({ width: '100', height: '100', href: 'https://example.com' }),
+                sessionId
+            )
+
+            const processedFullSnapshot = results.find((result) => result.type === 2) as any
+            const selectNode = processedFullSnapshot.data.node.childNodes[0]
+            expect(selectNode.childNodes[0].attributes.selected).toBeUndefined()
+            expect(selectNode.childNodes[1].attributes.selected).toBe(true)
+        })
+
+        it('preserves non-ASCII whitespace when normalizing option text values', async () => {
+            const sessionId = '1234'
+            const source = {
+                source: 'blob_v2',
+                blob_key: '0',
+            } as SessionRecordingSnapshotSource
+            const key = keyForSource(source)
+            const fullSnapshot = {
+                windowId: 1,
+                timestamp: 1234567890,
+                type: 2,
+                data: {
+                    node: {
+                        type: 0,
+                        childNodes: [
+                            {
+                                type: 2,
+                                tagName: 'select',
+                                attributes: { value: 'Private\u00a0option' },
+                                childNodes: [
+                                    {
+                                        type: 2,
+                                        tagName: 'option',
+                                        attributes: { selected: true },
+                                        childNodes: [{ type: 3, textContent: 'Private option' }],
+                                    },
+                                    {
+                                        type: 2,
+                                        tagName: 'option',
+                                        attributes: {},
+                                        childNodes: [{ type: 3, textContent: 'Private\u00a0option' }],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                },
+            } as unknown as RecordingSnapshot
+
+            const results = await processAllSnapshots(
+                [source],
+                { [key]: { snapshots: [fullSnapshot] } },
+                { snapshots: {} },
+                () => ({ width: '100', height: '100', href: 'https://example.com' }),
+                sessionId
+            )
+
+            const processedFullSnapshot = results.find((result) => result.type === 2) as any
+            const selectNode = processedFullSnapshot.data.node.childNodes[0]
+            expect(selectNode.childNodes[0].attributes.selected).toBeUndefined()
+            expect(selectNode.childNodes[1].attributes.selected).toBe(true)
+        })
     })
 
     describe('hasAnyWireframes', () => {

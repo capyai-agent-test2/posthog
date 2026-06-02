@@ -322,6 +322,7 @@ function processSnapshot(
         context.hasSeenMeta = false
 
         const fullSnapshot = snapshot as RecordingSnapshot & fullSnapshotEvent & eventWithTime
+        patchSelectedOptionsInNode(fullSnapshot.data.node)
 
         if (
             stripChromeExtensionDataFromNode(
@@ -347,6 +348,69 @@ function processSnapshot(
     context.result.push(snapshot)
     context.sourceResult.push(snapshot)
     context.previousTimestamp = currentTimestamp
+}
+
+function patchSelectedOptionsInNode(node: Record<string, any>): void {
+    if (
+        node.type === 2 &&
+        node.tagName === 'select' &&
+        typeof node.attributes?.value === 'string' &&
+        !('multiple' in (node.attributes ?? {}))
+    ) {
+        applySelectedOption(node, node.attributes.value)
+    }
+
+    if (!Array.isArray(node.childNodes)) {
+        return
+    }
+
+    for (const child of node.childNodes) {
+        if (isObject(child)) {
+            patchSelectedOptionsInNode(child)
+        }
+    }
+}
+
+function applySelectedOption(selectNode: Record<string, any>, value: string): void {
+    if (!Array.isArray(selectNode.childNodes)) {
+        return
+    }
+
+    for (const child of selectNode.childNodes) {
+        if (!isObject(child) || child.type !== 2) {
+            continue
+        }
+
+        if (child.tagName !== 'option') {
+            applySelectedOption(child, value)
+            continue
+        }
+
+        const attributes = isObject(child.attributes) ? child.attributes : {}
+        child.attributes = attributes
+        if (optionValue(child) === value) {
+            attributes.selected = true
+        } else {
+            delete attributes.selected
+        }
+    }
+}
+
+function optionValue(optionNode: Record<string, any>): string {
+    if (typeof optionNode.attributes?.value === 'string') {
+        return optionNode.attributes.value
+    }
+
+    if (!Array.isArray(optionNode.childNodes)) {
+        return ''
+    }
+
+    return optionNode.childNodes
+        .filter((child: unknown) => isObject(child) && child.type === 3 && typeof child.textContent === 'string')
+        .map((child: Record<string, any>) => child.textContent)
+        .join('')
+        .replace(/[\t\n\f\r ]+/g, ' ')
+        .replace(/^[\t\n\f\r ]+|[\t\n\f\r ]+$/g, '')
 }
 
 function isRecordingSnapshot(x: unknown): x is RecordingSnapshot {
