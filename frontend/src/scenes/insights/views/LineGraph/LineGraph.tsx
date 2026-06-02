@@ -64,14 +64,6 @@ function truncateString(str: string, num: number): string {
     return str
 }
 
-/** Generate per-bucket labels for stickiness ("Day 0", "Day 1", …). The API's own labels include
- * a "X day(s)" suffix that's redundant when paired with the interval prefix, so we use the index. */
-function formatIntervalLabels(labels: string[], interval: string | null | undefined): string[] {
-    const unit = interval ?? 'day'
-    const prefix = `${unit.slice(0, 1).toUpperCase()}${unit.slice(1)}`
-    return labels.map((_, i) => `${prefix} ${i}`)
-}
-
 const INCOMPLETE_SEGMENT_BORDER_DASH = [10, 10]
 // Chart.js locks up the main thread when rendering too many series, effectively
 // freezing the browser. Cap the dataset count to keep the UI responsive.
@@ -348,11 +340,11 @@ export function LineGraph_({
     const { baseCurrency } = useValues(teamLogic)
 
     const { insightProps, insight } = useValues(insightLogic)
-    const { timezone, isTrends, isStickiness, isFunnels, breakdownFilter, interval, insightData } = useValues(
+    const { timezone, isTrends, isFunnels, breakdownFilter, interval, insightData } = useValues(
         insightVizDataLogic(insightProps)
     )
 
-    const displayLabels = isStickiness ? formatIntervalLabels(labels, interval) : labels
+    const displayLabels = labels
     const { theme, getTrendsColor, getTrendsHidden, hoveredDatasetIndex, currentPeriodResult } = useValues(
         trendsDataLogic(insightProps)
     )

@@ -4,6 +4,7 @@ import { ChartEvent, InteractionItem } from 'lib/Chart'
 
 import { NodeKind, TrendsQueryResponse } from '~/queries/schema/schema-general'
 import {
+    buildStickinessQuery,
     buildTrendsQuery,
     type MockResponse,
     type QueryBody,
@@ -154,6 +155,35 @@ describe('LineGraph', () => {
 
             const firstTickLabel = chart.axes.x.tickLabel(0)
             expect(firstTickLabel).toBe('Jun 10')
+        })
+    })
+
+    describe('Stickiness labels', () => {
+        it('uses the query response units for the x-axis', async () => {
+            const stickinessMock: MockResponse = {
+                match: (query: QueryBody) => query.kind === NodeKind.StickinessQuery,
+                response: {
+                    results: [
+                        {
+                            action: { id: '$pageview', type: 'events', name: '$pageview' },
+                            label: '$pageview',
+                            count: 100,
+                            data: [40, 30, 20, 10],
+                            labels: ['1 week', '2 weeks', '3 weeks', '4 weeks'],
+                            days: [1, 2, 3, 4],
+                        },
+                    ],
+                } as TrendsQueryResponse,
+            }
+
+            renderInsight({
+                query: buildStickinessQuery({ interval: 'week' }),
+                mocks: { mockResponses: [stickinessMock] },
+            })
+
+            const chart = await waitForChart()
+
+            expect(chart.label(3)).toBe('4 weeks')
         })
     })
 
