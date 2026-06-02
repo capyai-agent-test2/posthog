@@ -19,7 +19,7 @@ UUID_NONEXISTENT = "550e8400-e29b-41d4-a716-446655440000"
 
 
 def _find_person_id_filter(where: Optional[ast.Expr]) -> ast.CompareOperation:
-    """Find the personId cityHash64 IN (...) filter in the WHERE clause."""
+    """Find the personId cityHash64 IN filter in the WHERE clause."""
     assert isinstance(where, ast.And)
     for expr in where.exprs:
         if (
@@ -27,7 +27,6 @@ def _find_person_id_filter(where: Optional[ast.Expr]) -> ast.CompareOperation:
             and expr.op == ast.CompareOperationOp.In
             and isinstance(expr.left, ast.Call)
             and expr.left.name == "cityHash64"
-            and isinstance(expr.right, ast.Tuple)
         ):
             return expr
     raise AssertionError(f"No personId cityHash64 IN filter found in WHERE: {where}")
@@ -39,6 +38,21 @@ def _extract_person_distinct_ids_from_where(where: Optional[ast.Expr]) -> list[s
     rhs = expr.right
     assert isinstance(rhs, ast.Tuple)
     return [cast(ast.Constant, cast(ast.Call, x).args[0]).value for x in rhs.exprs]
+
+
+def _extract_person_uuid_from_subquery(where: Optional[ast.Expr]) -> str:
+    expr = _find_person_id_filter(where)
+    rhs = expr.right
+    assert isinstance(rhs, ast.SelectQuery)
+    assert isinstance(rhs.where, ast.And)
+
+    for where_expr in rhs.where.exprs:
+        if isinstance(where_expr, ast.CompareOperation) and isinstance(where_expr.left, ast.Field):
+            if where_expr.left.chain == ["person_id"]:
+                assert isinstance(where_expr.right, ast.Constant)
+                return where_expr.right.value
+
+    raise AssertionError(f"No person_id filter found in person distinct IDs subquery: {rhs.where}")
 
 
 def _extract_distinct_id_field_chain(where: Optional[ast.Expr]) -> list[str | int]:
@@ -60,10 +74,10 @@ class TestEventsQueryRunnerPersonRouting(PersonhogTestMixin, BaseTest):
         query = EventsQuery(kind="EventsQuery", select=["*"], personId=str(person.uuid), orderBy=[])
         query_ast = EventsQueryRunner(query=query, team=self.team).to_query()
 
-        ids = _extract_person_distinct_ids_from_where(query_ast.where)
-        assert set(ids) == {"id1", "id2"}
+        person_uuid = _extract_person_uuid_from_subquery(query_ast.where)
+        assert person_uuid == str(person.uuid)
         self._assert_personhog_called("get_person_by_uuid")
-        self._assert_personhog_called("get_distinct_ids_for_person")
+        self._assert_personhog_not_called("get_distinct_ids_for_person")
 
     def test_uuid_person_id_not_found_returns_empty(self):
         query = EventsQuery(kind="EventsQuery", select=["*"], personId=UUID_NONEXISTENT, orderBy=[])
@@ -79,10 +93,11 @@ class TestEventsQueryRunnerPersonRouting(PersonhogTestMixin, BaseTest):
         query = EventsQuery(kind="EventsQuery", select=["*"], personId=str(person.pk), orderBy=[])
         query_ast = EventsQueryRunner(query=query, team=self.team).to_query()
 
-        ids = _extract_person_distinct_ids_from_where(query_ast.where)
-        assert set(ids) == {"id1", "id2"}
+        person_uuid = _extract_person_uuid_from_subquery(query_ast.where)
+        assert person_uuid == str(person.uuid)
         self._assert_personhog_not_called("get_person_by_uuid")
         self._assert_personhog_called("get_person")
+        self._assert_personhog_not_called("get_distinct_ids_for_person")
 
     def test_invalid_person_id_returns_empty(self):
         query = EventsQuery(kind="EventsQuery", select=["*"], personId="not-a-uuid-or-int", orderBy=[])

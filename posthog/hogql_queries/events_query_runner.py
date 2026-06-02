@@ -30,8 +30,7 @@ from posthog.hogql_queries.insights.paginators import HogQLHasMorePaginator
 from posthog.hogql_queries.query_runner import AnalyticsQueryRunner, get_query_runner
 from posthog.models import Person, PropertyDefinition
 from posthog.models.element import chain_to_elements
-from posthog.models.person.person import get_distinct_ids_for_subquery
-from posthog.models.person.util import get_person_by_pk_or_uuid, get_persons_mapped_by_distinct_id
+from posthog.models.person.util import get_person_uuid_by_pk_or_uuid, get_persons_mapped_by_distinct_id
 from posthog.utils import relative_date_parse
 
 from products.actions.backend.models.action import Action, ActionStepJSON
@@ -82,6 +81,37 @@ class EventsQueryRunner(AnalyticsQueryRunner[EventsQueryResponse]):
         super().validate()
         if self.query.source is not None:
             self.source_runner.validate()
+
+    def _person_id_filter_expr(self, person_uuid: str | None) -> ast.CompareOperation:
+        if person_uuid is None:
+            return ast.CompareOperation(
+                left=ast.Call(name="cityHash64", args=[ast.Field(chain=["distinct_id"])]),
+                right=ast.Tuple(exprs=[]),
+                op=ast.CompareOperationOp.In,
+            )
+
+        return ast.CompareOperation(
+            left=ast.Call(name="cityHash64", args=[ast.Field(chain=["distinct_id"])]),
+            right=ast.SelectQuery(
+                select=[ast.Call(name="cityHash64", args=[ast.Field(chain=["distinct_id"])])],
+                select_from=ast.JoinExpr(table=ast.Field(chain=["person_distinct_ids"])),
+                where=ast.And(
+                    exprs=[
+                        ast.CompareOperation(
+                            left=ast.Field(chain=["team_id"]),
+                            right=ast.Constant(value=self.team.pk),
+                            op=ast.CompareOperationOp.Eq,
+                        ),
+                        ast.CompareOperation(
+                            left=ast.Field(chain=["person_id"]),
+                            right=ast.Constant(value=person_uuid),
+                            op=ast.CompareOperationOp.Eq,
+                        ),
+                    ]
+                ),
+            ),
+            op=ast.CompareOperationOp.In,
+        )
 
     def select_cols(self) -> tuple[list[str], list[ast.Expr]]:
         select_input: list[str] = []
@@ -279,19 +309,8 @@ class EventsQueryRunner(AnalyticsQueryRunner[EventsQueryResponse]):
                         where_exprs.append(steps_to_expr(steps, self.team))
                 if self.query.personId:
                     with self.timings.measure("person_id"):
-                        person: Person | None = get_person_by_pk_or_uuid(self.team.pk, self.query.personId)
-                        where_exprs.append(
-                            ast.CompareOperation(
-                                left=ast.Call(name="cityHash64", args=[ast.Field(chain=["distinct_id"])]),
-                                right=ast.Tuple(
-                                    exprs=[
-                                        ast.Call(name="cityHash64", args=[ast.Constant(value=id)])
-                                        for id in get_distinct_ids_for_subquery(person, self.team)
-                                    ]
-                                ),
-                                op=ast.CompareOperationOp.In,
-                            )
-                        )
+                        person_uuid = get_person_uuid_by_pk_or_uuid(self.team.pk, self.query.personId)
+                        where_exprs.append(self._person_id_filter_expr(person_uuid))
                 if self.query.filterTestAccounts:
                     with self.timings.measure("test_account_filters"):
                         for prop in self.team.test_account_filters or []:

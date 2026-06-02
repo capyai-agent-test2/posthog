@@ -586,6 +586,79 @@ def get_person_by_pk_or_uuid(team_id: int, key: str) -> Optional[Person]:
             return None
 
 
+def _fetch_person_uuid_by_id_via_personhog(team_id: int, person_id: int) -> Optional[str]:
+    client = _get_client()
+    resp = client.get_person(GetPersonRequest(team_id=team_id, person_id=person_id))
+
+    if not resp.person or not resp.person.id:
+        return None
+
+    if resp.person.team_id != team_id:
+        PERSONHOG_TEAM_MISMATCH_TOTAL.labels(operation="get_person_uuid_by_id", client_name=get_client_name()).inc()
+        logger.warning("personhog_team_mismatch", operation="get_person_uuid_by_id", team_id=team_id)
+        return None
+
+    return resp.person.uuid
+
+
+def _fetch_person_uuid_by_uuid_via_personhog(team_id: int, person_uuid: str) -> Optional[str]:
+    client = _get_client()
+    resp = client.get_person_by_uuid(GetPersonByUuidRequest(team_id=team_id, uuid=person_uuid))
+
+    if not resp.person or not resp.person.id:
+        return None
+
+    if resp.person.team_id != team_id:
+        PERSONHOG_TEAM_MISMATCH_TOTAL.labels(operation="get_person_uuid_by_uuid", client_name=get_client_name()).inc()
+        logger.warning("personhog_team_mismatch", operation="get_person_uuid_by_uuid", team_id=team_id)
+        return None
+
+    return resp.person.uuid
+
+
+def _fetch_person_uuid_by_id_from_orm(team_id: int, person_id: int) -> Optional[str]:
+    person_uuid = (
+        Person.objects.db_manager(READ_DB_FOR_PERSONS)
+        .filter(team_id=team_id, pk=person_id)
+        .values_list("uuid", flat=True)
+        .first()
+    )
+    return str(person_uuid) if person_uuid is not None else None
+
+
+def _fetch_person_uuid_by_uuid_from_orm(team_id: int, person_uuid: str) -> Optional[str]:
+    found_person_uuid = (
+        Person.objects.db_manager(READ_DB_FOR_PERSONS)
+        .filter(team_id=team_id, uuid=person_uuid)
+        .values_list("uuid", flat=True)
+        .first()
+    )
+    return str(found_person_uuid) if found_person_uuid is not None else None
+
+
+def get_person_uuid_by_pk_or_uuid(team_id: int, key: str) -> Optional[str]:
+    try:
+        UUID(key)
+        return _personhog_routed(
+            "get_person_uuid_by_uuid",
+            lambda: _fetch_person_uuid_by_uuid_via_personhog(team_id, key),
+            lambda: _fetch_person_uuid_by_uuid_from_orm(team_id, key),
+            team_id=team_id,
+        )
+    except ValueError:
+        try:
+            person_id = int(key)
+        except ValueError:
+            return None
+
+        return _personhog_routed(
+            "get_person_uuid_by_id",
+            lambda: _fetch_person_uuid_by_id_via_personhog(team_id, person_id),
+            lambda: _fetch_person_uuid_by_id_from_orm(team_id, person_id),
+            team_id=team_id,
+        )
+
+
 def _validate_uuids_via_personhog(team_id: int, uuids: list[str]) -> list[str]:
     # _batched_get_persons_by_uuids also filters out persons with id == 0 (server "not found" sentinel),
     # which the previous single-RPC implementation did not do. This is intentionally more correct.
