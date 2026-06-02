@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from rest_framework.exceptions import ValidationError
 from typing_extensions import TypeIs
 
@@ -15,6 +17,9 @@ from posthog.hogql.parser import parse_expr
 
 from posthog.constants import FUNNEL_WINDOW_INTERVAL_TYPES
 from posthog.types import FunnelEntityNode, FunnelExclusionEntityNode
+
+if TYPE_CHECKING:
+    from posthog.models import Team
 
 
 def funnel_window_interval_unit_to_sql(
@@ -39,7 +44,11 @@ def funnel_window_interval_unit_to_sql(
 
 
 def get_breakdown_expr(
-    breakdowns: list[str | int] | str | int, properties_column: str | None, normalize_url: bool | None = False
+    breakdowns: list[str | int] | str | int,
+    properties_column: str | None,
+    normalize_url: bool | None = False,
+    path_cleaning: bool | None = False,
+    team: "Team | None" = None,
 ) -> ast.Expr:
     def make_field(breakdown: str | int) -> ast.Expr:
         if properties_column is None:
@@ -48,13 +57,30 @@ def get_breakdown_expr(
         else:
             return ast.Field(chain=[*properties_column.split("."), breakdown])
 
+    def transform_expr(expr: ast.Expr) -> ast.Expr:
+        if path_cleaning and team is not None:
+            from posthog.hogql.property import (
+                apply_path_cleaning,  # noqa: PLC0415 - avoids a circular import via posthog.models
+            )
+
+            expr = apply_path_cleaning(expr, team)
+        if normalize_url:
+            regex = "[\\\\/?#]*$"
+            expr = parse_expr(
+                f"if( empty( replaceRegexpOne({{breakdown_value}}, '{regex}', '') ), '/', replaceRegexpOne({{breakdown_value}}, '{regex}', ''))",
+                {"breakdown_value": expr},
+            )
+        return expr
+
     if isinstance(breakdowns, str) or isinstance(breakdowns, int) or breakdowns is None:
-        return ast.Call(
-            name="ifNull",
-            args=[
-                ast.Call(name="toString", args=[make_field(breakdowns)]),
-                ast.Constant(value=""),
-            ],
+        return transform_expr(
+            ast.Call(
+                name="ifNull",
+                args=[
+                    ast.Call(name="toString", args=[make_field(breakdowns)]),
+                    ast.Constant(value=""),
+                ],
+            )
         )
     else:
         exprs = []
@@ -66,13 +92,7 @@ def get_breakdown_expr(
                     ast.Constant(value=""),
                 ],
             )
-            if normalize_url:
-                regex = "[\\\\/?#]*$"
-                expr = parse_expr(
-                    f"if( empty( replaceRegexpOne({{breakdown_value}}, '{regex}', '') ), '/', replaceRegexpOne({{breakdown_value}}, '{regex}', ''))",
-                    {"breakdown_value": expr},
-                )
-            exprs.append(expr)
+            exprs.append(transform_expr(expr))
         expression = ast.Array(exprs=exprs)
 
     return expression

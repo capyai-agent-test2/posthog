@@ -203,3 +203,69 @@ class TestFunnelBreakdownsByCurrentURL(ClickhouseTestMixin, APIBaseTest):
             ],
             key=sk,
         )
+
+    def test_breakdown_by_pathname_applies_path_cleaning(self) -> None:
+        self.team.path_cleaning_filters = [{"alias": "/movie/:id", "regex": "/movie/\\d+"}]
+        journeys_for(
+            {
+                "person5": [
+                    {
+                        "event": "watched movie",
+                        "timestamp": datetime(2020, 1, 2, 12, 1),
+                        "properties": {"$pathname": "/movie/123"},
+                    },
+                    {
+                        "event": "terminate funnel",
+                        "timestamp": datetime(2020, 1, 2, 12, 2),
+                    },
+                ],
+                "person6": [
+                    {
+                        "event": "watched movie",
+                        "timestamp": datetime(2020, 1, 2, 12, 1),
+                        "properties": {"$pathname": "/movie/456"},
+                    },
+                    {
+                        "event": "terminate funnel",
+                        "timestamp": datetime(2020, 1, 2, 12, 2),
+                    },
+                ],
+            },
+            team=self.team,
+            create_people=True,
+        )
+
+        response = self._run(
+            FunnelsQuery(
+                series=[
+                    EventsNode(event="watched movie", name="watched movie"),
+                    EventsNode(event="terminate funnel", name="terminate funnel"),
+                ],
+                dateRange=DateRange(
+                    date_from="2020-01-02T00:00:00Z",
+                    date_to="2020-01-12T00:00:00Z",
+                ),
+                funnelsFilter=FunnelsFilter(),
+                breakdownFilter=BreakdownFilter(
+                    breakdown="$pathname",
+                    breakdown_type="event",
+                    breakdown_path_cleaning=True,
+                    breakdown_limit=100,
+                ),
+            )
+        )
+
+        actual = [
+            (
+                funnel_step["name"],
+                funnel_step["count"],
+                funnel_step["breakdown"],
+            )
+            for breakdown_value in response
+            for funnel_step in breakdown_value
+        ]
+
+        assert ("watched movie", 2, ["/movie/:id"]) in actual
+        assert ("terminate funnel", 2, ["/movie/:id"]) in actual
+        assert ("watched movie", 1, ["/movie/123"]) not in actual
+        assert ("watched movie", 1, ["/movie/456"]) not in actual
