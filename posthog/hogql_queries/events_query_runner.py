@@ -86,6 +86,11 @@ def deduplicate_event_results(results: list[list[object]], select_input: list[st
     return deduplicated_results
 
 
+def deduplicate_events_query_by_uuid(query: ast.SelectQuery) -> None:
+    if query.limit_by is None:
+        query.limit_by = ast.LimitByExpr(n=ast.Constant(value=1), exprs=[ast.Field(chain=["uuid"])])
+
+
 class EventsQueryRunner(AnalyticsQueryRunner[EventsQueryResponse]):
     query: EventsQuery
     cached_response: CachedEventsQueryResponse
@@ -417,6 +422,8 @@ class EventsQueryRunner(AnalyticsQueryRunner[EventsQueryResponse]):
                             events_query.having = ast.And(exprs=[events_query.having, having])
                     events_query.group_by = group_by if has_any_aggregation else None
                     events_query.order_by = order_by
+                    if not has_any_aggregation:
+                        deduplicate_events_query_by_uuid(events_query)
                     return events_query
 
                 stmt = ast.SelectQuery(
@@ -427,6 +434,9 @@ class EventsQueryRunner(AnalyticsQueryRunner[EventsQueryResponse]):
                     group_by=group_by if has_any_aggregation else None,
                     order_by=order_by,
                 )
+
+                if not has_any_aggregation:
+                    deduplicate_events_query_by_uuid(stmt)
 
                 # Presorted optimization: sort narrow data (uuid) first, then fetch wide data for matched rows.
                 # Avoids sorting giant rows with properties and elements_chain cols - instead sorts uuids.
@@ -440,6 +450,7 @@ class EventsQueryRunner(AnalyticsQueryRunner[EventsQueryResponse]):
                     inner_query.where = where
                     inner_query.order_by = order_by
                     inner_query.limit = ast.Constant(value=self.paginator.limit + self.paginator.offset + 1)
+                    deduplicate_events_query_by_uuid(inner_query)
 
                     prefilter_sorted = parse_expr("uuid in ({inner_query})", {"inner_query": inner_query})
 
