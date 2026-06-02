@@ -1,7 +1,7 @@
 import { LogicWrapper } from 'kea'
 import type { PostHog, PropertyMatchType, SupportedWebVitalsMetrics } from 'posthog-js'
-import { LogLevel } from 'posthog-js/rrweb-plugin-console-record'
-import { eventWithTime } from 'posthog-js/rrweb-types'
+import type { LogLevel } from 'posthog-js/rrweb-plugin-console-record'
+import type { eventWithTime } from 'posthog-js/rrweb-types'
 import { ReactNode } from 'react'
 import { LayoutItem } from 'react-grid-layout'
 
