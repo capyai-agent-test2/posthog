@@ -548,7 +548,7 @@ export const personsLogic = kea<personsLogicType>([
 
                 if (rawPersonUUID) {
                     const decodedPersonUUID = decodeURIComponent(rawPersonUUID)
-                    if (!values.person || values.person.id != decodedPersonUUID) {
+                    if (!values.person || values.person.uuid !== decodedPersonUUID) {
                         actions.loadPersonUUID(decodedPersonUUID)
                     }
                 }
