@@ -62,7 +62,7 @@ describe('InsightCard', () => {
 
     it('passes dashboard filter overrides to the rendered query and insight context', () => {
         const filtersOverride = { date_from: '-7d' }
-        const variablesOverride = { dateRange: { code_name: 'dateRange', value: '-7d' } }
+        const variablesOverride = { dateRange: { variableId: 'dateRange', code_name: 'dateRange', value: '-7d' } }
         const insight = {
             id: 1,
             short_id: 'abc123',
