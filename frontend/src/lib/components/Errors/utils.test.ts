@@ -113,8 +113,48 @@ describe('Error Display', () => {
             os: 'Windows',
             osVersion: '10',
             sentryUrl:
-                'https://sentry.io/organizations/posthog/issues/?project=1899813&query=40e442d79c22473391aeeeba54c82163',
+                'https://sentry.io/organizations/posthog/issues/?project=1899813&query=id%3A40e442d79c22473391aeeeba54c82163',
         } as ExceptionAttributes)
+    })
+
+    it('normalizes sentry links that search by bare event ID', () => {
+        const eventProperties = {
+            $sentry_url: 'https://oneleet.sentry.io/issues/?project=1899813&query=31056c34c88f4332905ff3219e476198',
+            $sentry_event_id: '31056c34c88f4332905ff3219e476198',
+        }
+
+        const result = getExceptionAttributes(eventProperties)
+
+        expect(result.sentryUrl).toEqual(
+            'https://oneleet.sentry.io/issues/?project=1899813&query=id%3A31056c34c88f4332905ff3219e476198'
+        )
+    })
+
+    it('leaves existing sentry search syntax unchanged', () => {
+        const eventProperties = {
+            $sentry_url:
+                'https://oneleet.sentry.io/issues/?project=1899813&query=id%3A31056c34c88f4332905ff3219e476198',
+            $sentry_event_id: '31056c34c88f4332905ff3219e476198',
+        }
+
+        const result = getExceptionAttributes(eventProperties)
+
+        expect(result.sentryUrl).toEqual(
+            'https://oneleet.sentry.io/issues/?project=1899813&query=id%3A31056c34c88f4332905ff3219e476198'
+        )
+    })
+
+    it('leaves non-sentry links unchanged', () => {
+        const eventProperties = {
+            $sentry_url: 'https://example.com/issues/?project=1899813&query=31056c34c88f4332905ff3219e476198',
+            $sentry_event_id: '31056c34c88f4332905ff3219e476198',
+        }
+
+        const result = getExceptionAttributes(eventProperties)
+
+        expect(result.sentryUrl).toEqual(
+            'https://example.com/issues/?project=1899813&query=31056c34c88f4332905ff3219e476198'
+        )
     })
 
     it('can read exception_list stack trace when $exception_type and message are not present', () => {
