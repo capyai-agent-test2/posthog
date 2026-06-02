@@ -1,7 +1,5 @@
 import { actions, connect, events, kea, listeners, path, props, reducers, selectors } from 'kea'
 
-import { Spinner, lemonToast } from '@posthog/lemon-ui'
-
 import api from 'lib/api'
 import { isEventPropertyFilter } from 'lib/components/PropertyFilters/utils'
 import { liveEventsHostOrigin } from 'lib/utils/apiHost'
@@ -11,8 +9,6 @@ import { AnyPropertyFilter, LiveEvent, PropertyOperator } from '~/types'
 
 import { deduplicateEvents } from './deduplicateEvents'
 import type { liveEventsLogicType } from './liveEventsLogicType'
-
-const ERROR_TOAST_ID = 'live-stream-error'
 
 export interface LiveEventsLogicProps {
     showLiveStreamErrorToast?: boolean
@@ -98,7 +94,7 @@ export const liveEventsLogic = kea<liveEventsLogicType>([
             },
         ],
     })),
-    listeners(({ actions, values, cache, props }) => ({
+    listeners(({ actions, values, cache }) => ({
         setFilters: () => {
             actions.clearEvents()
             actions.updateEventsConnection()
@@ -147,7 +143,6 @@ export const liveEventsLogic = kea<liveEventsLogicType>([
                 },
                 signal: cache.eventSourceController.signal,
                 onMessage: (event) => {
-                    lemonToast.dismiss(ERROR_TOAST_ID)
                     const eventData = JSON.parse(event.data)
                     cache.batch.push(eventData)
                     if (cache.batch.length >= 10 || performance.now() - (values.lastBatchTimestamp || 0) > 300) {
@@ -156,14 +151,9 @@ export const liveEventsLogic = kea<liveEventsLogicType>([
                     }
                 },
                 onError: (error) => {
-                    if (!cache.hasShownLiveStreamErrorToast && props.showLiveStreamErrorToast) {
-                        console.error('Failed to poll events. You likely have no events coming in.', error)
-                        lemonToast.error(`No live events found. Continuing to retry in the background…`, {
-                            icon: <Spinner />,
-                            toastId: ERROR_TOAST_ID,
-                            autoClose: false,
-                        })
-                        cache.hasShownLiveStreamErrorToast = true
+                    if (!cache.hasLoggedLiveStreamError) {
+                        console.warn('Live events stream disconnected. Retrying in the background…', error)
+                        cache.hasLoggedLiveStreamError = true
                     }
                 },
             })
