@@ -530,7 +530,7 @@ class TrendsActorsQueryBuilder:
         query_builder = TrendsQueryBuilder(
             trends_query=self.trends_query,
             team=self.team,
-            query_date_range=self.trends_date_range,
+            query_date_range=self.trends_previous_date_range if self.is_compare_previous else self.trends_date_range,
             series=self.entity,
             timings=self.timings,
             modifiers=self.modifiers,
