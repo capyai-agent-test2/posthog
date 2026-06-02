@@ -18,10 +18,12 @@ export const sessionPlayerModalLogic = kea<sessionPlayerModalLogicType>([
     actions({
         openSessionPlayer: (
             sessionRecording: Pick<SessionRecordingType, 'id' | 'matching_events'>,
-            initialTimestamp: number | null = null
+            initialTimestamp: number | null = null,
+            syncWithUrl = true
         ) => ({
             sessionRecording,
             initialTimestamp,
+            syncWithUrl,
         }),
         closeSessionPlayer: true,
     }),
@@ -38,6 +40,12 @@ export const sessionPlayerModalLogic = kea<sessionPlayerModalLogicType>([
             {
                 openSessionPlayer: (_, { initialTimestamp }) => initialTimestamp,
                 closeSessionPlayer: () => null,
+            },
+        ],
+        syncWithUrl: [
+            true,
+            {
+                openSessionPlayer: (_, { syncWithUrl }) => syncWithUrl,
             },
         ],
     }),
@@ -73,8 +81,8 @@ export const sessionPlayerModalLogic = kea<sessionPlayerModalLogicType>([
         }
 
         return {
-            openSessionPlayer: () => buildURL(),
-            closeSessionPlayer: () => buildURL(),
+            openSessionPlayer: ({ syncWithUrl }) => (syncWithUrl ? buildURL() : undefined),
+            closeSessionPlayer: () => (values.syncWithUrl ? buildURL() : undefined),
         }
     }),
     urlToAction(({ actions, values }) => {

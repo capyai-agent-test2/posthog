@@ -440,6 +440,7 @@ export function ActorRow({ actor, propertiesTimelineFilter }: ActorRowProps): JS
                         type="secondary"
                         size="small"
                         openPlayerIn={RecordingPlayerType.Modal}
+                        syncModalWithUrl={false}
                         hasRecording={true}
                     />
                 ) : matchedRecordings.length > 1 ? (
@@ -471,6 +472,7 @@ export function ActorRow({ actor, propertiesTimelineFilter }: ActorRowProps): JS
                         type="secondary"
                         size="small"
                         openPlayerIn={RecordingPlayerType.Modal}
+                        syncModalWithUrl={false}
                         hasRecording={matchedRecordings.length > 0}
                     />
                 )}
@@ -535,6 +537,7 @@ export function ActorRow({ actor, propertiesTimelineFilter }: ActorRowProps): JS
                                                                             label={`View recording ${i + 1}`}
                                                                             checkIfViewed={true}
                                                                             openPlayerIn={RecordingPlayerType.Modal}
+                                                                            syncModalWithUrl={false}
                                                                             fullWidth={true}
                                                                         />
                                                                     </li>
