@@ -1,4 +1,5 @@
 from datetime import timedelta
+from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 from posthog.test.base import APIBaseTest
@@ -12,6 +13,32 @@ from posthog.hogql import ast
 
 from posthog.hogql_queries.utils.query_date_range import QueryDateRange, QueryDateRangeWithIntervals
 from posthog.models.team import WeekStartDay
+
+
+class TestQueryDateRangeHogQLExpressions:
+    def test_week_start_of_interval_uses_team_week_start_day(self):
+        now = parser.isoparse("2021-08-25T00:00:00.000Z")
+        source = ast.Field(chain=["timestamp"])
+
+        sunday_query = QueryDateRange(
+            team=SimpleNamespace(timezone_info=ZoneInfo("UTC"), week_start_day=WeekStartDay.SUNDAY),
+            date_range=DateRange(date_from="-7d"),
+            interval=IntervalType.WEEK,
+            now=now,
+        )
+        monday_query = QueryDateRange(
+            team=SimpleNamespace(timezone_info=ZoneInfo("UTC"), week_start_day=WeekStartDay.MONDAY),
+            date_range=DateRange(date_from="-7d"),
+            interval=IntervalType.WEEK,
+            now=now,
+        )
+
+        assert sunday_query.date_to_start_of_interval_hogql(source) == ast.Call(
+            name="toStartOfWeek", args=[source, ast.Constant(value=0)]
+        )
+        assert monday_query.date_to_start_of_interval_hogql(source) == ast.Call(
+            name="toStartOfWeek", args=[source, ast.Constant(value=3)]
+        )
 
 
 class TestQueryDateRange(APIBaseTest):

@@ -335,7 +335,13 @@ class QueryDateRange:
                 #   Note that this behavior is different from that of function toStartOfWeek in which weeks start by default on Sunday.
                 # include this special case for backwards compatibility.
                 # interval_count will always be 1 here.
-                return ast.Call(name="toStartOfWeek", args=[date])
+                return ast.Call(
+                    name="toStartOfWeek",
+                    args=[
+                        date,
+                        ast.Constant(value=int((WeekStartDay(self._team.week_start_day or 0)).clickhouse_mode)),
+                    ],
+                )
             case _:
                 return ast.Call(name="toStartOfInterval", args=[date, self.one_interval_period()])
 
