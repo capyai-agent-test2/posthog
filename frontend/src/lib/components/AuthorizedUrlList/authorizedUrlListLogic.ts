@@ -320,7 +320,7 @@ export const authorizedUrlListLogic = kea<authorizedUrlListLogicType>([
         removeUrl: (index: number) => ({ index }),
         updateUrl: (index: number, url: string) => ({ index, url }),
         launchAtUrl: (url: string) => ({ url }),
-        setEditUrlIndex: (originalIndex: number | null) => ({ originalIndex }),
+        setEditUrlIndex: (originalIndex: number | null, url?: string) => ({ originalIndex, url }),
         cancelProposingUrl: true,
         copyLaunchCode: true,
     })),
@@ -375,15 +375,22 @@ export const authorizedUrlListLogic = kea<authorizedUrlListLogicType>([
     forms(({ values, actions, props }) => ({
         proposedUrl: {
             defaults: { url: '' } as ProposeNewUrlFormType,
-            errors: ({ url }) => ({
-                // default to allowing wildcards because that was the original behavior
-                url: validateProposedUrl(
-                    url,
-                    values.authorizedUrls,
-                    values.onlyAllowDomains,
-                    props.allowWildCards ?? true
-                ),
-            }),
+            errors: ({ url }) => {
+                const otherAuthorizedUrls =
+                    values.editUrlIndex !== null && values.editUrlIndex >= 0
+                        ? values.authorizedUrls.filter((_, index) => index !== values.editUrlIndex)
+                        : values.authorizedUrls
+
+                return {
+                    // default to allowing wildcards because that was the original behavior
+                    url: validateProposedUrl(
+                        url,
+                        otherAuthorizedUrls,
+                        values.onlyAllowDomains,
+                        props.allowWildCards ?? true
+                    ),
+                }
+            },
             submit: async ({ url }) => {
                 if (values.editUrlIndex !== null && values.editUrlIndex >= 0) {
                     actions.updateUrl(values.editUrlIndex, url)
@@ -448,8 +455,8 @@ export const authorizedUrlListLogic = kea<authorizedUrlListLogicType>([
         },
     })),
     listeners(({ sharedListeners, values, actions, props }) => ({
-        setEditUrlIndex: () => {
-            actions.setProposedUrlValue('url', values.urlToEdit)
+        setEditUrlIndex: ({ url }) => {
+            actions.setProposedUrlValue('url', url ?? values.urlToEdit)
         },
         newUrl: () => {
             actions.setProposedUrlValue('url', NEW_URL)
