@@ -578,11 +578,12 @@ class TestWebOverviewQueryRunner(ClickhouseTestMixin, APIBaseTest):
                 ("p1", [("2023-12-01", s1)]),
             ]
         )
-        self._create_events(
-            [
-                ("p1", [("2023-12-02", s1)]),
-            ],
+        _create_event(
+            team=self.team,
             event="custom_event",
+            distinct_id="p1",
+            timestamp="2023-12-02",
+            properties={"$session_id": s1},
         )
 
         action = Action.objects.create(
@@ -605,6 +606,9 @@ class TestWebOverviewQueryRunner(ClickhouseTestMixin, APIBaseTest):
 
         unique_conversions = results[2]
         assert unique_conversions.value == 1
+
+        conversion_rate = results[3]
+        assert conversion_rate.value is None
 
     def test_conversion_goal_one_autocapture_conversion(self):
         s1 = str(uuid7("2023-12-01"))

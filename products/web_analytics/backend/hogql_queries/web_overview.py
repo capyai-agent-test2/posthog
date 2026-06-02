@@ -386,6 +386,20 @@ HAVING {inside_start_timestamp_period}
                 previous_period_aggregate(function_name, column_name, previous_alias, params),
             ]
 
+        def safe_divide(numerator: ast.Expr, denominator: ast.Expr) -> ast.Expr:
+            return ast.Call(
+                name="if",
+                args=[
+                    ast.CompareOperation(
+                        left=denominator,
+                        op=ast.CompareOperationOp.Eq,
+                        right=ast.Constant(value=0),
+                    ),
+                    ast.Constant(value=None),
+                    ast.Call(name="divide", args=[numerator, denominator]),
+                ],
+            )
+
         select: list[ast.Expr] = []
 
         if self.query.conversionGoal:
@@ -422,12 +436,9 @@ HAVING {inside_start_timestamp_period}
 
             conversion_rate = ast.Alias(
                 alias="conversion_rate",
-                expr=ast.Call(
-                    name="divide",
-                    args=[
-                        ast.Field(chain=["unique_conversions"]),
-                        ast.Field(chain=["unique_users"]),
-                    ],
+                expr=safe_divide(
+                    ast.Field(chain=["unique_conversions"]),
+                    ast.Field(chain=["unique_users"]),
                 ),
             )
 
@@ -436,12 +447,9 @@ HAVING {inside_start_timestamp_period}
                 expr=(
                     ast.Constant(value=None)
                     if not has_comparison
-                    else ast.Call(
-                        name="divide",
-                        args=[
-                            ast.Field(chain=["previous_unique_conversions"]),
-                            ast.Field(chain=["previous_unique_users"]),
-                        ],
+                    else safe_divide(
+                        ast.Field(chain=["previous_unique_conversions"]),
+                        ast.Field(chain=["previous_unique_users"]),
                     )
                 ),
             )
