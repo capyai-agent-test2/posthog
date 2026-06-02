@@ -118,6 +118,46 @@ describe('the authorized urls list logic', () => {
                 proposedUrlValidationErrors: { url: 'Please enter a valid URL' },
             })
         })
+
+        it('pre-fills the form when editing an authorized URL', async () => {
+            await expectLogic(logic, () => {
+                logic.actions.setEditUrlIndex(2, 'https://example.com')
+            }).toMatchValues({
+                editUrlIndex: 2,
+                proposedUrl: { url: 'https://example.com' },
+                proposedUrlValidationErrors: {},
+            })
+        })
+
+        it('updates the edited URL instead of adding a new one', async () => {
+            jest.spyOn(api, 'update').mockResolvedValue({
+                app_urls: [
+                    'https://posthog.com/',
+                    'https://app.posthog.com',
+                    'https://edited.example.com',
+                    'http://127.0.0.1:*',
+                ],
+            } as any)
+
+            await expectLogic(logic, () => {
+                logic.actions.setEditUrlIndex(2, 'https://example.com')
+                logic.actions.setProposedUrlValue('url', 'https://edited.example.com')
+                logic.actions.submitProposedUrl()
+            }).toFinishAllListeners()
+
+            expect(api.update).toHaveBeenCalledWith(`api/environments/${MOCK_TEAM_ID}`, {
+                app_urls: [
+                    'https://posthog.com/',
+                    'https://app.posthog.com',
+                    'https://edited.example.com',
+                    'http://127.0.0.1:*',
+                ],
+            })
+            expectLogic(logic).toMatchValues({
+                editUrlIndex: null,
+                proposedUrl: { url: '' },
+            })
+        })
     })
 
     describe('checkUrlIsAuthorized', () => {
