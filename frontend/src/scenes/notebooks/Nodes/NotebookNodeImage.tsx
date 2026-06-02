@@ -6,8 +6,7 @@ import { SpinnerOverlay } from 'lib/lemon-ui/Spinner'
 import { createPostHogWidgetNode } from 'scenes/notebooks/Nodes/NodeWrapper'
 
 import { NotebookNodeProps, NotebookNodeType } from '../types'
-
-const MAX_DEFAULT_HEIGHT = 1000
+import { getDefaultImageHeight } from './NotebookNodeImageUtils'
 
 const Component = ({ attributes, updateAttributes }: NotebookNodeProps<NotebookNodeImageAttributes>): JSX.Element => {
     const { file, src, height } = attributes
@@ -53,9 +52,12 @@ const Component = ({ attributes, updateAttributes }: NotebookNodeProps<NotebookN
 
     const onImageLoad: ReactEventHandler<HTMLImageElement> = (e): void => {
         if (!height) {
-            // Set the height value to match the image if it isn't already set
             updateAttributes({
-                height: Math.min(e.currentTarget.naturalHeight, MAX_DEFAULT_HEIGHT),
+                height: getDefaultImageHeight({
+                    naturalHeight: e.currentTarget.naturalHeight,
+                    naturalWidth: e.currentTarget.naturalWidth,
+                    clientWidth: e.currentTarget.clientWidth,
+                }),
             })
         }
     }
