@@ -23,7 +23,7 @@ from rest_framework.renderers import BaseRenderer
 from rest_framework.settings import api_settings
 from rest_framework_csv import renderers as csvrenderers
 
-from posthog.schema import ProductKey
+from posthog.schema import CacheMissResponse, ProductKey, QueryStatusResponse
 
 from posthog.hogql import ast
 from posthog.hogql.constants import DEFAULT_RETURNED_ROWS
@@ -565,9 +565,23 @@ class EventViewSet(
             )
             execution_mode = execution_mode_from_refresh(refresh)
             if execution_mode == ExecutionMode.CACHE_ONLY_NEVER_CALCULATE and not refresh:
-                execution_mode = ExecutionMode.RECENT_CACHE_CALCULATE_ASYNC_IF_STALE_AND_BLOCKING_ON_MISS
+                execution_mode = ExecutionMode.RECENT_CACHE_CALCULATE_ASYNC_IF_STALE
             result = runner.run(execution_mode, analytics_props=get_request_analytics_properties(self.request))
-            assert isinstance(result, (PropertyValuesQueryResponse, CachedPropertyValuesQueryResponse))
+            assert isinstance(
+                result,
+                (
+                    PropertyValuesQueryResponse,
+                    CachedPropertyValuesQueryResponse,
+                    CacheMissResponse,
+                    QueryStatusResponse,
+                ),
+            )
+            if isinstance(result, (CacheMissResponse, QueryStatusResponse)):
+                is_refreshing = result.query_status is not None and not result.query_status.complete
+                span.set_attribute("result_count", 0)
+                span.set_attribute("is_refreshing", is_refreshing)
+                return self._return_with_short_cache([], refreshing=is_refreshing)
+
             is_refreshing = (
                 isinstance(result, CachedPropertyValuesQueryResponse)
                 and result.query_status is not None

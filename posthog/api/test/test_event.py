@@ -23,6 +23,9 @@ from dateutil.relativedelta import relativedelta
 from parameterized import parameterized
 from rest_framework import status
 
+from posthog.schema import CacheMissResponse, QueryStatus
+
+from posthog.hogql_queries.query_runner import ExecutionMode
 from posthog.models import Element, Organization, Person, PropertyDefinition, User
 from posthog.models.cohort import Cohort
 from posthog.models.event.query_event_list import insight_query_with_columns
@@ -434,7 +437,7 @@ class TestEvents(ClickhouseTestMixin, APIBaseTest):
 
     @parameterized.expand(
         [
-            ("default", "", "RECENT_CACHE_CALCULATE_ASYNC_IF_STALE_AND_BLOCKING_ON_MISS"),
+            ("default", "", "RECENT_CACHE_CALCULATE_ASYNC_IF_STALE"),
             ("refresh_force_blocking", "refresh=force_blocking", "CALCULATE_BLOCKING_ALWAYS"),
             ("refresh_force_cache", "refresh=force_cache", "CACHE_ONLY_NEVER_CALCULATE"),
             ("refresh_async", "refresh=async", "RECENT_CACHE_CALCULATE_ASYNC_IF_STALE"),
@@ -461,6 +464,21 @@ class TestEvents(ClickhouseTestMixin, APIBaseTest):
             args, kwargs = mock_run.call_args
             assert args[0] == ExecutionMode[expected_mode_name]
             assert "analytics_props" in kwargs
+
+    @freeze_time("2020-01-10")
+    def test_event_property_values_cache_miss_returns_refreshing_empty_results(self):
+        with patch(
+            "posthog.hogql_queries.property_values_query_runner.PropertyValuesQueryRunner.run",
+            return_value=CacheMissResponse(
+                cache_key="cache-key",
+                query_status=QueryStatus(id="query-id", team_id=self.team.id, complete=False),
+            ),
+        ) as mock_run:
+            response = self.client.get(f"/api/projects/{self.team.id}/events/values/?key=browser").json()
+
+        assert response == {"results": [], "refreshing": True}
+        args, _kwargs = mock_run.call_args
+        assert args[0] == ExecutionMode.RECENT_CACHE_CALCULATE_ASYNC_IF_STALE
 
     @also_test_with_materialized_columns(["test_prop"])
     @freeze_time("2020-01-20 20:00:00")
