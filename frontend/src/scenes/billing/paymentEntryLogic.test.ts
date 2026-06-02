@@ -124,6 +124,19 @@ describe('paymentEntryLogic', () => {
         it('keeps the redirect path while authorization is pending', async () => {
             await seedBilling({ subscription_level: 'free' })
             let authorizationStatusCalls = 0
+            let pollCallback: (() => void) | null = null
+            const originalSetTimeout = global.setTimeout.bind(global)
+            jest.spyOn(global, 'setTimeout').mockImplementation(((
+                fn: TimerHandler,
+                delay?: number,
+                ...args: unknown[]
+            ) => {
+                if (delay === 2000) {
+                    pollCallback = () => (fn as (...a: unknown[]) => unknown)(...args)
+                    return 0 as unknown as ReturnType<typeof setTimeout>
+                }
+                return originalSetTimeout(fn, delay, ...args)
+            }) as typeof setTimeout)
             useMocks({
                 post: {
                     '/api/billing/activate/authorize/status': () => [
@@ -146,8 +159,10 @@ describe('paymentEntryLogic', () => {
                     authorizationStatus: 'pending',
                 })
 
-            await new Promise((resolve) => setTimeout(resolve, 2100))
-            await expectLogic(logic).toDispatchActions(['setAuthorizationStatus', 'setRedirectPath'])
+            expect(pollCallback).not.toBe(null)
+            await expectLogic(logic, () => {
+                pollCallback?.()
+            }).toDispatchActions(['setAuthorizationStatus', 'setRedirectPath'])
 
             expect(pushSpy).toHaveBeenCalledWith('/project/1/surveys', {
                 tab: 'settings',
