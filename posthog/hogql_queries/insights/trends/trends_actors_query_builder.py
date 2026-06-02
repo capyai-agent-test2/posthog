@@ -20,8 +20,8 @@ from posthog.schema import (
 )
 
 from posthog.hogql import ast
-from posthog.hogql.constants import LimitContext, get_breakdown_limit_for_context
-from posthog.hogql.parser import parse_expr
+from posthog.hogql.constants import LimitContext
+from posthog.hogql.parser import parse_expr, parse_select
 from posthog.hogql.property import action_to_expr, property_to_expr
 from posthog.hogql.timings import HogQLTimings
 
@@ -32,7 +32,7 @@ from posthog.hogql_queries.insights.trends.aggregation_operations import (
 from posthog.hogql_queries.insights.trends.breakdown import Breakdown
 from posthog.hogql_queries.insights.trends.display import TrendsDisplay
 from posthog.hogql_queries.insights.trends.utils import group_node_to_expr, is_groups_math
-from posthog.hogql_queries.insights.utils.breakdowns import BREAKDOWN_NULL_STRING_LABEL, BREAKDOWN_OTHER_STRING_LABEL
+from posthog.hogql_queries.insights.utils.breakdowns import BREAKDOWN_OTHER_STRING_LABEL
 from posthog.hogql_queries.utils.query_compare_to_date_range import QueryCompareToDateRange
 from posthog.hogql_queries.utils.query_date_range import QueryDateRange
 from posthog.hogql_queries.utils.query_previous_period_date_range import QueryPreviousPeriodDateRange
@@ -523,46 +523,40 @@ class TrendsActorsQueryBuilder:
         return breakdown_columns[0].expr
 
     def _top_breakdown_values_query(self, breakdown: Breakdown) -> ast.SelectQuery:
-        top_breakdowns_query = ast.SelectQuery(
-            select=[
-                ast.Alias(alias="breakdown_value", expr=self._actors_breakdown_value_expr(breakdown)),
-                ast.Alias(alias="total_count_for_breakdown", expr=parse_expr("count()")),
-            ],
-            select_from=ast.JoinExpr(
-                table=ast.Field(chain=["events"]),
-                alias="e",
-                sample=self._sample_expr(),
-            ),
-            where=self._events_where_expr(with_breakdown_expr=False),
-            group_by=[ast.Field(chain=["breakdown_value"])],
-            order_by=[
-                ast.OrderExpr(expr=self._breakdown_order_expr(breakdown), order="ASC"),
-                ast.OrderExpr(expr=ast.Field(chain=["total_count_for_breakdown"]), order="DESC"),
-                ast.OrderExpr(expr=ast.Field(chain=["breakdown_value"]), order="ASC"),
-            ],
-            limit=ast.Constant(value=self._breakdown_limit()),
-        )
-        return ast.SelectQuery(
-            select=[ast.Field(chain=["breakdown_value"])],
-            select_from=ast.JoinExpr(table=top_breakdowns_query),
+        from posthog.hogql_queries.insights.trends.trends_query_builder import (
+            TrendsQueryBuilder,  # noqa: PLC0415 - avoids loading the trends query builder from its actors-query dependency
         )
 
-    def _breakdown_limit(self) -> int:
-        breakdown_filter = self.trends_query.breakdownFilter
-        if breakdown_filter and breakdown_filter.breakdown_limit:
-            return breakdown_filter.breakdown_limit
-        return get_breakdown_limit_for_context(self.limit_context)
+        query_builder = TrendsQueryBuilder(
+            trends_query=self.trends_query,
+            team=self.team,
+            query_date_range=self.trends_date_range,
+            series=self.entity,
+            timings=self.timings,
+            modifiers=self.modifiers,
+            limit_context=self.limit_context,
+        )
+        inner_query = query_builder._inner_select_query(query_builder._base_events_query())
 
-    def _breakdown_order_expr(self, breakdown: Breakdown) -> ast.Expr:
-        if breakdown.is_multiple_breakdown:
-            return parse_expr(
-                "if(has(breakdown_value, {nil_label}), 1, 0)",
-                placeholders={"nil_label": ast.Constant(value=BREAKDOWN_NULL_STRING_LABEL)},
+        return parse_select(
+            """
+            SELECT breakdown_value
+            FROM (
+                SELECT
+                    breakdown_value,
+                    sum(count) AS total_count_for_breakdown,
+                    {breakdown_order} AS ordering
+                FROM {inner_query}
+                GROUP BY breakdown_value
+                ORDER BY ordering ASC, total_count_for_breakdown DESC, breakdown_value ASC
+                LIMIT {breakdown_limit}
             )
-
-        return parse_expr(
-            "breakdown_value = {nil_label} ? 1 : 0",
-            placeholders={"nil_label": ast.Constant(value=BREAKDOWN_NULL_STRING_LABEL)},
+            """,
+            placeholders={
+                "breakdown_order": query_builder._breakdown_query_order_by(breakdown),
+                "breakdown_limit": ast.Constant(value=query_builder._get_breakdown_limit()),
+                "inner_query": inner_query,
+            },
         )
 
     def _filter_empty_actors_expr(self) -> list[ast.Expr]:
