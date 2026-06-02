@@ -360,6 +360,25 @@ describe('sessionRecordingPlayerLogic', () => {
             })
         })
 
+        it('detects recordings with no available snapshot sources', async () => {
+            logic.unmount()
+            overrideSessionRecordingMocks({ snapshotSources: [] })
+            logic = sessionRecordingPlayerLogic({
+                sessionRecordingId: '2',
+                playerKey: 'test',
+                autoPlay: true,
+                blobV2PollingDisabled: true,
+            })
+            logic.mount()
+
+            await expectLogic(logic).toDispatchActions([
+                sessionRecordingDataCoordinatorLogic({ sessionRecordingId: '2' }).actionTypes.loadRecordingMetaSuccess,
+                snapshotDataLogic({ sessionRecordingId: '2' }).actionTypes.loadSnapshotSourcesSuccess,
+            ])
+
+            expect(logic.values.recordingHasNoSnapshots).toBe(true)
+        })
+
         it('ensures the cache initialization is reset after the player is unmounted', async () => {
             logic.unmount()
             logic = sessionRecordingPlayerLogic({ sessionRecordingId: '2', playerKey: 'test' })
