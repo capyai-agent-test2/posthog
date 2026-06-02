@@ -67,5 +67,5 @@ export function SurveyAppearancePreview({
         }
     }, [survey, previewPageIndex, onPreviewSubmit, positionStyles]) // oxlint-disable-line react-hooks/exhaustive-deps
 
-    return <div ref={surveyPreviewRef} className="flex w-full min-w-0 justify-center" />
+    return <div ref={surveyPreviewRef} className="flex w-full min-w-0 justify-center [&_iframe]:max-w-full" />
 }
