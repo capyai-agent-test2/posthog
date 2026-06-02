@@ -85,6 +85,7 @@ export function InsightViz({
         doNotLoad: insightProps.doNotLoad,
         onData: insightProps.onData,
         loadPriority: insightProps.loadPriority,
+        refresh: context?.refresh,
         dataNodeCollectionId: insightVizDataCollectionId(insightProps, vizKey),
         filtersOverride,
         variablesOverride,

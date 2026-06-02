@@ -31,7 +31,10 @@ describe('dataNodeLogic', () => {
     beforeEach(async () => {
         initKeaTests()
     })
-    afterEach(() => logic?.unmount())
+    afterEach(() => {
+        logic?.unmount()
+        jest.useRealTimers()
+    })
 
     it('calls query to fetch data', async () => {
         const results = {}
@@ -474,6 +477,38 @@ describe('dataNodeLogic', () => {
         expect(performQuery).toHaveBeenCalledTimes(0)
 
         await expectLogic(logic).toMatchValues({ response: { result: [1, 2, 3] } })
+    })
+
+    it('force refresh bypasses cached results on mount', async () => {
+        const query = setLatestVersionsOnQuery({
+            kind: NodeKind.EventsQuery,
+            select: ['*', 'event', 'timestamp'],
+        })
+        mockedQuery.mockResolvedValueOnce({ result: [4, 5, 6] })
+
+        logic = dataNodeLogic({
+            key: 'forceRefreshCachedResults',
+            query,
+            cachedResults: { result: [1, 2, 3] },
+            refresh: 'force_blocking',
+        })
+        logic.mount()
+
+        expect(performQuery).toHaveBeenCalledWith(
+            query,
+            expect.anything(),
+            'force_blocking',
+            expect.any(String),
+            expect.any(Function),
+            undefined,
+            undefined,
+            false,
+            undefined
+        )
+
+        await expectLogic(logic)
+            .delay(0)
+            .toMatchValues({ response: { result: [4, 5, 6] } })
     })
 
     it('passes filtersOverride to api', async () => {
