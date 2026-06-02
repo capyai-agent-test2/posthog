@@ -4,3 +4,6 @@ export enum SQLEditorMode {
 }
 
 export const isEmbeddedSQLEditorMode = (mode: SQLEditorMode): boolean => mode === SQLEditorMode.Embedded
+
+export const defaultShowDatabaseTreeForMode = (mode: SQLEditorMode, defaultShowDatabaseTree?: boolean): boolean =>
+    defaultShowDatabaseTree ?? mode === SQLEditorMode.FullScene
