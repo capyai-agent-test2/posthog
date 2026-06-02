@@ -19,6 +19,7 @@ from posthog.temporal.data_imports.pipelines.pipeline.utils import (
     MAX_NUMERIC_SCALE,
     QueryTimeoutException,
 )
+from posthog.temporal.data_imports.sources.common.sql import Table
 from posthog.temporal.data_imports.sources.postgres.partitioned_tables import (
     WINDOW_MAX_QUERY_CANCELED_RETRIES,
     WINDOW_MAX_SERIALIZATION_RETRIES,
@@ -47,6 +48,7 @@ from posthog.temporal.data_imports.sources.postgres.postgres import (
     _get_partition_settings,
     _get_partition_settings_for_partitioned_table,
     _get_primary_keys,
+    _get_query_columns,
     _get_sslmode,
     _get_table,
     _has_duplicate_primary_keys,
@@ -961,6 +963,29 @@ class TestBuildQuery:
         rendered = self._render(query)
         assert '"cursor" > ' in rendered
         assert '"cursor" >= ' not in rendered
+
+
+class TestQueryColumns:
+    def _make_table(self) -> Table[PostgreSQLColumn]:
+        return Table(
+            name="accounts",
+            parents=("public",),
+            columns=[
+                PostgreSQLColumn("id", "integer", False),
+                PostgreSQLColumn("created_at", "timestamp", False),
+                PostgreSQLColumn("email", "text", True),
+            ],
+        )
+
+    def test_uses_discovered_columns_when_enabled_columns_are_unset(self):
+        assert _get_query_columns(self._make_table(), None, ["id"], None) == ["id", "created_at", "email"]
+
+    def test_projects_enabled_columns_and_keeps_required_columns(self):
+        assert _get_query_columns(self._make_table(), ["email"], ["id"], "created_at") == [
+            "id",
+            "created_at",
+            "email",
+        ]
 
 
 class TestBuildPartitionQuery:
