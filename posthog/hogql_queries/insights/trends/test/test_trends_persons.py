@@ -376,7 +376,6 @@ class TestTrendsPersons(ClickhouseTestMixin, APIBaseTest):
 
         self.assertEqual(len(result), 0)
 
-    @skip("fails, as other returns all breakdowns, even those that should be display with the breakdown_limit")
     def test_trends_breakdown_others_persons(self):
         self._create_events()
         source_query = TrendsQuery(
@@ -399,7 +398,6 @@ class TestTrendsPersons(ClickhouseTestMixin, APIBaseTest):
         self.assertEqual(get_distinct_id(result[0]), "person2")
         self.assertEqual(get_event_count(result[0]), 2)
 
-    @skip("fails, as other returns all breakdowns, even those that should be display with the breakdown_limit")
     def test_trends_multiple_breakdowns_others_persons(self):
         self._create_events()
         source_query = TrendsQuery(
@@ -425,7 +423,6 @@ class TestTrendsPersons(ClickhouseTestMixin, APIBaseTest):
         self.assertEqual(get_distinct_id(result[0]), "person2")
         self.assertEqual(get_event_count(result[0]), 2)
 
-    # TODO: remove this test once "Other" actually filters out all other values
     def test_trends_filter_by_other(self):
         self._create_events()
         source_query = TrendsQuery(
@@ -438,7 +435,7 @@ class TestTrendsPersons(ClickhouseTestMixin, APIBaseTest):
         )
 
         result = self._get_actors(trends_query=source_query, day="2023-05-01", breakdown=[BREAKDOWN_OTHER_STRING_LABEL])
-        self.assertEqual(len(result), 3)
+        self.assertEqual(len(result), 2)
 
         source_query = TrendsQuery(
             series=[EventsNode(event="$pageview")],

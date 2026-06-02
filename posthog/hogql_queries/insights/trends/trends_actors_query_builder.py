@@ -20,7 +20,7 @@ from posthog.schema import (
 )
 
 from posthog.hogql import ast
-from posthog.hogql.constants import LimitContext
+from posthog.hogql.constants import LimitContext, get_breakdown_limit_for_context
 from posthog.hogql.parser import parse_expr
 from posthog.hogql.property import action_to_expr, property_to_expr
 from posthog.hogql.timings import HogQLTimings
@@ -32,6 +32,7 @@ from posthog.hogql_queries.insights.trends.aggregation_operations import (
 from posthog.hogql_queries.insights.trends.breakdown import Breakdown
 from posthog.hogql_queries.insights.trends.display import TrendsDisplay
 from posthog.hogql_queries.insights.trends.utils import group_node_to_expr, is_groups_math
+from posthog.hogql_queries.insights.utils.breakdowns import BREAKDOWN_NULL_STRING_LABEL, BREAKDOWN_OTHER_STRING_LABEL
 from posthog.hogql_queries.utils.query_compare_to_date_range import QueryCompareToDateRange
 from posthog.hogql_queries.utils.query_date_range import QueryDateRange
 from posthog.hogql_queries.utils.query_previous_period_date_range import QueryPreviousPeriodDateRange
@@ -493,11 +494,76 @@ class TrendsActorsQueryBuilder:
         )
 
         if self.breakdown_value is not None and breakdown.enabled:
+            if self._is_other_breakdown_value(self.breakdown_value):
+                conditions.append(self._other_breakdown_where_expr(breakdown))
+
             breakdown_filter = breakdown.get_actors_query_where_filter(lookup_values=self.breakdown_value)
             if breakdown_filter is not None:
                 conditions.append(breakdown_filter)
 
         return conditions
+
+    def _is_other_breakdown_value(self, breakdown_value: str | int | list[str]) -> bool:
+        if isinstance(breakdown_value, list):
+            return BREAKDOWN_OTHER_STRING_LABEL in breakdown_value
+        return breakdown_value == BREAKDOWN_OTHER_STRING_LABEL
+
+    def _other_breakdown_where_expr(self, breakdown: Breakdown) -> ast.Expr:
+        top_breakdown_values_query = self._top_breakdown_values_query(breakdown)
+        return ast.CompareOperation(
+            left=self._actors_breakdown_value_expr(breakdown),
+            op=ast.CompareOperationOp.NotIn,
+            right=top_breakdown_values_query,
+        )
+
+    def _actors_breakdown_value_expr(self, breakdown: Breakdown) -> ast.Expr:
+        breakdown_columns = breakdown.column_exprs
+        if breakdown.is_multiple_breakdown:
+            return ast.Array(exprs=[column.expr for column in breakdown_columns])
+        return breakdown_columns[0].expr
+
+    def _top_breakdown_values_query(self, breakdown: Breakdown) -> ast.SelectQuery:
+        top_breakdowns_query = ast.SelectQuery(
+            select=[
+                ast.Alias(alias="breakdown_value", expr=self._actors_breakdown_value_expr(breakdown)),
+                ast.Alias(alias="total_count_for_breakdown", expr=parse_expr("count()")),
+            ],
+            select_from=ast.JoinExpr(
+                table=ast.Field(chain=["events"]),
+                alias="e",
+                sample=self._sample_expr(),
+            ),
+            where=self._events_where_expr(with_breakdown_expr=False),
+            group_by=[ast.Field(chain=["breakdown_value"])],
+            order_by=[
+                ast.OrderExpr(expr=self._breakdown_order_expr(breakdown), order="ASC"),
+                ast.OrderExpr(expr=ast.Field(chain=["total_count_for_breakdown"]), order="DESC"),
+                ast.OrderExpr(expr=ast.Field(chain=["breakdown_value"]), order="ASC"),
+            ],
+            limit=ast.Constant(value=self._breakdown_limit()),
+        )
+        return ast.SelectQuery(
+            select=[ast.Field(chain=["breakdown_value"])],
+            select_from=ast.JoinExpr(table=top_breakdowns_query),
+        )
+
+    def _breakdown_limit(self) -> int:
+        breakdown_filter = self.trends_query.breakdownFilter
+        if breakdown_filter and breakdown_filter.breakdown_limit:
+            return breakdown_filter.breakdown_limit
+        return get_breakdown_limit_for_context(self.limit_context)
+
+    def _breakdown_order_expr(self, breakdown: Breakdown) -> ast.Expr:
+        if breakdown.is_multiple_breakdown:
+            return parse_expr(
+                "if(has(breakdown_value, {nil_label}), 1, 0)",
+                placeholders={"nil_label": ast.Constant(value=BREAKDOWN_NULL_STRING_LABEL)},
+            )
+
+        return parse_expr(
+            "breakdown_value = {nil_label} ? 1 : 0",
+            placeholders={"nil_label": ast.Constant(value=BREAKDOWN_NULL_STRING_LABEL)},
+        )
 
     def _filter_empty_actors_expr(self) -> list[ast.Expr]:
         conditions: list[ast.Expr] = []
