@@ -1,4 +1,5 @@
 import re
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 from functools import cached_property
 from typing import cast
@@ -53,6 +54,36 @@ SELECT_STAR_FROM_EVENTS_FIELDS = [
 
 # Wide columns that defeat presorted optimization
 WIDE_COLUMNS = {"elements_chain", "properties"}
+
+
+def event_uuid_from_result(row: list[object], select_input: list[str]) -> str | None:
+    if "*" in select_input:
+        star_idx = select_input.index("*")
+        if star_idx < len(row) and isinstance(row[star_idx], Mapping):
+            uuid = row[star_idx].get("uuid")
+            return str(uuid) if uuid else None
+
+    for index, column in enumerate(select_input):
+        if column.split("--")[0].strip() == "uuid" and index < len(row):
+            uuid = row[index]
+            return str(uuid) if uuid else None
+
+    return None
+
+
+def deduplicate_event_results(results: list[list[object]], select_input: list[str]) -> list[list[object]]:
+    deduplicated_results: list[list[object]] = []
+    seen_uuids: set[str] = set()
+
+    for row in results:
+        event_uuid = event_uuid_from_result(row, select_input)
+        if event_uuid is not None:
+            if event_uuid in seen_uuids:
+                continue
+            seen_uuids.add(event_uuid)
+        deduplicated_results.append(row)
+
+    return deduplicated_results
 
 
 class EventsQueryRunner(AnalyticsQueryRunner[EventsQueryResponse]):
@@ -462,6 +493,8 @@ class EventsQueryRunner(AnalyticsQueryRunner[EventsQueryResponse]):
                             session_id = properties.get("$session_id")
                             if session_id:
                                 properties["$has_recording"] = session_id in session_recordings_map
+
+        self.paginator.results = deduplicate_event_results(self.paginator.results, self.select_input_raw())
 
         person_indices: list[int] = []
         for column_index, col in enumerate(self.select_input_raw()):
