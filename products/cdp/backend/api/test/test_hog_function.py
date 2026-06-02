@@ -193,6 +193,19 @@ class TestHogFunctionAPI(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
         sync_template_to_db(template_slack)
         sync_template_to_db(webhook_template)
         sync_template_to_db(geoip_template)
+        HogFunctionTemplate.objects.create(
+            template_id="plugin-posthog-plugin-geoip",
+            sha="1.0.0",
+            name="GeoIP",
+            description="Legacy GeoIP template",
+            code="return event",
+            code_language="hog",
+            inputs_schema={},
+            type="transformation",
+            status="deprecated",
+            category=["Transformation"],
+            free=True,
+        )
 
         # Create the action referenced in EXAMPLE_FULL
         # Use a high ID to avoid conflicts with auto-incrementing sequence
@@ -1267,7 +1280,45 @@ class TestHogFunctionAPI(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
         response = self.client.get(f"/api/projects/{self.team.id}/hog_functions/?enabled=true,false")
         assert len(response.json()["results"]) == 2
 
-    def test_cannot_create_multiple_geoip_transformations(self, *args):
+    def _create_geoip_transformation(self, template_id: str):
+        return self.client.post(
+            f"/api/projects/{self.team.id}/hog_functions/",
+            data={
+                "name": "GeoIP",
+                "hog": "return event",
+                "type": "transformation",
+                "template_id": template_id,
+                "enabled": True,
+            },
+        )
+
+    @parameterized.expand(
+        [
+            ("template-geoip", "template-geoip"),
+            ("template-geoip", "plugin-posthog-plugin-geoip"),
+            ("plugin-posthog-plugin-geoip", "template-geoip"),
+        ]
+    )
+    def test_cannot_create_multiple_geoip_transformations(self, first_template_id: str, second_template_id: str):
+        response = self._create_geoip_transformation(first_template_id)
+        assert response.status_code == status.HTTP_201_CREATED, response.json()
+
+        response = self._create_geoip_transformation(second_template_id)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST, response.json()
+        assert response.json()["attr"] == "template_id"
+        assert "A GeoIP transformation already exists for this project." in response.json()["detail"]
+        assert (
+            HogFunction.objects.filter(
+                team=self.team,
+                type="transformation",
+                template_id__in=[first_template_id, second_template_id],
+                deleted=False,
+            ).count()
+            == 1
+        )
+
+    def test_can_recreate_deleted_geoip_transformation(self):
         response = self.client.post(
             f"/api/projects/{self.team.id}/hog_functions/",
             data={
@@ -1279,6 +1330,10 @@ class TestHogFunctionAPI(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
             },
         )
         assert response.status_code == status.HTTP_201_CREATED, response.json()
+        self.client.patch(
+            f"/api/projects/{self.team.id}/hog_functions/{response.json()['id']}/",
+            data={"deleted": True},
+        )
 
         response = self.client.post(
             f"/api/projects/{self.team.id}/hog_functions/",
@@ -1291,15 +1346,7 @@ class TestHogFunctionAPI(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
             },
         )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST, response.json()
-        assert response.json()["attr"] == "template_id"
-        assert "A GeoIP transformation already exists for this project." in response.json()["detail"]
-        assert (
-            HogFunction.objects.filter(
-                team=self.team, type="transformation", template_id="template-geoip", deleted=False
-            ).count()
-            == 1
-        )
+        assert response.status_code == status.HTTP_201_CREATED, response.json()
 
     @patch("posthog.cdp.site_functions.transpile", side_effect=mock_transpile)
     def test_create_hog_function_with_site_app_type(self, mock_transpile_fn):

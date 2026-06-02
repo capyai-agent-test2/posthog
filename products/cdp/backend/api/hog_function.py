@@ -289,15 +289,7 @@ class HogFunctionSerializer(HogFunctionMinimalSerializer):
         )
 
         if hog_type == "transformation" and is_create and attrs.get("template_id") in GEOIP_TEMPLATE_IDS:
-            if HogFunction.objects.filter(
-                team=team,
-                type="transformation",
-                template_id__in=GEOIP_TEMPLATE_IDS,
-                deleted=False,
-            ).exists():
-                raise serializers.ValidationError(
-                    {"template_id": "A GeoIP transformation already exists for this project."}
-                )
+            self._validate_no_geoip_transformation(team)
 
         # Check for transformation limit per team when the function will be enabled
         # We allow unlimited creation of disabled transformations as they don't run during ingestion
@@ -391,6 +383,26 @@ class HogFunctionSerializer(HogFunctionMinimalSerializer):
                 raise serializers.ValidationError({"template_id": f"No template found for id '{template_id}'"})
             validated_data["hog_function_template"] = db_template
 
+        if validated_data.get("type") == "transformation" and template_id in GEOIP_TEMPLATE_IDS:
+            with transaction.atomic():
+                Team.objects.select_for_update().get(pk=validated_data["team"].id)
+                self._validate_no_geoip_transformation(validated_data["team"])
+                return self._create_with_execution_order(validated_data=validated_data)
+
+        return self._create_with_execution_order(validated_data=validated_data)
+
+    def _validate_no_geoip_transformation(self, team: Team) -> None:
+        if HogFunction.objects.filter(
+            team=team,
+            type="transformation",
+            template_id__in=GEOIP_TEMPLATE_IDS,
+            deleted=False,
+        ).exists():
+            raise serializers.ValidationError(
+                {"template_id": "A GeoIP transformation already exists for this project."}
+            )
+
+    def _create_with_execution_order(self, validated_data: dict) -> HogFunction:
         # Handle execution_order for transformation type
         if validated_data.get("type") == "transformation":
             requested_order = validated_data.get("execution_order")
@@ -403,9 +415,9 @@ class HogFunctionSerializer(HogFunctionMinimalSerializer):
 
             # Create the function with the execution_order
             return super().create(validated_data=validated_data)
-        else:
-            # For non-transformation types, just create normally
-            return super().create(validated_data=validated_data)
+
+        # For non-transformation types, just create normally
+        return super().create(validated_data=validated_data)
 
     def _get_highest_execution_order(self, team_id: int) -> int:
         """Get the highest execution_order for transformations in a team."""
