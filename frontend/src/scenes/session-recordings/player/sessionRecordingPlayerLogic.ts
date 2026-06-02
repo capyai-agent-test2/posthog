@@ -969,6 +969,17 @@ export const sessionRecordingPlayerLogic = kea<sessionRecordingPlayerLogicType>(
                 }
             },
         ],
+        recordingHasNoSnapshots: [
+            (s) => [s.snapshotSources, s.snapshotsLoading, s.sessionPlayerMetaDataLoading],
+            (snapshotSources, snapshotsLoading, sessionPlayerMetaDataLoading): boolean => {
+                return (
+                    snapshotSources !== null &&
+                    snapshotSources.length === 0 &&
+                    !snapshotsLoading &&
+                    !sessionPlayerMetaDataLoading
+                )
+            },
+        ],
 
         dataBufferedUntilTimestamp: [
             (s) => [s.sessionPlayerData],

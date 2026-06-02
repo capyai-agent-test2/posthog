@@ -69,7 +69,8 @@ const PlayerFrameOverlayActions = (): JSX.Element | null => {
 }
 
 const PlayerFrameOverlayContent = (): JSX.Element | null => {
-    const { currentPlayerState, endReached, logicProps } = useValues(sessionRecordingPlayerLogic)
+    const { currentPlayerState, endReached, logicProps, recordingHasNoSnapshots, sessionPlayerData } =
+        useValues(sessionRecordingPlayerLogic)
     const { setPlay } = useActions(sessionRecordingPlayerLogic)
 
     const handlePlay = (e: MouseEvent): void => {
@@ -84,7 +85,21 @@ const PlayerFrameOverlayContent = (): JSX.Element | null => {
     const playerMode = logicProps.mode ?? SessionRecordingPlayerMode.Standard
     const showActionsOnOverlay = playerMode === SessionRecordingPlayerMode.Standard && pausedState
 
-    if (currentPlayerState === SessionPlayerState.ERROR) {
+    if (recordingHasNoSnapshots) {
+        content = (
+            <div className="flex flex-col justify-center items-center p-6 bg-surface-primary rounded m-6 gap-2 max-w-120 shadow-sm">
+                <IconWarning className="text-warning text-5xl" />
+                <div className="font-bold text-text-3000 text-lg">This recording is no longer available</div>
+                <div className="text-secondary text-sm text-center">
+                    The replay data for this session has expired
+                    {sessionPlayerData.sessionRetentionPeriodDays
+                        ? ` after ${sessionPlayerData.sessionRetentionPeriodDays} days`
+                        : ''}
+                    . Events and console logs may still be available in the side panel.
+                </div>
+            </div>
+        )
+    } else if (currentPlayerState === SessionPlayerState.ERROR) {
         content = (
             <div className="flex flex-col justify-center items-center p-6 bg-surface-primary rounded m-6 gap-2 max-w-120 shadow-sm">
                 <IconWarning className="text-danger text-5xl" />
@@ -114,13 +129,11 @@ const PlayerFrameOverlayContent = (): JSX.Element | null => {
                 </LemonButton>
             </div>
         )
-    }
-    if (currentPlayerState === SessionPlayerState.BUFFER) {
+    } else if (currentPlayerState === SessionPlayerState.BUFFER) {
         content = (
             <div className="SessionRecordingPlayer--buffering text-3xl italic font-medium text-white">Buffering…</div>
         )
-    }
-    if (pausedState) {
+    } else if (pausedState) {
         content = endReached ? (
             <LemonButton
                 icon={<IconRewindPlay className="text-6xl text-white" />}
@@ -139,18 +152,18 @@ const PlayerFrameOverlayContent = (): JSX.Element | null => {
                 {showActionsOnOverlay && <PlayerFrameOverlayActions />}
             </div>
         )
-    }
-    if (currentPlayerState === SessionPlayerState.SKIP) {
+    } else if (currentPlayerState === SessionPlayerState.SKIP) {
         content = <div className="text-3xl italic font-medium text-white">Skipping inactivity</div>
-    }
-    if (currentPlayerState === SessionPlayerState.SKIP_TO_MATCHING_EVENT) {
+    } else if (currentPlayerState === SessionPlayerState.SKIP_TO_MATCHING_EVENT) {
         content = <div className="text-3xl italic font-medium text-white">Skipping to filtered event</div>
     }
     return content ? (
         <div
             className={cn(
                 'PlayerFrameOverlay__content absolute inset-0 z-1 flex items-center justify-center bg-black/15 transition-opacity duration-100',
-                pausedState && !isInExportContext ? 'opacity-0 hover:opacity-100' : 'opacity-80 hover:opacity-100'
+                pausedState && !recordingHasNoSnapshots && !isInExportContext
+                    ? 'opacity-0 hover:opacity-100'
+                    : 'opacity-80 hover:opacity-100'
             )}
             aria-busy={currentPlayerState === SessionPlayerState.BUFFER}
         >
