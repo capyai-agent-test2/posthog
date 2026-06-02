@@ -118,6 +118,55 @@ describe('the authorized urls list logic', () => {
                 proposedUrlValidationErrors: { url: 'Please enter a valid URL' },
             })
         })
+
+        it('pre-populates the form with the URL being edited', async () => {
+            await expectLogic(logic, () => {
+                logic.actions.setEditUrlIndex(1)
+            }).toMatchValues({
+                editUrlIndex: 1,
+                proposedUrl: { url: 'https://app.posthog.com' },
+                proposedUrlHasErrors: false,
+            })
+        })
+
+        it('updates the edited URL instead of adding a new one', async () => {
+            jest.spyOn(api, 'update')
+
+            await expectLogic(logic, () => {
+                logic.actions.setEditUrlIndex(1)
+            }).toMatchValues({
+                proposedUrl: { url: 'https://app.posthog.com' },
+            })
+
+            await expectLogic(logic, () => {
+                logic.actions.setProposedUrlValue('url', 'https://edited.posthog.com')
+            }).toMatchValues({
+                proposedUrl: { url: 'https://edited.posthog.com' },
+                proposedUrlHasErrors: false,
+            })
+
+            await logic.asyncActions.submitProposedUrl()
+
+            expectLogic(logic).toMatchValues({
+                authorizedUrls: [
+                    'https://posthog.com/',
+                    'https://edited.posthog.com',
+                    'https://example.com',
+                    'http://127.0.0.1:*',
+                ],
+                editUrlIndex: null,
+                proposedUrl: { url: '' },
+            })
+
+            expect(api.update).toHaveBeenCalledWith(`api/environments/${MOCK_TEAM_ID}`, {
+                app_urls: [
+                    'https://posthog.com/',
+                    'https://edited.posthog.com',
+                    'https://example.com',
+                    'http://127.0.0.1:*',
+                ],
+            })
+        })
     })
 
     describe('checkUrlIsAuthorized', () => {

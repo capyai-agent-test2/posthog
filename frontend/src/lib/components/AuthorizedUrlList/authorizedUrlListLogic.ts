@@ -375,15 +375,22 @@ export const authorizedUrlListLogic = kea<authorizedUrlListLogicType>([
     forms(({ values, actions, props }) => ({
         proposedUrl: {
             defaults: { url: '' } as ProposeNewUrlFormType,
-            errors: ({ url }) => ({
-                // default to allowing wildcards because that was the original behavior
-                url: validateProposedUrl(
-                    url,
-                    values.authorizedUrls,
-                    values.onlyAllowDomains,
-                    props.allowWildCards ?? true
-                ),
-            }),
+            errors: ({ url }) => {
+                const authorizedUrlsToValidateAgainst =
+                    values.editUrlIndex !== null && values.editUrlIndex >= 0
+                        ? values.authorizedUrls.filter((_, index) => index !== values.editUrlIndex)
+                        : values.authorizedUrls
+
+                return {
+                    // default to allowing wildcards because that was the original behavior
+                    url: validateProposedUrl(
+                        url,
+                        authorizedUrlsToValidateAgainst,
+                        values.onlyAllowDomains,
+                        props.allowWildCards ?? true
+                    ),
+                }
+            },
             submit: async ({ url }) => {
                 if (values.editUrlIndex !== null && values.editUrlIndex >= 0) {
                     actions.updateUrl(values.editUrlIndex, url)
