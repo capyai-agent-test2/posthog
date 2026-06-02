@@ -17,6 +17,8 @@ const stripUnsupportedPseudoFunctions = (selector: string): string => {
             continue
         }
 
+        const pseudoFunctionName = pseudoFunctionMatch[0].slice(1, -1)
+        const pseudoFunctionStartIndex = index
         let depth = 0
         index += pseudoFunctionMatch[0].length
 
@@ -31,6 +33,10 @@ const stripUnsupportedPseudoFunctions = (selector: string): string => {
                 depth--
             }
             index++
+        }
+
+        if (POSITIONAL_PSEUDO_CLASSES.includes(pseudoFunctionName)) {
+            strippedSelector += selector.slice(pseudoFunctionStartIndex, index)
         }
     }
 
@@ -72,8 +78,14 @@ export const parsedSelectorToSelectorString = (parsedSelector: ParsedCSSSelector
 
 export const parseCSSSelector = (s: string): ParsedCSSSelector => {
     const parts = {} as ParsedCSSSelector
-    const positionalPseudoClasses = Array.from(s.matchAll(POSITIONAL_PSEUDO_CLASS_REGEX))
-    const selectorWithoutPseudoFunctions = stripUnsupportedPseudoFunctions(s.replace(POSITIONAL_PSEUDO_CLASS_REGEX, ''))
+    const selectorWithSupportedPseudoFunctions = stripUnsupportedPseudoFunctions(s)
+    const positionalPseudoClasses = Array.from(
+        selectorWithSupportedPseudoFunctions.matchAll(POSITIONAL_PSEUDO_CLASS_REGEX)
+    )
+    const selectorWithoutPseudoFunctions = selectorWithSupportedPseudoFunctions.replace(
+        POSITIONAL_PSEUDO_CLASS_REGEX,
+        ''
+    )
     let processing: string | undefined = undefined
     let attributeKey = ''
     let current = ''
