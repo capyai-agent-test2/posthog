@@ -123,7 +123,22 @@
     &__scrollable .LemonTable {
         .ScrollableShadows__inner {
             max-height: 16rem;
+            overflow-x: hidden !important;
             overflow-y: auto !important;
+        }
+
+        .LemonTable__content > table {
+            table-layout: fixed;
+
+            .datum-counts-column {
+                .LemonTable__header-content > div,
+                .insights-label,
+                .insights-label > div,
+                .insights-label .w-fit {
+                    width: auto;
+                    min-width: 0;
+                }
+            }
         }
 
         .LemonTable__content > table > thead {
