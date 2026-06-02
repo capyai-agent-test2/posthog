@@ -1,4 +1,4 @@
-import { actions, connect, events, kea, listeners, path, props, reducers, selectors } from 'kea'
+import { actions, connect, events, kea, listeners, path, reducers, selectors } from 'kea'
 
 import api from 'lib/api'
 import { isEventPropertyFilter } from 'lib/components/PropertyFilters/utils'
@@ -10,13 +10,8 @@ import { AnyPropertyFilter, LiveEvent, PropertyOperator } from '~/types'
 import { deduplicateEvents } from './deduplicateEvents'
 import type { liveEventsLogicType } from './liveEventsLogicType'
 
-export interface LiveEventsLogicProps {
-    showLiveStreamErrorToast?: boolean
-}
-
 export const liveEventsLogic = kea<liveEventsLogicType>([
     path(['scenes', 'activity', 'live-events', 'liveEventsLogic']),
-    props({} as LiveEventsLogicProps),
     connect(() => ({
         values: [teamLogic, ['currentTeam']],
         actions: [teamLogic, ['loadCurrentTeam']],

@@ -32,7 +32,7 @@ describe('liveEventsLogic', () => {
             options.onError(new Error('no events available'))
         })
 
-        const logic = liveEventsLogic({ showLiveStreamErrorToast: true })
+        const logic = liveEventsLogic()
         logic.mount()
 
         await expectLogic(logic).toDispatchActions(['updateEventsConnection'])
