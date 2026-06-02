@@ -22,6 +22,7 @@ from posthog.api.team import (
     get_or_mint_live_events_token,
     handle_conversations_token_on_update,
     handle_logs_config,
+    validate_path_cleaning_filters,
     validate_team_attrs,
 )
 from posthog.auth import OAuthAccessTokenAuthentication, PersonalAPIKeyAuthentication, SessionAuthentication
@@ -436,6 +437,10 @@ class ProjectBackwardCompatSerializer(
     @staticmethod
     def validate_test_account_filters(value: object) -> list[dict[str, object]]:
         return TeamSerializer.validate_test_account_filters(value)
+
+    @staticmethod
+    def validate_path_cleaning_filters(value: object) -> list[dict[str, object]] | None:
+        return validate_path_cleaning_filters(value)
 
     def validate_proactive_tasks_enabled(self, value: bool | None) -> bool | None:
         return TeamSerializer.validate_proactive_tasks_enabled(cast(TeamSerializer, self), value)
