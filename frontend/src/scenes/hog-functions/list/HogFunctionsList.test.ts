@@ -27,7 +27,7 @@ describe('urlForHogFunction', () => {
 describe('sparklineMetricsForHogFunction', () => {
     it('uses legacy plugin app metrics for plugin destinations', () => {
         expect(sparklineMetricsForHogFunction(makeFn('plugin-7'), 'destination', true)).toEqual({
-            logicKey: '7',
+            logicKey: 'legacy-plugin-7',
             forceParams: {
                 appSource: 'legacy_plugin',
                 appSourceId: '7',

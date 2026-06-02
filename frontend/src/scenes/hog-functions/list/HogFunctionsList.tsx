@@ -135,7 +135,7 @@ export const sparklineMetricsForHogFunction = (
 
         const pluginConfigId = hogFunction.id.replace('plugin-', '')
         return {
-            logicKey: pluginConfigId,
+            logicKey: `legacy-plugin-${pluginConfigId}`,
             forceParams: {
                 appSource: 'legacy_plugin',
                 appSourceId: pluginConfigId,
