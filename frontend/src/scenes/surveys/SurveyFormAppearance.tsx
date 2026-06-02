@@ -50,7 +50,7 @@ export function SurveyFormAppearance({
                     onChange={(pageIndex) => handleSetSelectedPageIndex(pageIndex)}
                     id="current-question-select"
                     fullWidth
-                    truncateText={{ maxWidthClass: 'max-w-60' }}
+                    truncateText={{ maxWidthClass: 'max-w-full' }}
                     value={previewPageIndex}
                     options={[
                         ...survey.questions.map((question, index) => ({
