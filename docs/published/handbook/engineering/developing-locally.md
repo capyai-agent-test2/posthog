@@ -274,10 +274,18 @@ You can narrow the run down to only files under matching paths:
 hogli test frontend/src/lib/components/DateFilter/DateFilter.test.tsx
 ```
 
-To update all visual regression test snapshots, make sure Storybook is running on your machine (you can start it with `hogli storybook` in a separate Terminal tab). You may also need to install Playwright with `pnpm exec playwright install`. And then run:
+To update all visual regression test snapshots, serve a static Storybook build in one terminal.
+Don't use the Storybook dev server for snapshot updates, as its hot module reload connection can keep the test runner waiting for network idle until it times out.
 
 ```bash
-hogli storybook:test
+pnpm --filter=@posthog/storybook build
+pnpm --filter=@posthog/storybook exec http-server dist --port 6006
+```
+
+Then run the snapshot update in another terminal:
+
+```bash
+pnpm --filter=@posthog/storybook test:visual:update
 ```
 
 ### Backend
