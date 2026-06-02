@@ -18,11 +18,21 @@ fi
 
 export POSTHOG_APP_TAG="${POSTHOG_APP_TAG:-latest}"
 
-echo "Checking for named postgres and clickhouse volumes to avoid data loss when upgrading from < 1.39"
-if docker volume ls | grep -Pzoq 'clickhouse-data\n(.|\n)*postgres-data\n'
+echo "Checking for named postgres, clickhouse, and zookeeper volumes to avoid data loss when upgrading from < 1.39"
+DOCKER_VOLUME_NAMES=$(docker volume ls --format '{{.Name}}')
+MISSING_DOCKER_VOLUMES=()
+
+for volume_name in postgres-data clickhouse-data zookeeper-data zookeeper-datalog
+do
+    if ! grep -q "${volume_name}$" <<< "$DOCKER_VOLUME_NAMES"; then
+        MISSING_DOCKER_VOLUMES+=("$volume_name")
+    fi
+done
+
+if [ ${#MISSING_DOCKER_VOLUMES[@]} -eq 0 ]
 then
     DOCKER_VOLUMES_MISSING=FALSE
-    echo "Found postgres and clickhouse volumes, proceeding..."
+    echo "Found postgres, clickhouse, and zookeeper volumes, proceeding..."
 else
     DOCKER_VOLUMES_MISSING=TRUE
     echo ""
@@ -32,8 +42,8 @@ else
     echo "🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨"
     echo ""
     echo ""
-    echo "We were unable to find named clickhouse and postgres volumes."
-    echo "If you created your PostHog stack PRIOR TO August 12th, 2022 / v1.39.0, the Postgres and Clickhouse containers did NOT have persistent named volumes by default."
+    echo "We were unable to find these named volumes: ${MISSING_DOCKER_VOLUMES[*]}"
+    echo "If you created your PostHog stack PRIOR TO August 12th, 2022 / v1.39.0, the Postgres, Clickhouse, and ZooKeeper containers did NOT have persistent named volumes by default."
     echo "If you choose to upgrade, you 💣 will likely lose data 💣 contained in these anonymous volumes."
     echo ""
     echo "See the discussion here for more information: https://github.com/PostHog/posthog/pull/11256"
@@ -45,6 +55,7 @@ else
     echo "✅ Specifically back up the contents of :"
     echo "  ☑ /var/lib/postgresql/data in the postgres (*_db_1) container"
     echo "  ☑ /var/lib/clickhouse in the clickhouse (*_clickhouse_1) container"
+    echo "  ☑ /data and /datalog in the zookeeper (*_zookeeper_1) container"
     echo "and be ready to check/recopy the data before you boot PostHog next."
     read -r -p "Do you want to proceed anyway? [y/N] " response
     if [[ "$response" =~ ^([yY][eE][sS]|[yY])+$ ]]
