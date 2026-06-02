@@ -17,6 +17,36 @@ import { openPersonsModal } from '../persons-modal/PersonsModal'
 import { trendsDataLogic } from '../trendsDataLogic'
 
 type DataSet = any
+type HorizontalBarResult = {
+    label: string
+    aggregated_value: number
+    action?: unknown
+    persons?: unknown
+    breakdown_value?: unknown
+    compare_label?: string
+}
+
+export function buildHorizontalBarDataset(
+    visibleResults: HorizontalBarResult[],
+    colorList: string[],
+    formatBreakdown: (item: HorizontalBarResult) => string
+): DataSet {
+    return {
+        labels: visibleResults.map((item) => item.label),
+        data: visibleResults.map((item) => item.aggregated_value),
+        actions: visibleResults.map((item) => item.action ?? {}),
+        personsValues: visibleResults.map((item) => item.persons),
+        breakdownValues: visibleResults.map((item) => item.breakdown_value),
+        breakdownLabels: visibleResults.map(formatBreakdown),
+        compareLabels: visibleResults.map((item) => item.compare_label),
+        backgroundColor: colorList,
+        hoverBackgroundColor: colorList,
+        hoverBorderColor: colorList,
+        borderColor: colorList,
+        hoverBorderWidth: 10,
+        borderWidth: 1,
+    }
+}
 
 export function ActionsHorizontalBar({
     showPersonsModal = true,
@@ -53,30 +83,16 @@ export function ActionsHorizontalBar({
             const colorList = visibleResults.map(getTrendsColor)
 
             setData([
-                {
-                    labels: visibleResults.map((item) => item.label),
-                    data: visibleResults.map((item) => item.aggregated_value),
-                    actions: visibleResults.map((item) => item.action),
-                    personsValues: visibleResults.map((item) => item.persons),
-                    breakdownValues: visibleResults.map((item) => item.breakdown_value),
-                    breakdownLabels: visibleResults.map((item) => {
-                        return formatBreakdownLabel(
-                            item.breakdown_value,
-                            breakdownFilter,
-                            allCohorts?.results,
-                            formatPropertyValueForDisplay,
-                            undefined,
-                            item.label
-                        )
-                    }),
-                    compareLabels: visibleResults.map((item) => item.compare_label),
-                    backgroundColor: colorList,
-                    hoverBackgroundColor: colorList,
-                    hoverBorderColor: colorList,
-                    borderColor: colorList,
-                    hoverBorderWidth: 10,
-                    borderWidth: 1,
-                },
+                buildHorizontalBarDataset(visibleResults, colorList, (item) =>
+                    formatBreakdownLabel(
+                        item.breakdown_value,
+                        breakdownFilter,
+                        allCohorts?.results,
+                        formatPropertyValueForDisplay,
+                        undefined,
+                        item.label
+                    )
+                ),
             ])
             setTotal(visibleResults.reduce((prev, item) => prev + item.aggregated_value, 0))
         }
