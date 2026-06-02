@@ -147,8 +147,9 @@ class WhereClauseExtractor(CloningVisitor):
         return ast.Constant(value=True)
 
     def visit_arithmetic_operation(self, node: ast.ArithmeticOperation) -> ast.Expr:
-        # don't even try to handle complex logic
-        return ast.Constant(value=True)
+        if is_time_or_interval_constant(node, self.tombstone_string):
+            return super().visit_arithmetic_operation(node)
+        return ast.Constant(value=self.tombstone_string)
 
     def visit_not(self, node: ast.Not) -> ast.Expr:
         if self.is_join:

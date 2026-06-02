@@ -849,6 +849,27 @@ class TestDatabase(BaseTest, QueryMatchingTest):
             in query
         ), query
 
+    @parameterized.expand(
+        [
+            ["plus(toDateTime('2024-10-25'), toIntervalDay(1))"],
+            ["toDateTime('2024-10-25') + interval 1 day"],
+        ]
+    )
+    def test_selecting_from_persons_filters_created_at_with_interval(self, interval_expression: str):
+        db = Database.create_for(team=self.team)
+        context = HogQLContext(
+            team_id=self.team.pk,
+            enable_select_queries=True,
+            database=db,
+            modifiers=create_default_modifiers_for_team(self.team),
+        )
+        sql = f"select count() from persons where created_at < {interval_expression}"
+        query, _ = prepare_and_print_ast(parse_select(sql), context, dialect="clickhouse")
+        assert "where_optimization.created_at" in query
+        assert "toDateTime(%(hogql_val_0)s)" in query
+        assert "toIntervalDay(1)" in query
+        assert "less(where_optimization.created_at, plus(" in query
+
     def test_selecting_persons_from_events_ignores_future_persons(self):
         db = Database.create_for(team=self.team)
         context = HogQLContext(
