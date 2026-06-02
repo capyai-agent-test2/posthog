@@ -83,6 +83,7 @@ export function getExceptionAttributes(properties: Record<string, any>): Excepti
         $os: os,
         $os_version: osVersion,
         $sentry_url: sentryUrl,
+        $sentry_event_id: sentryEventId,
         $level: level,
         $cymbal_errors: ingestionErrors,
     } = properties
@@ -125,13 +126,40 @@ export function getExceptionAttributes(properties: Record<string, any>): Excepti
         os,
         osVersion,
         url,
-        sentryUrl,
+        sentryUrl: normalizeSentryUrl(sentryUrl, sentryEventId),
         handled,
         level,
         ingestionErrors,
         appNamespace,
         appVersion,
     }
+}
+
+export function normalizeSentryUrl(sentryUrl?: string, sentryEventId?: string): string | undefined {
+    if (!sentryUrl || !sentryEventId) {
+        return sentryUrl
+    }
+
+    try {
+        const url = new URL(sentryUrl)
+        const query = url.searchParams.get('query')
+
+        if (isSentryIssueSearchUrl(url) && query === sentryEventId) {
+            url.searchParams.set('query', `id:${sentryEventId}`)
+            return url.toString()
+        }
+    } catch {
+        return sentryUrl
+    }
+
+    return sentryUrl
+}
+
+function isSentryIssueSearchUrl(url: URL): boolean {
+    const isSentryHost = url.hostname === 'sentry.io' || url.hostname.endsWith('.sentry.io')
+    const hasIssuesPath = url.pathname.split('/').includes('issues')
+
+    return isSentryHost && hasIssuesPath
 }
 
 export function getExceptionList(properties: ErrorEventProperties): ErrorTrackingException[] {
