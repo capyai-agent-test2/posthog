@@ -105,6 +105,36 @@ describe('trendsDataLogic', () => {
                 })
             })
 
+            it('uses current series custom names for indexed results', async () => {
+                const query: TrendsQuery = {
+                    kind: NodeKind.TrendsQuery,
+                    series: [
+                        {
+                            kind: NodeKind.EventsNode,
+                            event: '$pageview',
+                            name: '$pageview',
+                            custom_name: 'Renamed pageviews',
+                        },
+                    ],
+                }
+                const insight: Partial<InsightModel> = {
+                    result: trendResult.result,
+                }
+
+                await expectLogic(logic, () => {
+                    insightVizDataLogic.findMounted(insightProps)?.actions.updateQuerySource(query)
+                    builtDataNodeLogic.actions.loadDataSuccess(insight)
+                }).toMatchValues({
+                    indexedResults: [
+                        expect.objectContaining({
+                            action: expect.objectContaining({
+                                custom_name: 'Renamed pageviews',
+                            }),
+                        }),
+                    ],
+                })
+            })
+
             it('for pie visualization', async () => {
                 const query: TrendsQuery = {
                     kind: NodeKind.TrendsQuery,

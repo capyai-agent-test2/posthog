@@ -192,10 +192,24 @@ export const trendsDataLogic = kea<trendsDataLogicType>([
         ],
 
         indexedResults: [
-            (s) => [s.results, s.display, s.lifecycleFilter],
-            (results, display, lifecycleFilter): IndexedTrendResult[] => {
+            (s) => [s.results, s.display, s.lifecycleFilter, s.series],
+            (results, display, lifecycleFilter, series): IndexedTrendResult[] => {
                 const defaultLifecyclesOrder = ['new', 'resurrecting', 'returning', 'dormant']
-                let indexedResults = results.map((result, index) => ({ ...result, seriesIndex: index }))
+                let indexedResults = results.map((result, index) => {
+                    const seriesAction =
+                        typeof result.action?.order === 'number' ? series?.[result.action.order] : undefined
+                    const customName =
+                        seriesAction && 'custom_name' in seriesAction ? seriesAction.custom_name : undefined
+
+                    return {
+                        ...result,
+                        action:
+                            result.action && typeof customName !== 'undefined'
+                                ? { ...result.action, custom_name: customName }
+                                : result.action,
+                        seriesIndex: index,
+                    }
+                })
 
                 // want the previous bars to show before current bars
                 if (display === ChartDisplayType.ActionsUnstackedBar && indexedResults.some((x) => x.compare)) {
