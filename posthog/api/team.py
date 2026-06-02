@@ -144,6 +144,28 @@ def _format_serializer_errors(serializer_errors: dict) -> str:
     return ". ".join(error_messages)
 
 
+def validate_path_cleaning_filters(value: object) -> list[dict[str, object]] | None:
+    if value is None:
+        return None
+
+    if not isinstance(value, list):
+        raise exceptions.ValidationError("Must provide a list of path cleaning filters.")
+
+    for index, filter_config in enumerate(value):
+        if not isinstance(filter_config, dict):
+            raise exceptions.ValidationError(f"Filter at position {index + 1} must be an object.")
+
+        alias = filter_config.get("alias")
+        if not isinstance(alias, str) or not alias.strip():
+            raise exceptions.ValidationError(f"Filter at position {index + 1} must include an alias.")
+
+        regex = filter_config.get("regex")
+        if not isinstance(regex, str) or not regex.strip():
+            raise exceptions.ValidationError(f"Filter at position {index + 1} must include a regex.")
+
+    return value
+
+
 class CachingTeamSerializer(serializers.ModelSerializer):
     """
     This serializer is used for caching teams.
@@ -674,6 +696,10 @@ class TeamSerializer(serializers.ModelSerializer, UserPermissionsSerializerMixin
     @staticmethod
     def validate_test_account_filters(value: object) -> list[dict[str, object]]:
         return validate_test_account_filters(value)
+
+    @staticmethod
+    def validate_path_cleaning_filters(value: object) -> list[dict[str, object]] | None:
+        return validate_path_cleaning_filters(value)
 
     @staticmethod
     def validate_revenue_analytics_config(value):

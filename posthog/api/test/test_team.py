@@ -1997,6 +1997,55 @@ def team_api_test_factory():
             else:
                 assert actual_value == expected_output
 
+        @parameterized.expand(
+            [
+                ("environments_missing_alias", "/api/environments/@current/", [{"regex": "/merchant/\\d+"}]),
+                (
+                    "environments_blank_alias",
+                    "/api/environments/@current/",
+                    [{"alias": " ", "regex": "/merchant/\\d+"}],
+                ),
+                ("environments_missing_regex", "/api/environments/@current/", [{"alias": "/merchant/:id"}]),
+                ("environments_blank_regex", "/api/environments/@current/", [{"alias": "/merchant/:id", "regex": " "}]),
+                ("projects_missing_alias", "/api/projects/{project_id}/", [{"regex": "/merchant/\\d+"}]),
+                ("projects_missing_regex", "/api/projects/{project_id}/", [{"alias": "/merchant/:id"}]),
+            ]
+        )
+        def test_path_cleaning_filters_require_alias_and_regex(self, name, path, path_cleaning_filters):
+            self.team.path_cleaning_filters = [{"alias": "/existing/:id", "regex": "/existing/\\d+"}]
+            self.team.save()
+
+            response = self.client.patch(
+                path.format(project_id=self.project.id),
+                {"path_cleaning_filters": path_cleaning_filters},
+                format="json",
+            )
+
+            assert response.status_code == status.HTTP_400_BAD_REQUEST
+            assert "path_cleaning_filters" in response.json()
+
+            self.team.refresh_from_db()
+            assert self.team.path_cleaning_filters == [{"alias": "/existing/:id", "regex": "/existing/\\d+"}]
+
+        @parameterized.expand(
+            [
+                ("environments", "/api/environments/@current/"),
+                ("projects", "/api/projects/{project_id}/"),
+            ]
+        )
+        def test_path_cleaning_filters_accept_valid_filters(self, name, path):
+            filters = [{"alias": "/merchant/:id", "regex": "/merchant/\\d+", "order": 0}]
+
+            response = self.client.patch(
+                path.format(project_id=self.project.id),
+                {"path_cleaning_filters": filters},
+                format="json",
+            )
+
+            assert response.status_code == status.HTTP_200_OK
+            self.team.refresh_from_db()
+            assert self.team.path_cleaning_filters == filters
+
         def test_conversations_settings_filters_null_widget_domains(self):
             response = self.client.patch(
                 "/api/environments/@current/",
