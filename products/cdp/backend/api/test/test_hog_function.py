@@ -1267,6 +1267,40 @@ class TestHogFunctionAPI(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
         response = self.client.get(f"/api/projects/{self.team.id}/hog_functions/?enabled=true,false")
         assert len(response.json()["results"]) == 2
 
+    def test_cannot_create_multiple_geoip_transformations(self, *args):
+        response = self.client.post(
+            f"/api/projects/{self.team.id}/hog_functions/",
+            data={
+                "name": "GeoIP",
+                "hog": "return event",
+                "type": "transformation",
+                "template_id": "template-geoip",
+                "enabled": True,
+            },
+        )
+        assert response.status_code == status.HTTP_201_CREATED, response.json()
+
+        response = self.client.post(
+            f"/api/projects/{self.team.id}/hog_functions/",
+            data={
+                "name": "GeoIP",
+                "hog": "return event",
+                "type": "transformation",
+                "template_id": "template-geoip",
+                "enabled": True,
+            },
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST, response.json()
+        assert response.json()["attr"] == "template_id"
+        assert "A GeoIP transformation already exists for this project." in response.json()["detail"]
+        assert (
+            HogFunction.objects.filter(
+                team=self.team, type="transformation", template_id="template-geoip", deleted=False
+            ).count()
+            == 1
+        )
+
     @patch("posthog.cdp.site_functions.transpile", side_effect=mock_transpile)
     def test_create_hog_function_with_site_app_type(self, mock_transpile_fn):
         response = self.client.post(

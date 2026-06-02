@@ -62,6 +62,7 @@ from products.cdp.backend.models.plugin import TranspilerError
 MAX_HOG_CODE_SIZE_BYTES = 100 * 1024
 # Maximum number of transformation functions per team
 MAX_TRANSFORMATIONS_PER_TEAM = 20
+GEOIP_TEMPLATE_IDS = ("template-geoip", "plugin-posthog-plugin-geoip")
 
 logger = structlog.get_logger(__name__)
 tracer = trace.get_tracer(__name__)
@@ -286,6 +287,17 @@ class HogFunctionSerializer(HogFunctionMinimalSerializer):
         is_create = self.context.get("is_create") or (
             self.context.get("view") and self.context["view"].action == "create"
         )
+
+        if hog_type == "transformation" and is_create and attrs.get("template_id") in GEOIP_TEMPLATE_IDS:
+            if HogFunction.objects.filter(
+                team=team,
+                type="transformation",
+                template_id__in=GEOIP_TEMPLATE_IDS,
+                deleted=False,
+            ).exists():
+                raise serializers.ValidationError(
+                    {"template_id": "A GeoIP transformation already exists for this project."}
+                )
 
         # Check for transformation limit per team when the function will be enabled
         # We allow unlimited creation of disabled transformations as they don't run during ingestion
