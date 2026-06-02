@@ -95,6 +95,11 @@ describe('can preselect selectors for editing', () => {
                 expectedSelector: '.Something__something--something',
                 expected: { class: ['Something__something--something'] },
             },
+            {
+                selector: '.Something__something--something:is(:where(.enabled))',
+                expectedSelector: '.Something__something--something',
+                expected: { class: ['Something__something--something'] },
+            },
             { selector: '[key="value"]', expected: { key: 'value' } },
             {
                 selector: 'span.Something__something--something:first-of-type[href="wat"].second-class',

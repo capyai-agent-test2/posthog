@@ -4,7 +4,38 @@ export type ParsedCSSSelector = Record<string, string | string[] | undefined>
 
 const POSITIONAL_PSEUDO_CLASSES = ['nth-child', 'nth-of-type']
 const POSITIONAL_PSEUDO_CLASS_REGEX = /:(nth-child|nth-of-type)\((\d+)\)/g
-const UNSUPPORTED_PSEUDO_FUNCTION_REGEX = /:[\w-]+\([^)]*\)/g
+
+const stripUnsupportedPseudoFunctions = (selector: string): string => {
+    let strippedSelector = ''
+    let index = 0
+
+    while (index < selector.length) {
+        const pseudoFunctionMatch = selector.slice(index).match(/^:[\w-]+\(/)
+        if (!pseudoFunctionMatch) {
+            strippedSelector += selector[index]
+            index++
+            continue
+        }
+
+        let depth = 0
+        index += pseudoFunctionMatch[0].length
+
+        while (index < selector.length) {
+            if (selector[index] === '(') {
+                depth++
+            } else if (selector[index] === ')') {
+                if (depth === 0) {
+                    index++
+                    break
+                }
+                depth--
+            }
+            index++
+        }
+    }
+
+    return strippedSelector
+}
 
 export const parsedSelectorToSelectorString = (parsedSelector: ParsedCSSSelector): string => {
     const attributeSelectors = Object.entries(parsedSelector).reduce((acc, [key, value]) => {
@@ -42,9 +73,7 @@ export const parsedSelectorToSelectorString = (parsedSelector: ParsedCSSSelector
 export const parseCSSSelector = (s: string): ParsedCSSSelector => {
     const parts = {} as ParsedCSSSelector
     const positionalPseudoClasses = Array.from(s.matchAll(POSITIONAL_PSEUDO_CLASS_REGEX))
-    const selectorWithoutPseudoFunctions = s
-        .replace(POSITIONAL_PSEUDO_CLASS_REGEX, '')
-        .replace(UNSUPPORTED_PSEUDO_FUNCTION_REGEX, '')
+    const selectorWithoutPseudoFunctions = stripUnsupportedPseudoFunctions(s.replace(POSITIONAL_PSEUDO_CLASS_REGEX, ''))
     let processing: string | undefined = undefined
     let attributeKey = ''
     let current = ''
