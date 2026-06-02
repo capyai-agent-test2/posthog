@@ -1917,8 +1917,14 @@ export const sqlEditorLogic = kea<sqlEditorLogicType>([
             // everything whenever the editor content changes.
             cache.subqueryValidationCache?.clear()
 
-            // Decorations are cheap and visual — update immediately for responsiveness.
-            cache.updateActiveQueryDecoration?.()
+            // Debounce active query decorations because resolving nested subqueries can parse large SQL.
+            if (cache.activeQueryDecorationDebounceTimeout) {
+                window.clearTimeout(cache.activeQueryDecorationDebounceTimeout)
+            }
+            cache.activeQueryDecorationDebounceTimeout = window.setTimeout(() => {
+                cache.activeQueryDecorationDebounceTimeout = null
+                cache.updateActiveQueryDecoration?.()
+            }, 150)
 
             // Skip re-parsing if the text hasn't changed since the last parse.
             if (cache.lastParsedQueryInput === queryInput && cache.lastParsedQueryResult !== undefined) {

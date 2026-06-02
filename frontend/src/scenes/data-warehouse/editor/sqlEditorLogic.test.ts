@@ -265,6 +265,32 @@ describe('sqlEditorLogic', () => {
         expect(logic.values.hasFiltersPlaceholder).toBe(false)
     })
 
+    it('debounces active query decoration updates while typing', () => {
+        jest.useFakeTimers()
+        logic = sqlEditorLogic({
+            tabId: TAB_ID,
+            monaco: createMockMonaco(),
+            editor: createMockEditor(),
+        })
+        logic.mount()
+
+        const updateActiveQueryDecoration = jest.fn()
+        logic.cache.updateActiveQueryDecoration = updateActiveQueryDecoration
+
+        logic.actions.setQueryInput('SELECT 1')
+        logic.actions.setQueryInput('SELECT 12')
+
+        expect(updateActiveQueryDecoration).not.toHaveBeenCalled()
+
+        jest.advanceTimersByTime(149)
+        expect(updateActiveQueryDecoration).not.toHaveBeenCalled()
+
+        jest.advanceTimersByTime(1)
+        expect(updateActiveQueryDecoration).toHaveBeenCalledTimes(1)
+
+        jest.useRealTimers()
+    })
+
     it('restores filters from the URL hash', async () => {
         const filters: HogQLFilters = {
             dateRange: {
