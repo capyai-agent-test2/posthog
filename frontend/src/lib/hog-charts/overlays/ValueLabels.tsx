@@ -384,13 +384,14 @@ function transformFor(c: Candidate, isHorizontal: boolean, hovered: boolean): st
 
 export function ValueLabels({
     valueFormatter,
-    minGap = 4,
+    minGap,
     mode = 'per-segment',
 }: ValueLabelsProps): React.ReactElement | null {
     const { series, scales, labels, theme, resolvePositionValue, axis, dimensions } = useChartLayout()
     const { hoverIndex } = useChartHover()
     const isHorizontal = axis.orientation === 'horizontal'
     const isPercent = axis.isPercent
+    const effectiveMinGap = minGap ?? (isHorizontal ? 0 : 4)
 
     const formatter = valueFormatter ?? defaultLocaleFormatter
 
@@ -411,10 +412,21 @@ export function ValueLabels({
                     dimensions,
                     isHorizontal
                 ),
-                minGap,
+                effectiveMinGap,
                 isHorizontal
             ),
-        [series, labels, scales, resolvePositionValue, formatter, minGap, isHorizontal, mode, isPercent, dimensions]
+        [
+            series,
+            labels,
+            scales,
+            resolvePositionValue,
+            formatter,
+            effectiveMinGap,
+            isHorizontal,
+            mode,
+            isPercent,
+            dimensions,
+        ]
     )
 
     // Skip the lift when a dataIndex has labels at multiple distinct x positions

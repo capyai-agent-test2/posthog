@@ -131,6 +131,23 @@ describe('ValueLabels', () => {
         expect(divs[0].style.transform).toBe('translate(-100%, -50%)')
     })
 
+    it('horizontal: keeps adjacent row labels when they do not overlap', () => {
+        const series: ResolvedSeries[] = [{ key: 's', label: 'S', color: '#f00', data: [10, 20] }]
+        const adjacentRowPositions: Record<string, number> = { A: 100, B: 122 }
+        const ctx = makeContext(series, {
+            axisOrientation: 'horizontal',
+            labels: ['A', 'B'],
+            scales: {
+                x: (label: string): number | undefined => adjacentRowPositions[label],
+                y: yScale,
+                yTicks: () => [0, 50, 100],
+            },
+        })
+
+        const divs = labelDivs(renderInChart(ctx, <ValueLabels />).container)
+        expect(divs.map((d) => d.textContent)).toEqual(['10', '20'])
+    })
+
     it('drops overlapping labels via greedy collision avoidance', () => {
         // Two points at the same x: only one should survive.
         const series: ResolvedSeries[] = [{ key: 's', label: 'S', color: '#f00', data: [50, 50] }]
