@@ -52,12 +52,17 @@ export function toLocalFilters(filters: Partial<FilterType>): LocalFilter[] {
 }
 
 export function toFilters(localFilters: LocalFilter[]): FilterType {
-    const filters = localFilters.map((filter, index) => ({
-        ...filter,
-        order: index,
-        // The first step of a funnel cannot be optional
-        optionalInFunnel: index == 0 ? undefined : filter.optionalInFunnel,
-    }))
+    const filters = localFilters.map((filter, index) => {
+        const filterWithoutUuid = { ...filter }
+        delete filterWithoutUuid.uuid
+
+        return {
+            ...filterWithoutUuid,
+            order: index,
+            // The first step of a funnel cannot be optional
+            optionalInFunnel: index == 0 ? undefined : filter.optionalInFunnel,
+        }
+    })
 
     return {
         [EntityTypes.ACTIONS]: filters.filter((filter) => filter.type === EntityTypes.ACTIONS),
@@ -65,6 +70,10 @@ export function toFilters(localFilters: LocalFilter[]): FilterType {
         [EntityTypes.DATA_WAREHOUSE]: filters.filter((filter) => filter.type === EntityTypes.DATA_WAREHOUSE),
         [EntityTypes.GROUPS]: filters.filter((filter) => filter.type === EntityTypes.GROUPS),
     } as FilterType
+}
+
+function toComparableFilters(filters: FilterType): FilterType {
+    return toFilters(toLocalFilters(filters))
 }
 
 /**
@@ -194,7 +203,7 @@ export const entityFilterLogic = kea<entityFilterLogicType>([
             {
                 setFilters: (_, { filters }) => filters,
                 setLocalFilters: (currentFilters, { filters }) => {
-                    if (equal(toFilters(currentFilters), filters)) {
+                    if (equal(toFilters(currentFilters), toComparableFilters(filters))) {
                         return currentFilters
                     }
                     const newFilters = toLocalFilters(filters)
