@@ -43,9 +43,10 @@ def report_user_signed_up(
     if not user.distinct_id:
         return
 
+    actual_is_organization_first_user = _is_organization_first_user(user, is_organization_first_user)
     props = {
         "is_first_user": is_instance_first_user,
-        "is_organization_first_user": is_organization_first_user,
+        "is_organization_first_user": actual_is_organization_first_user,
         "new_onboarding_enabled": new_onboarding_enabled,
         "signup_backend_processor": backend_processor,
         "signup_social_provider": social_provider,
@@ -69,6 +70,17 @@ def report_user_signed_up(
         properties=props,
         groups=groups(user.organization, user.team),
     )
+
+
+def _is_organization_first_user(user: User, reported_is_organization_first_user: bool) -> bool:
+    if not reported_is_organization_first_user:
+        return False
+
+    organization = user.organization
+    if organization is None:
+        return False
+
+    return not organization.memberships.exclude(user=user).exists()
 
 
 def report_user_verified_email(current_user: User) -> None:

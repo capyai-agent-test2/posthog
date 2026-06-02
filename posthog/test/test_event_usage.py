@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 from posthog.test.base import BaseTest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from parameterized import parameterized
 from rest_framework.test import APIRequestFactory
@@ -12,8 +12,53 @@ from posthog.event_usage import (
     get_event_source,
     get_mcp_properties,
     report_user_action,
+    report_user_signed_up,
     sanitize_header_value,
 )
+
+
+class TestReportUserSignedUp:
+    def _user_with_other_membership_count(self, has_other_memberships: bool):
+        memberships = Mock()
+        memberships.exclude.return_value.exists.return_value = has_other_memberships
+        organization = SimpleNamespace(pk="org_1", customer_id=None, memberships=memberships)
+        return SimpleNamespace(
+            distinct_id="user_1",
+            organization=organization,
+            team=None,
+            is_email_verified=True,
+            get_analytics_metadata=lambda: {},
+        )
+
+    @patch("posthog.event_usage.posthoganalytics.capture")
+    def test_preserves_first_user_for_new_organization(self, mock_capture):
+        user = self._user_with_other_membership_count(False)
+
+        report_user_signed_up(
+            user,
+            is_instance_first_user=True,
+            is_organization_first_user=True,
+        )
+
+        mock_capture.assert_called_once()
+        captured_props = mock_capture.call_args[1]["properties"]
+        assert captured_props["is_organization_first_user"] is True
+        assert captured_props["$set"]["is_organization_first_user"] is True
+
+    @patch("posthog.event_usage.posthoganalytics.capture")
+    def test_does_not_mark_later_member_as_organization_first_user(self, mock_capture):
+        user = self._user_with_other_membership_count(True)
+
+        report_user_signed_up(
+            user,
+            is_instance_first_user=False,
+            is_organization_first_user=True,
+        )
+
+        mock_capture.assert_called_once()
+        captured_props = mock_capture.call_args[1]["properties"]
+        assert captured_props["is_organization_first_user"] is False
+        assert captured_props["$set"]["is_organization_first_user"] is False
 
 
 class TestReportUserAction(BaseTest):
