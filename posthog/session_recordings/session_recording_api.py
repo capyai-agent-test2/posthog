@@ -502,8 +502,14 @@ class SessionRecordingSnapshotsRequestSerializer(serializers.Serializer):
 
         # Validate blob_v2 parameters
         if source == "blob_v2":
-            if not start_blob_key or not end_blob_key:
-                raise serializers.ValidationError("Must provide both start blob key and end blob key")
+            if blob_key and (start_blob_key or end_blob_key):
+                raise serializers.ValidationError("Must provide either a blob key or start and end blob keys")
+
+            if blob_key:
+                start_blob_key = blob_key
+                end_blob_key = blob_key
+            elif not start_blob_key or not end_blob_key:
+                raise serializers.ValidationError("Must provide either a blob key or start and end blob keys")
 
             try:
                 data["min_blob_key"] = int(start_blob_key)
