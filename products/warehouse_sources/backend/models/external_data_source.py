@@ -117,7 +117,10 @@ class ExternalDataSource(ModelActivityMixin, CreatedMetaFields, UpdatedMetaField
         # Lazy import to avoid circular: SourceRegistry → helpers.py → this module.
         from posthog.temporal.data_imports.sources.common.registry import SourceRegistry
 
-        SourceRegistry.get_source(ExternalDataSourceType(self.source_type)).cleanup_cdc_resources_on_deletion(self)
+        try:
+            SourceRegistry.get_source(ExternalDataSourceType(self.source_type)).cleanup_cdc_resources_on_deletion(self)
+        except Exception as e:
+            logger.exception("Failed to clean up external data source resources on deletion", exc_info=e)
 
     def reload_schemas(self):
         from products.data_warehouse.backend.data_load.service import (

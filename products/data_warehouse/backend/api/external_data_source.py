@@ -1548,10 +1548,10 @@ class ExternalDataSourceViewSet(TeamAndOrgViewSetMixin, AccessControlViewSetMixi
             instance.soft_delete()
 
         # Best-effort webhook cleanup — soft-deletes are already committed
-        source_type = ExternalDataSourceType(instance.source_type)
-        source = SourceRegistry.get_source(source_type)
-        if isinstance(source, WebhookSource) and instance.job_inputs:
-            try:
+        try:
+            source_type = ExternalDataSourceType(instance.source_type)
+            source = SourceRegistry.get_source(source_type)
+            if isinstance(source, WebhookSource) and instance.job_inputs:
                 config = source.parse_config(instance.job_inputs)
                 delete_webhook_and_hog_function(
                     team=self.team,
@@ -1559,8 +1559,8 @@ class ExternalDataSourceViewSet(TeamAndOrgViewSetMixin, AccessControlViewSetMixi
                     config=config,
                     source_id=str(instance.pk),
                 )
-            except Exception as e:
-                capture_exception(e)
+        except Exception as e:
+            capture_exception(e)
 
         # Best-effort external cleanup — soft-deletes are already committed
         latest_running_job = (
