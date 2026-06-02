@@ -1,7 +1,13 @@
 from datetime import datetime
 from typing import Optional
 
-from posthog.test.base import APIBaseTest, ClickhouseTestMixin, snapshot_clickhouse_queries
+from posthog.test.base import (
+    APIBaseTest,
+    ClickhouseTestMixin,
+    _create_event,
+    _create_person,
+    snapshot_clickhouse_queries,
+)
 
 from posthog.constants import TRENDS_TABLE
 from posthog.models import Filter
@@ -565,6 +571,31 @@ class TestBreakdowns(ClickhouseTestMixin, APIBaseTest):
                 (BREAKDOWN_NULL_STRING_LABEL, 6.0, [1.0, 0.0, 1.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
                 ("https://example.com", 2.0, [2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
                 (BREAKDOWN_OTHER_STRING_LABEL, 1.0, [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+            ],
+        )
+
+    def test_breakdown_hogql_person_property_includes_none(self):
+        _create_person(team_id=self.team.pk, distinct_ids=["person_with_role"], properties={"role": "engineer"})
+        _create_event(
+            event="watched movie",
+            distinct_id="person_with_role",
+            team=self.team,
+            timestamp=datetime(2020, 1, 6, 12, 1),
+        )
+
+        response = self._run(
+            {
+                "breakdown": "person.properties.role",
+                "breakdown_type": "hogql",
+                "breakdown_limit": 2,
+            },
+        )
+
+        self.assertEqual(
+            [(item["breakdown_value"], item["count"], item["data"]) for item in response],
+            [
+                (BREAKDOWN_NULL_STRING_LABEL, 9.0, [1.0, 0.0, 1.0, 4.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+                ("engineer", 1.0, [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
             ],
         )
 
