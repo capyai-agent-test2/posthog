@@ -21,6 +21,23 @@ function copyFile(from: string, to: string): void {
     }
 }
 
+function rewritePostHogJsAssetNames(assetPath: string, replacements: Record<string, string>): void {
+    if (!existsSync(assetPath)) {
+        return
+    }
+
+    let content = readFileSync(assetPath, 'utf-8')
+
+    Object.entries(replacements).forEach(([oldValue, newValue]) => {
+        if (!content.includes(oldValue)) {
+            throw new Error(`Could not find expected posthog-js snippet in ${assetPath}: ${oldValue}`)
+        }
+        content = content.replace(oldValue, newValue)
+    })
+
+    writeFileSync(assetPath, content)
+}
+
 function copyPostHogJsFiles(): void {
     const nodeModulesPostHogJs = resolve('.', 'node_modules/posthog-js/dist')
     const distDir = resolve('.', 'dist')
@@ -62,6 +79,30 @@ function copyPostHogJsFiles(): void {
         const from = join(nodeModulesPostHogJs, file)
         const to = join(distDir, file)
         copyFile(from, to)
+    })
+
+    copyFile(join(nodeModulesPostHogJs, 'web-vitals.js'), join(distDir, 'performance-observer.js'))
+    copyFile(join(nodeModulesPostHogJs, 'web-vitals.js.map'), join(distDir, 'performance-observer.js.map'))
+    copyFile(
+        join(nodeModulesPostHogJs, 'web-vitals-with-attribution.js'),
+        join(distDir, 'performance-observer-attribution.js')
+    )
+    copyFile(
+        join(nodeModulesPostHogJs, 'web-vitals-with-attribution.js.map'),
+        join(distDir, 'performance-observer-attribution.js.map')
+    )
+
+    const webVitalsAssetNameAliases =
+        '{"web-vitals":"performance-observer","web-vitals-with-attribution":"performance-observer-attribution"}'
+    rewritePostHogJsAssetNames(join(distDir, 'array.js'), {
+        'var r;if(t.config.__preview_external_dependency_versioned_paths)': `var o=${webVitalsAssetNameAliases}[e]||e,r;if(t.config.__preview_external_dependency_versioned_paths)`,
+        '"/static/"+t.version+"/"+e+".js"': '"/static/"+t.version+"/"+o+".js"',
+        '"/static/"+e+".js?v="+t.version': '"/static/"+o+".js?v="+t.version',
+    })
+    rewritePostHogJsAssetNames(join(distDir, 'array.full.js'), {
+        'var i;if(e.config.__preview_external_dependency_versioned_paths)': `var a=${webVitalsAssetNameAliases}[t]||t,i;if(e.config.__preview_external_dependency_versioned_paths)`,
+        '"/static/"+e.version+"/"+t+".js"': '"/static/"+e.version+"/"+a+".js"',
+        '"/static/"+t+".js?v="+e.version': '"/static/"+a+".js?v="+e.version',
     })
 
     // Copy integration files (e.g., *integration.js*)
