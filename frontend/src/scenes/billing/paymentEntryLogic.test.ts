@@ -119,4 +119,41 @@ describe('paymentEntryLogic', () => {
             expect(toastErrorSpy).not.toHaveBeenCalled()
         })
     })
+
+    describe('pollAuthorizationStatus', () => {
+        it('keeps the redirect path while authorization is pending', async () => {
+            await seedBilling({ subscription_level: 'free' })
+            let authorizationStatusCalls = 0
+            useMocks({
+                post: {
+                    '/api/billing/activate/authorize/status': () => [
+                        200,
+                        { status: authorizationStatusCalls++ === 0 ? 'pending' : 'success' },
+                    ],
+                },
+            })
+            logic = paymentEntryLogic()
+            logic.mount()
+            const pushSpy = jest.spyOn(router.actions, 'push')
+
+            await expectLogic(logic, () => {
+                logic.actions.setRedirectPath('/project/1/surveys?tab=settings')
+                logic.actions.pollAuthorizationStatus('pi_test')
+            })
+                .toDispatchActions(['setRedirectPath', 'pollAuthorizationStatus', 'setAuthorizationStatus'])
+                .toMatchValues({
+                    redirectPath: '/project/1/surveys?tab=settings',
+                    authorizationStatus: 'pending',
+                })
+
+            await new Promise((resolve) => setTimeout(resolve, 2100))
+            await expectLogic(logic).toDispatchActions(['setAuthorizationStatus', 'setRedirectPath'])
+
+            expect(pushSpy).toHaveBeenCalledWith('/project/1/surveys', {
+                tab: 'settings',
+                success: true,
+            })
+            expect(logic.values.redirectPath).toBe(null)
+        })
+    })
 })
