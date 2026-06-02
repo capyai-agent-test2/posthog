@@ -1,14 +1,25 @@
+import os
 import subprocess
+from pathlib import Path
 from typing import Optional
 
 _git_commit_baked_in: Optional[str] = None
-try:
+
+
+def _read_commit_file() -> Optional[str]:
     # Docker containers should have a commit.txt file in the base directory with the git
     # commit hash used to generate them.
-    with open("commit.txt") as f:
-        _git_commit_baked_in = f.read().strip()
-except FileNotFoundError:
-    pass
+    for path in (Path("commit.txt"), Path("/code/commit.txt")):
+        try:
+            commit = path.read_text().strip()
+        except FileNotFoundError:
+            continue
+        if commit:
+            return commit
+    return None
+
+
+_git_commit_baked_in = _read_commit_file()
 
 
 def get_git_commit_short() -> Optional[str]:
@@ -18,6 +29,12 @@ def get_git_commit_short() -> Optional[str]:
     """
     if _git_commit_baked_in:
         return _git_commit_baked_in[:10]  # 10 characters is almost guaranteed to identify a commit uniquely
+
+    for environment_variable in ("COMMIT_HASH", "GITHUB_SHA"):
+        commit = os.environ.get(environment_variable)
+        if commit:
+            return commit[:10]
+
     try:
         return subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode("utf-8").strip()
     except Exception:
