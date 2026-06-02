@@ -43,7 +43,7 @@ import { outputPaneLogic } from './outputPaneLogic'
 import { QueryHistoryModal } from './QueryHistoryModal'
 import { QueryWindow } from './QueryWindow'
 import { sqlEditorLogic } from './sqlEditorLogic'
-import { SQLEditorMode } from './sqlEditorModes'
+import { SQLEditorMode, defaultShowDatabaseTreeForMode } from './sqlEditorModes'
 
 export enum SQLEditorPanel {
     Full = 'full',
@@ -69,7 +69,7 @@ export function SQLEditor({
     tabId,
     mode = SQLEditorMode.FullScene,
     showDatabaseTree,
-    defaultShowDatabaseTree = true,
+    defaultShowDatabaseTree,
     panel = SQLEditorPanel.Full,
     showOutputToolbar = true,
     onRunQuery,
@@ -83,7 +83,9 @@ export function SQLEditor({
     const queryPaneRef = useRef(null)
     const sidebarRef = useRef(null)
     const databaseTreeRef = useRef(null)
-    const [hasShownDatabaseTree, setHasShownDatabaseTree] = useState(defaultShowDatabaseTree)
+    const [hasShownDatabaseTree, setHasShownDatabaseTree] = useState(
+        defaultShowDatabaseTreeForMode(mode, defaultShowDatabaseTree)
+    )
 
     const shouldShowDatabaseTree = showDatabaseTree ?? hasShownDatabaseTree
     const showQueryPanel = panel !== SQLEditorPanel.Output
