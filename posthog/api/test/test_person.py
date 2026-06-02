@@ -18,18 +18,52 @@ from posthog.test.base import (
 )
 from unittest import mock
 
+from django.test import SimpleTestCase
 from django.utils import timezone
 
 from parameterized import parameterized
 from rest_framework import status
 
 import posthog.models.person.deletion
+from posthog.api.person import get_serialized_people_page
 from posthog.clickhouse.client import sync_execute
 from posthog.models import Cohort, Organization, Person, PropertyDefinition, Team
 from posthog.models.async_deletion import AsyncDeletion, DeletionType
 from posthog.models.person import PersonDistinctId
 from posthog.models.person.sql import PERSON_DISTINCT_ID2_TABLE
 from posthog.models.person.util import create_person, create_person_distinct_id
+
+
+class TestPersonListPagination(SimpleTestCase):
+    @mock.patch("posthog.api.person.get_serialized_people")
+    def test_serialized_people_page_skips_missing_people_and_reports_consumed_actor_count(
+        self, mock_get_serialized_people
+    ) -> None:
+        person_ids = [uuid4() for _ in range(4)]
+        missing_person_id = uuid4()
+        actor_ids = [person_ids[0], missing_person_id, person_ids[1], person_ids[2], person_ids[3]]
+
+        mock_get_serialized_people.return_value = [
+            {
+                "type": "person",
+                "id": person_id,
+                "uuid": person_id,
+                "created_at": None,
+                "last_seen_at": None,
+                "properties": {},
+                "is_identified": True,
+                "name": str(person_id),
+                "distinct_ids": [str(person_id)],
+                "matched_recordings": [],
+                "value_at_data_point": None,
+            }
+            for person_id in person_ids
+        ]
+
+        serialized_people, consumed_actor_count = get_serialized_people_page(mock.Mock(), actor_ids, 3)
+
+        self.assertEqual([person["id"] for person in serialized_people], person_ids[:3])
+        self.assertEqual(consumed_actor_count, 4)
 
 
 class TestPerson(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):

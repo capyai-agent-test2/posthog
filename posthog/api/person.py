@@ -63,7 +63,7 @@ from posthog.models.person.deletion import reset_deleted_person_distinct_ids
 from posthog.models.person.missing_person import MissingPerson
 from posthog.models.person.person import PersonDistinctId
 from posthog.models.person.util import get_person_by_pk_or_uuid, get_persons_by_distinct_ids, get_persons_by_uuids
-from posthog.queries.actor_base_query import ActorBaseQuery, get_serialized_people
+from posthog.queries.actor_base_query import ActorBaseQuery, SerializedPerson, get_serialized_people
 from posthog.queries.funnels import ClickhouseFunnelActors, ClickhouseFunnelTrendsActors
 from posthog.queries.funnels.funnel_strict_persons import ClickhouseFunnelStrictActors
 from posthog.queries.funnels.funnel_unordered_persons import ClickhouseFunnelUnorderedActors
@@ -105,6 +105,8 @@ API_PERSON_LIST_BYTES_READ_FROM_POSTGRES_COUNTER = Counter(
     "An estimate of how many bytes we've read from postgres to return the person endpoint.",
     labelnames=[LABEL_TEAM_ID],
 )
+
+MAX_PERSON_LIST_PAGES_TO_SCAN = 10
 
 
 class PersonLimitOffsetPagination(LimitOffsetPagination):
@@ -168,6 +170,28 @@ class PersonsDeleteBurstThrottle(PersonalApiKeyRateThrottle):
 class PersonsDeleteSustainedThrottle(PersonalApiKeyRateThrottle):
     scope = "persons_delete_sustained"
     rate = "4800/hour"
+
+
+def get_serialized_people_page(
+    team: Team,
+    actor_ids: list[Any],
+    limit: int,
+) -> tuple[list[SerializedPerson], int]:
+    serialized_people_by_id = {str(person["id"]): person for person in get_serialized_people(team, actor_ids)}
+    serialized_people: list[SerializedPerson] = []
+    consumed_actor_count = 0
+
+    for actor_id in actor_ids:
+        consumed_actor_count += 1
+        serialized_person = serialized_people_by_id.get(str(actor_id))
+        if serialized_person is None:
+            continue
+
+        serialized_people.append(serialized_person)
+        if len(serialized_people) >= limit:
+            break
+
+    return serialized_people, consumed_actor_count
 
 
 class PersonUpdatePropertyRequestSerializer(serializers.Serializer):
@@ -510,19 +534,41 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
         elif not filter.limit:
             filter = filter.shallow_clone({LIMIT: DEFAULT_PAGE_LIMIT})
 
-        person_query = PersonQuery(filter, team.pk)
-        paginated_query, paginated_params = person_query.get_query(paginate=True, filter_future_persons=True)
+        serialized_actors: list[SerializedPerson] = []
+        scanned_actor_count = 0
+        has_more = False
+        max_actor_count_to_scan = filter.limit * MAX_PERSON_LIST_PAGES_TO_SCAN
 
-        raw_paginated_result = insight_sync_execute(
-            paginated_query,
-            {**paginated_params, **filter.hogql_context.values},
-            filter=filter,
-            query_type="person_list",
-            team_id=team.pk,
-            # workload=Workload.OFFLINE,  # this endpoint is only used by external API requests
-        )
-        actor_ids = [row[0] for row in raw_paginated_result]
-        serialized_actors = get_serialized_people(team, actor_ids)
+        while len(serialized_actors) < filter.limit and scanned_actor_count < max_actor_count_to_scan:
+            page_filter = filter.shallow_clone({LIMIT: filter.limit, OFFSET: filter.offset + scanned_actor_count})
+            person_query = PersonQuery(page_filter, team.pk)
+            paginated_query, paginated_params = person_query.get_query(paginate=True, filter_future_persons=True)
+
+            raw_paginated_result = insight_sync_execute(
+                paginated_query,
+                {**paginated_params, **filter.hogql_context.values},
+                filter=filter,
+                query_type="person_list",
+                team_id=team.pk,
+                # workload=Workload.OFFLINE,  # this endpoint is only used by external API requests
+            )
+            actor_ids = [row[0] for row in raw_paginated_result]
+            if not actor_ids:
+                break
+
+            remaining_limit = filter.limit - len(serialized_actors)
+            serialized_page, consumed_actor_count = get_serialized_people_page(team, actor_ids, remaining_limit)
+            serialized_actors.extend(serialized_page)
+            scanned_actor_count += consumed_actor_count
+
+            if consumed_actor_count < len(actor_ids):
+                has_more = True
+                break
+
+            if len(actor_ids) < filter.limit:
+                break
+
+            has_more = True
 
         restricted_person_properties = self.get_serializer_context().get("restricted_person_properties")
         if restricted_person_properties:
@@ -533,14 +579,15 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
                         k: v for k, v in properties.items() if k not in restricted_person_properties
                     }
 
-        _should_paginate = len(actor_ids) >= filter.limit
+        _should_paginate = has_more
 
         # If the undocumented include_total param is set to true, we'll return the total count of people
         # This is extra time and DB load, so we only do this when necessary, which is in PostHog 3000 navigation
         # TODO: Use a more scalable solution before PostHog 3000 navigation is released, and remove this param
         total_count: Optional[int] = None
         if "include_total" in request.GET:
-            total_query, total_params = person_query.get_query(paginate=False, filter_future_persons=True)
+            total_person_query = PersonQuery(filter, team.pk)
+            total_query, total_params = total_person_query.get_query(paginate=False, filter_future_persons=True)
             total_query_aggregated = f"SELECT count() FROM ({total_query})"
             raw_paginated_result = insight_sync_execute(
                 total_query_aggregated,
@@ -551,7 +598,7 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
             )
             total_count = raw_paginated_result[0][0]
 
-        next_url = format_query_params_absolute_url(request, filter.offset + filter.limit) if _should_paginate else None
+        next_url = format_query_params_absolute_url(request, filter.offset + scanned_actor_count) if _should_paginate else None
         previous_url = (
             format_query_params_absolute_url(request, filter.offset - filter.limit)
             if filter.offset - filter.limit >= 0
