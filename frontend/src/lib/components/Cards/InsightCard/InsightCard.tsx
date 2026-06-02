@@ -178,6 +178,8 @@ function InsightCardInternal(
         cachedInsight: insight,
         loadPriority,
         doNotLoad,
+        filtersOverride,
+        variablesOverride,
     }
 
     const { insightLoading } = useValues(insightLogic(insightLogicProps))
@@ -298,6 +300,7 @@ function InsightCardInternal(
                                     readOnly
                                     embedded
                                     inSharedMode={placement === DashboardPlacement.Public}
+                                    filtersOverride={filtersOverride}
                                     variablesOverride={variablesOverride}
                                     editMode={false}
                                 />
