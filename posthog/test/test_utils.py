@@ -12,7 +12,7 @@ from unittest.mock import call, patch
 from django.core.cache import cache
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpRequest
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.test.client import RequestFactory
 
 from parameterized import parameterized
@@ -179,7 +179,7 @@ class TestFormatUrls(TestCase):
             self.assertEqual("https://www.testserver", format_query_params_absolute_url(request))
 
 
-class TestGetJsUrl(TestCase):
+class TestGetJsUrl(SimpleTestCase):
     factory = RequestFactory()
 
     @parameterized.expand(
@@ -199,6 +199,14 @@ class TestGetJsUrl(TestCase):
                 "my-tunnel.ngrok-free.dev",
                 True,
                 "http://localhost:8234",
+            ),
+            (
+                "https_codespaces_rewrites_port_subdomain",
+                True,
+                "http://localhost:8234",
+                "fictional-codespace-8000.app.github.dev",
+                True,
+                "https://fictional-codespace-8234.app.github.dev",
             ),
             (
                 "non_localhost_unchanged",

@@ -8,7 +8,7 @@ from contextlib import suppress
 from datetime import datetime, timedelta
 from ipaddress import ip_address, ip_network
 from typing import Optional, cast
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 from django.conf import settings
 from django.contrib.auth import BACKEND_SESSION_KEY, logout
@@ -50,7 +50,7 @@ from posthog.models.utils import generate_random_token
 from posthog.rbac.user_access_control import UserAccessControl
 from posthog.settings import PROJECT_SWITCHING_TOKEN_ALLOWLIST, SITE_URL
 from posthog.user_permissions import UserPermissions
-from posthog.utils import _is_valid_ip_address, get_ip_address
+from posthog.utils import _is_valid_ip_address, get_ip_address, get_js_url
 
 from products.actions.backend.models.action import Action
 from products.dashboards.backend.models.dashboard import Dashboard
@@ -1026,12 +1026,17 @@ class CSPMiddleware:
             response.headers["Content-Security-Policy"] = "; ".join(csp_parts)
         else:
             resource_url = "https://*.posthog.com"
+            connect_debug_url = ""
             if settings.DEBUG or settings.TEST:
-                resource_url = "http://localhost:8234"
+                resource_url = get_js_url(request)
+                parsed_resource_url = urlparse(resource_url)
+                if parsed_resource_url.scheme == "https":
+                    connect_debug_url = f"wss://{parsed_resource_url.netloc}"
+                elif parsed_resource_url.scheme == "http":
+                    connect_debug_url = f"ws://{parsed_resource_url.netloc}"
             elif settings.SITE_URL.endswith(".dev.posthog.dev"):
                 resource_url = "https://*.dev.posthog.dev"
 
-            connect_debug_url = "ws://localhost:8234" if settings.DEBUG or settings.TEST else ""
             csp_parts = [
                 "default-src 'self'",
                 f"style-src 'self' 'unsafe-inline' {resource_url} https://fonts.googleapis.com",

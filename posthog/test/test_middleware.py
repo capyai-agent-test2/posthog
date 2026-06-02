@@ -13,6 +13,7 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.test import (
     Client as DjangoClient,
     RequestFactory,
+    SimpleTestCase,
 )
 from django.urls import reverse
 
@@ -25,7 +26,7 @@ from social_core.exceptions import AuthCanceled, AuthFailed, AuthMissingParamete
 
 from posthog.api.test.test_organization import create_organization
 from posthog.api.test.test_team import create_team
-from posthog.middleware import per_request_logging_context_middleware
+from posthog.middleware import CSPMiddleware, per_request_logging_context_middleware
 from posthog.models import Cohort
 from posthog.models.organization import Organization
 from posthog.models.team import Team
@@ -1768,6 +1769,25 @@ class TestCSPMiddleware(APIBaseTest):
         assert response.status_code == 200
         assert "Content-Security-Policy-Report-Only" in response
         assert "Content-Security-Policy" not in response
+
+
+class TestCSPMiddlewareWithoutDatabase(SimpleTestCase):
+    @override_settings(
+        DEBUG=True,
+        JS_URL="http://localhost:8234",
+        SECURE_PROXY_SSL_HEADER=("HTTP_X_FORWARDED_PROTO", "https"),
+    )
+    def test_codespaces_html_response_allows_forwarded_vite_url(self):
+        request = RequestFactory().get(
+            "/",
+            HTTP_HOST="fictional-codespace-8000.app.github.dev",
+            HTTP_X_FORWARDED_PROTO="https",
+        )
+        response = CSPMiddleware(lambda request: HttpResponse(content_type="text/html"))(request)
+
+        csp = response["Content-Security-Policy-Report-Only"]
+        assert "https://fictional-codespace-8234.app.github.dev" in csp
+        assert "wss://fictional-codespace-8234.app.github.dev" in csp
 
 
 class TestSocialAuthExceptionMiddleware(APIBaseTest):
