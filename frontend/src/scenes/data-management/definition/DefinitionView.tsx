@@ -126,18 +126,18 @@ export function DefinitionView(props: DefinitionLogicProps): JSX.Element {
     const { definition, definitionLoading, definitionMissing, singular, isEvent, isProperty, metrics, metricsLoading } =
         useValues(logic)
     const { deleteDefinition } = useActions(logic)
+    const defaultColumnsKey = JSON.stringify(
+        'default_columns' in definition && !!definition.default_columns?.length ? definition.default_columns : []
+    )
 
     const memoizedQuery = useMemo(() => {
-        const columnsToUse =
-            'default_columns' in definition && !!definition.default_columns?.length
-                ? definition.default_columns
-                : defaultDataTableColumns(NodeKind.EventsQuery)
+        const defaultColumns = JSON.parse(defaultColumnsKey) as string[]
 
         return {
             kind: NodeKind.DataTableNode,
             source: {
                 kind: NodeKind.EventsQuery,
-                select: columnsToUse,
+                select: defaultColumns.length ? defaultColumns : defaultDataTableColumns(NodeKind.EventsQuery),
                 event: definition.name,
             },
             full: true,
@@ -148,7 +148,7 @@ export function DefinitionView(props: DefinitionLogicProps): JSX.Element {
                 eventDefinitionId: definition.id,
             },
         }
-    }, [definition])
+    }, [definition.id, definition.name, defaultColumnsKey])
 
     if (definitionLoading) {
         return <SpinnerOverlay sceneLevel />
