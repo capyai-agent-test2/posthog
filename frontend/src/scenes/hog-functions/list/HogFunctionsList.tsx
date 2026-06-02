@@ -15,6 +15,7 @@ import {
     Tooltip,
 } from '@posthog/lemon-ui'
 
+import type { AppMetricsCommonParams } from 'lib/components/AppMetrics/appMetricsLogic'
 import { AppMetricsSparkline } from 'lib/components/AppMetrics/AppMetricsSparkline'
 import { MemberSelect } from 'lib/components/MemberSelect'
 import { useOnMountEffect } from 'lib/hooks/useOnMountEffect'
@@ -107,6 +108,62 @@ export const urlForHogFunction = (hogFunction: HogFunctionType, returnTo?: strin
     return returnTo ? combineUrl(path, { returnTo }).url : path
 }
 
+export const sparklineMetricsForHogFunction = (
+    hogFunction: HogFunctionType,
+    listType: HogFunctionListLogicProps['type'],
+    isManualFunction: boolean
+): { logicKey: string; forceParams: AppMetricsCommonParams } | null => {
+    if (hogFunction.id.startsWith('batch-export-')) {
+        const batchExportId = hogFunction.id.replace('batch-export-', '')
+        return {
+            logicKey: batchExportId,
+            forceParams: {
+                appSource: 'batch_export',
+                appSourceId: batchExportId,
+                metricKind: ['success', 'failure'],
+                breakdownBy: 'metric_kind',
+                interval: 'day',
+                dateFrom: '-7d',
+            },
+        }
+    }
+
+    if (hogFunction.id.startsWith('plugin-')) {
+        if (listType === 'site_app') {
+            return null
+        }
+
+        const pluginConfigId = hogFunction.id.replace('plugin-', '')
+        return {
+            logicKey: pluginConfigId,
+            forceParams: {
+                appSource: 'legacy_plugin',
+                appSourceId: pluginConfigId,
+                metricKind: ['success', 'failure'],
+                breakdownBy: 'metric_kind',
+                interval: 'day',
+                dateFrom: '-7d',
+            },
+        }
+    }
+
+    if (isManualFunction || hogFunction.type === 'site_app') {
+        return null
+    }
+
+    return {
+        logicKey: hogFunction.id,
+        forceParams: {
+            appSource: 'hog_function',
+            appSourceId: hogFunction.id,
+            metricKind: ['success', 'failure'],
+            breakdownBy: 'metric_kind',
+            interval: 'day',
+            dateFrom: '-7d',
+        },
+    }
+}
+
 export function HogFunctionList({
     extraControls,
     hideFeedback = false,
@@ -185,42 +242,21 @@ export function HogFunctionList({
                 title: 'Last 7 days',
                 width: 0,
                 render: (_, hogFunction) => {
-                    if (hogFunction.id.startsWith('batch-export-')) {
-                        // TODO: Make this less hacky, maybe with some extended type for managing these values
-                        const batchExportId = hogFunction.id.replace('batch-export-', '')
-                        return (
-                            <Link to={urlForHogFunction(hogFunction) + '?tab=metrics'}>
-                                <AppMetricsSparkline
-                                    logicKey={batchExportId}
-                                    forceParams={{
-                                        appSource: 'batch_export',
-                                        appSourceId: batchExportId,
-                                        metricKind: ['success', 'failure'],
-                                        breakdownBy: 'metric_kind',
-                                        interval: 'day',
-                                        dateFrom: '-7d',
-                                    }}
-                                />
-                            </Link>
-                        )
-                    }
+                    const appMetricsSparkline = sparklineMetricsForHogFunction(
+                        hogFunction,
+                        props.type,
+                        isManualFunction(hogFunction)
+                    )
 
-                    if (isManualFunction(hogFunction) || hogFunction.type === 'site_app') {
+                    if (!appMetricsSparkline) {
                         return <>N/A</>
                     }
 
                     return (
                         <Link to={urlForHogFunction(hogFunction) + '?tab=metrics'}>
                             <AppMetricsSparkline
-                                logicKey={hogFunction.id}
-                                forceParams={{
-                                    appSource: 'hog_function',
-                                    appSourceId: hogFunction.id,
-                                    metricKind: ['success', 'failure'],
-                                    breakdownBy: 'metric_kind',
-                                    interval: 'day',
-                                    dateFrom: '-7d',
-                                }}
+                                logicKey={appMetricsSparkline.logicKey}
+                                forceParams={appMetricsSparkline.forceParams}
                             />
                         </Link>
                     )

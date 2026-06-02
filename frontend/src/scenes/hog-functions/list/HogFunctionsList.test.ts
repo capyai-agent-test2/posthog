@@ -1,6 +1,6 @@
 import { HogFunctionType } from '~/types'
 
-import { urlForHogFunction } from './HogFunctionsList'
+import { sparklineMetricsForHogFunction, urlForHogFunction } from './HogFunctionsList'
 
 const makeFn = (id: string): HogFunctionType => ({ id }) as HogFunctionType
 
@@ -21,5 +21,39 @@ describe('urlForHogFunction', () => {
 
     it('does not append returnTo for batch-export- prefix IDs', () => {
         expect(urlForHogFunction(makeFn('batch-export-9'), '/health/sdk-doctor')).toBe('/pipeline/batch-exports/9')
+    })
+})
+
+describe('sparklineMetricsForHogFunction', () => {
+    it('uses legacy plugin app metrics for plugin destinations', () => {
+        expect(sparklineMetricsForHogFunction(makeFn('plugin-7'), 'destination', true)).toEqual({
+            logicKey: '7',
+            forceParams: {
+                appSource: 'legacy_plugin',
+                appSourceId: '7',
+                metricKind: ['success', 'failure'],
+                breakdownBy: 'metric_kind',
+                interval: 'day',
+                dateFrom: '-7d',
+            },
+        })
+    })
+
+    it('does not show app metrics for plugin site apps', () => {
+        expect(sparklineMetricsForHogFunction(makeFn('plugin-7'), 'site_app', true)).toBeNull()
+    })
+
+    it('uses hog function app metrics for regular hog functions', () => {
+        expect(sparklineMetricsForHogFunction(makeFn('abc123'), 'destination', false)).toEqual({
+            logicKey: 'abc123',
+            forceParams: {
+                appSource: 'hog_function',
+                appSourceId: 'abc123',
+                metricKind: ['success', 'failure'],
+                breakdownBy: 'metric_kind',
+                interval: 'day',
+                dateFrom: '-7d',
+            },
+        })
     })
 })
