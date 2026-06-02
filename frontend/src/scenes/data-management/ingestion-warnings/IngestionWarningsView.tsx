@@ -22,7 +22,7 @@ import { ProductKey } from '~/queries/schema/schema-general'
 import { IngestionWarning, IngestionWarningSummary, ingestionWarningsLogic } from './ingestionWarningsLogic'
 
 export const WARNING_TYPE_TO_DESCRIPTION: Record<string, string> = {
-    cannot_merge_already_identified: 'Refused to merge an already identified user',
+    cannot_merge_already_identified: 'Refused to merge an already identified user into another user',
     cannot_merge_with_illegal_distinct_id: 'Refused to merge with an illegal distinct id',
     skipping_event_invalid_uuid: 'Refused to process event with invalid uuid',
     ignored_invalid_timestamp: 'Ignored an invalid timestamp, event was still ingested',
@@ -53,7 +53,8 @@ const WARNING_TYPE_RENDERER = {
                 <Link to={urls.personByDistinctId(details.targetPersonDistinctId)}>
                     {details.targetPersonDistinctId}
                 </Link>{' '}
-                via an $identify or $create_alias call (event uuid: <code>{details.eventUuid}</code>).
+                via an $identify or $create_alias call (event uuid: <code>{details.eventUuid}</code>). For
+                $create_alias, send the existing identified user as the distinct_id and the new anonymous ID as the alias.
             </>
         )
     },
