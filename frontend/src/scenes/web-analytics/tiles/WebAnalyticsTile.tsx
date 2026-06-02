@@ -105,6 +105,21 @@ export const toUtcOffsetFormat = (value: number): string => {
     return `UTC${sign}${integerPart}${formattedMinutes}`
 }
 
+export const formatWebAnalyticsCompareLabel = (label: string, dateLabel?: string): string => {
+    const lowerLabel = label.toLowerCase()
+    const dateSuffix = dateLabel ? ` (${dateLabel})` : ''
+
+    if (lowerLabel === 'previous') {
+        return `Previous period${dateSuffix}`
+    }
+
+    if (lowerLabel === 'current') {
+        return `Current period${dateSuffix}`
+    }
+
+    return capitalizeFirstLetter(label)
+}
+
 const PAGE_LIKE_BREAKDOWNS = new Set([
     WebStatsBreakdown.Page,
     WebStatsBreakdown.InitialPage,
@@ -666,7 +681,6 @@ export const WebStatsTrendTile = ({
     const isDragToZoomEnabled = !!featureFlags[FEATURE_FLAGS.WEB_ANALYTICS_DRAG_TO_ZOOM]
     const worldMapPropertyName = webStatsBreakdownToPropertyName(WebStatsBreakdown.Country)?.key
     const regionPropertyName = webStatsBreakdownToPropertyName(WebStatsBreakdown.Region)?.key
-    const showComparisonLabels = !!featureFlags[FEATURE_FLAGS.WEB_ANALYTICS_TOOLTIP_COMPARISON_LABELS]
 
     const isWorldMap =
         query.source?.kind === NodeKind.TrendsQuery && query.source.trendsFilter?.display === ChartDisplayType.WorldMap
@@ -719,21 +733,7 @@ export const WebStatsTrendTile = ({
             },
             compareFilter,
             onDateRangeZoom: isDragToZoomEnabled ? zoomIntoPeriod : undefined,
-            ...(showComparisonLabels
-                ? {
-                      formatCompareLabel: (label: string, dateLabel?: string) => {
-                          const lowerLabel = label.toLowerCase()
-                          const dateSuffix = dateLabel ? ` (${dateLabel})` : ''
-                          if (lowerLabel === 'previous') {
-                              return `Previous${dateSuffix}`
-                          }
-                          if (lowerLabel === 'current') {
-                              return `Current${dateSuffix}`
-                          }
-                          return capitalizeFirstLetter(label)
-                      },
-                  }
-                : {}),
+            formatCompareLabel: formatWebAnalyticsCompareLabel,
         }
 
         // World maps need custom click handler for country filtering, trend lines use default persons modal
@@ -775,7 +775,6 @@ export const WebStatsTrendTile = ({
         zoomIntoPeriod,
         insightPropsForQuery,
         query,
-        showComparisonLabels,
         isDragToZoomEnabled,
         isWorldMap,
     ])
