@@ -200,13 +200,13 @@ function MainPanel({ tabId }: { tabId: string }): JSX.Element {
     useAttachedLogic(sessionRecordingsPlaylistLogic(playlistLogicProps), sessionReplaySceneLogic({ tabId }))
 
     return (
-        <div className={cn('flex flex-col gap-y-4', ReplayTabs.Home === tab && 'grow')}>
+        <div className={cn('flex flex-col gap-y-4 min-h-0', ReplayTabs.Home === tab && 'grow')}>
             <Warnings />
 
             {!tab ? (
                 <Spinner />
             ) : tab === ReplayTabs.Home ? (
-                <div className="SessionRecordingPlaylistHeightWrapper grow">
+                <div className="SessionRecordingPlaylistHeightWrapper grow min-h-0">
                     {isRedesignEnabled ? (
                         <SessionRecordingsPlaylistRedesign {...playlistLogicProps} />
                     ) : (
@@ -282,7 +282,7 @@ export function SessionsRecordings({ tabId }: SessionsRecordingsProps = {}): JSX
     }
     return (
         <BindLogic logic={sessionReplaySceneLogic} props={{ tabId }}>
-            <SceneContent className="h-full">
+            <SceneContent className="h-full min-h-0">
                 <SceneTitleSection
                     name={sceneConfigurations[Scene.Replay].name}
                     resourceType={{
