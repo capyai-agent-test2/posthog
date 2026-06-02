@@ -4643,6 +4643,28 @@ class TestSurveyResponseSampling(APIBaseTest):
         survey = Survey.objects.get(id=response_data["id"])
         assert survey.response_sampling_daily_limits is None
 
+    def test_can_update_survey_with_existing_past_response_sampling_start_date(self):
+        survey = self._create_survey_with_sampling_limits("day", 10, 500, datetime(2024, 12, 12))
+
+        with freeze_time("2024-12-13 00:00:00"):
+            response = self.client.patch(
+                f"/api/projects/{self.team.id}/surveys/{survey.id}/",
+                data={
+                    "name": "Updated survey with adaptive response collection",
+                    "response_sampling_interval_type": survey.response_sampling_interval_type,
+                    "response_sampling_interval": survey.response_sampling_interval,
+                    "response_sampling_limit": survey.response_sampling_limit,
+                    "response_sampling_start_date": survey.response_sampling_start_date,
+                },
+            )
+
+        response_data = response.json()
+        assert response.status_code == status.HTTP_200_OK, response_data
+        survey.refresh_from_db()
+        assert survey.name == "Updated survey with adaptive response collection"
+        assert survey.response_sampling_start_date == datetime(2024, 12, 12, tzinfo=UTC)
+        assert survey.response_sampling_daily_limits is not None
+
     def test_can_create_targeting_flag_if_does_not_exist(self):
         survey = self._create_survey_with_sampling_limits("day", 10, 500, datetime(2024, 12, 12))
         assert survey.response_sampling_daily_limits is not None

@@ -1285,7 +1285,11 @@ class SurveySerializerCreateUpdateOnly(serializers.ModelSerializer):
         response_sampling_start_date = data.get("response_sampling_start_date")
         if response_sampling_start_date is not None:
             today_utc = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
-            if response_sampling_start_date < today_utc:
+            has_existing_response_sampling_start_date = (
+                existing_survey is not None
+                and existing_survey.response_sampling_start_date == response_sampling_start_date
+            )
+            if response_sampling_start_date < today_utc and not has_existing_response_sampling_start_date:
                 raise serializers.ValidationError(
                     {
                         "response_sampling_start_date": f"Response sampling start date must be today or a future date in UTC. Got {response_sampling_start_date} when current time is {today_utc}"
