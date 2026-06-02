@@ -509,6 +509,7 @@ export const sessionRecordingPlayerLogic = kea<sessionRecordingPlayerLogicType>(
                 'setTargetTimestamp',
                 'updatePlaybackPosition',
                 'setPlayerActive',
+                'markRecordingDeleted',
             ],
             sessionRecordingDataCoordinatorLogic(props),
             ['loadRecordingData', 'loadRecordingMetaSuccess'],
@@ -2062,6 +2063,7 @@ export const sessionRecordingPlayerLogic = kea<sessionRecordingPlayerLogicType>(
                 return
             }
             actions.addDeletedRecordings([props.sessionRecordingId])
+            actions.markRecordingDeleted()
             props.onRecordingDeleted?.()
         },
         openExplorer: () => {

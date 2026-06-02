@@ -425,6 +425,7 @@ describe('sessionRecordingPlayerLogic', () => {
                 onRecordingDeleted,
             })
             logic.mount()
+            deletedRecordingsLogic.mount()
 
             await expectLogic(logic, () => {
                 logic.actions.deleteRecording()
@@ -434,6 +435,8 @@ describe('sessionRecordingPlayerLogic', () => {
 
             expect(mockedDeleteRecording).toHaveBeenCalledWith('3')
             expect(onRecordingDeleted).toHaveBeenCalled()
+            expect(deletedRecordingsLogic.values.deletedRecordingIds.has('3')).toBe(true)
+            expect(snapshotDataLogic({ sessionRecordingId: '3' }).values.isRecordingDeleted).toBe(true)
             resumeKeaLoadersErrors()
         })
 

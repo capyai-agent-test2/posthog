@@ -71,6 +71,7 @@ export const snapshotDataLogic = kea<snapshotDataLogicType>([
         updatePlaybackPosition: (timestamp: number) => ({ timestamp }),
         setPlayerActive: (active: boolean) => ({ active }),
         loadAllSources: true,
+        markRecordingDeleted: true,
         // dispatch after any mutation to cache.store or cache.scheduler —
         // these live outside Kea's reactivity and need explicit invalidation
         storeUpdated: true,
@@ -102,6 +103,12 @@ export const snapshotDataLogic = kea<snapshotDataLogicType>([
             {
                 startPolling: () => true,
                 stopPolling: () => false,
+            },
+        ],
+        isLocallyDeleted: [
+            false,
+            {
+                markRecordingDeleted: () => true,
             },
         ],
         snapshotLoadError: [
@@ -526,9 +533,9 @@ export const snapshotDataLogic = kea<snapshotDataLogicType>([
         ],
 
         isRecordingDeleted: [
-            (s) => [s.snapshotLoadError],
-            (snapshotLoadError): boolean => {
-                return snapshotLoadError instanceof RecordingDeletedError
+            (s) => [s.snapshotLoadError, s.isLocallyDeleted],
+            (snapshotLoadError, isLocallyDeleted): boolean => {
+                return isLocallyDeleted || snapshotLoadError instanceof RecordingDeletedError
             },
         ],
 
