@@ -235,8 +235,85 @@ HAVING {inside_start_timestamp_period}
         assert isinstance(parsed_select, ast.SelectQuery)
 
         if self.conversion_count_expr and self.conversion_person_id_expr:
-            parsed_select.select.append(ast.Alias(alias="conversion_count", expr=self.conversion_count_expr))
-            parsed_select.select.append(ast.Alias(alias="conversion_person_id", expr=self.conversion_person_id_expr))
+            parsed_select.select.extend(
+                [
+                    ast.Alias(
+                        alias="current_conversion_count",
+                        expr=ast.Call(
+                            name="countIf",
+                            args=[
+                                ast.And(
+                                    exprs=[
+                                        self.conversion_goal_expr,
+                                        self._current_period_expression("timestamp"),
+                                    ]
+                                )
+                            ],
+                        ),
+                    ),
+                    ast.Alias(
+                        alias="current_conversion_person_id",
+                        expr=ast.Call(
+                            name="any",
+                            args=[
+                                ast.Call(
+                                    name="if",
+                                    args=[
+                                        ast.And(
+                                            exprs=[
+                                                self.conversion_goal_expr,
+                                                self._current_period_expression("timestamp"),
+                                            ]
+                                        ),
+                                        ast.Field(chain=["events", "person_id"]),
+                                        ast.Constant(value=None),
+                                    ],
+                                )
+                            ],
+                        ),
+                    ),
+                ]
+            )
+            if self.query_compare_to_date_range:
+                parsed_select.select.extend(
+                    [
+                        ast.Alias(
+                            alias="previous_conversion_count",
+                            expr=ast.Call(
+                                name="countIf",
+                                args=[
+                                    ast.And(
+                                        exprs=[
+                                            self.conversion_goal_expr,
+                                            self._previous_period_expression("timestamp"),
+                                        ]
+                                    )
+                                ],
+                            ),
+                        ),
+                        ast.Alias(
+                            alias="previous_conversion_person_id",
+                            expr=ast.Call(
+                                name="any",
+                                args=[
+                                    ast.Call(
+                                        name="if",
+                                        args=[
+                                            ast.And(
+                                                exprs=[
+                                                    self.conversion_goal_expr,
+                                                    self._previous_period_expression("timestamp"),
+                                                ]
+                                            ),
+                                            ast.Field(chain=["events", "person_id"]),
+                                            ast.Constant(value=None),
+                                        ],
+                                    )
+                                ],
+                            ),
+                        ),
+                    ]
+                )
         else:
             parsed_select.select.append(
                 ast.Alias(
@@ -314,8 +391,34 @@ HAVING {inside_start_timestamp_period}
         if self.query.conversionGoal:
             # Add standard conversion goal metrics
             select.extend(metric_pair("uniq", "session_person_id", "unique_users"))
-            select.extend(metric_pair("sum", "conversion_count", "total_conversion_count"))
-            select.extend(metric_pair("uniq", "conversion_person_id", "unique_conversions"))
+            select.extend(
+                [
+                    ast.Alias(
+                        alias="total_conversion_count",
+                        expr=ast.Call(name="sum", args=[ast.Field(chain=["current_conversion_count"])]),
+                    ),
+                    ast.Alias(
+                        alias="previous_total_conversion_count",
+                        expr=(
+                            ast.Call(name="sum", args=[ast.Field(chain=["previous_conversion_count"])])
+                            if has_comparison
+                            else ast.Constant(value=None)
+                        ),
+                    ),
+                    ast.Alias(
+                        alias="unique_conversions",
+                        expr=ast.Call(name="uniq", args=[ast.Field(chain=["current_conversion_person_id"])]),
+                    ),
+                    ast.Alias(
+                        alias="previous_unique_conversions",
+                        expr=(
+                            ast.Call(name="uniq", args=[ast.Field(chain=["previous_conversion_person_id"])])
+                            if has_comparison
+                            else ast.Constant(value=None)
+                        ),
+                    ),
+                ]
+            )
 
             conversion_rate = ast.Alias(
                 alias="conversion_rate",

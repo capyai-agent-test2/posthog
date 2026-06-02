@@ -571,6 +571,41 @@ class TestWebOverviewQueryRunner(ClickhouseTestMixin, APIBaseTest):
         conversion_rate = results[3]
         assert conversion_rate.value == 100
 
+    def test_conversion_goal_counts_conversion_event_timestamp_not_session_start(self):
+        s1 = str(uuid7("2023-12-01"))
+        self._create_events(
+            [
+                ("p1", [("2023-12-01", s1)]),
+            ]
+        )
+        self._create_events(
+            [
+                ("p1", [("2023-12-02", s1)]),
+            ],
+            event="custom_event",
+        )
+
+        action = Action.objects.create(
+            team=self.team,
+            name="Did Custom Event",
+            steps_json=[
+                {
+                    "event": "custom_event",
+                }
+            ],
+        )
+
+        results = self._run_web_overview_query("2023-12-02", "2023-12-03", action=action).results
+
+        visitors = results[0]
+        assert visitors.value == 0
+
+        conversion = results[1]
+        assert conversion.value == 1
+
+        unique_conversions = results[2]
+        assert unique_conversions.value == 1
+
     def test_conversion_goal_one_autocapture_conversion(self):
         s1 = str(uuid7("2023-12-01"))
         self._create_events(
