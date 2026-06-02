@@ -1589,6 +1589,27 @@ def _project_table_columns(
     return Table(name=table.name, parents=table.parents, columns=filtered, type=table.type, alias=table.alias)
 
 
+def _get_query_columns(
+    table: Table[PostgreSQLColumn],
+    enabled_columns: list[str] | None,
+    primary_keys: list[str] | None,
+    incremental_field: str | None,
+) -> list[str] | None:
+    if enabled_columns is None:
+        return [column.name for column in table.columns] or None
+
+    retained_set: set[str] = set(enabled_columns)
+    for pk in primary_keys or []:
+        retained_set.add(pk)
+    if incremental_field:
+        retained_set.add(incremental_field)
+
+    retained_columns = [column.name for column in table.columns if column.name in retained_set]
+    if not retained_columns:
+        return None
+    return retained_columns
+
+
 def postgres_source(
     tunnel: Callable[[], _GeneratorContextManager[tuple[str, int]]],
     user: str,
@@ -1682,21 +1703,8 @@ def postgres_source(
                         primary_keys = ["id"]
                         used_id_pk_fallback = True
 
-                    # Project both the Arrow schema and the SELECT clause so the cursor's row shape
-                    # matches what downstream consumers expect.
-                    retained_columns: list[str] | None = None
-                    if enabled_columns is not None:
-                        retained_set: set[str] = set(enabled_columns)
-                        for pk in primary_keys or []:
-                            retained_set.add(pk)
-                        if incremental_field:
-                            retained_set.add(incremental_field)
-                        retained_columns = [column.name for column in full_table.columns if column.name in retained_set]
-                        # Mirror `compute_projected_columns` fallback to `SELECT *` so Arrow stays full-table.
-                        if not retained_columns:
-                            retained_columns = None
-
-                    table = _project_table_columns(full_table, retained_columns)
+                    query_columns = _get_query_columns(full_table, enabled_columns, primary_keys, incremental_field)
+                    table = _project_table_columns(full_table, query_columns)
                     logger.debug(f"Source schema: {table.to_arrow_schema()}")
 
                     inner_query_with_limit = _build_query(
@@ -1708,7 +1716,7 @@ def postgres_source(
                         incremental_field_type,
                         db_incremental_field_last_value,
                         add_sampling=True,
-                        enabled_columns=enabled_columns,
+                        enabled_columns=query_columns,
                         primary_keys=primary_keys,
                     )
 
@@ -1895,7 +1903,7 @@ def postgres_source(
                     incremental_field,
                     incremental_field_type,
                     db_incremental_field_last_value,
-                    enabled_columns=enabled_columns,
+                    enabled_columns=query_columns,
                     primary_keys=primary_keys,
                 )
 
@@ -1995,7 +2003,7 @@ def postgres_source(
                         incremental_field,
                         incremental_field_type,
                         db_incremental_field_last_value,
-                        enabled_columns=enabled_columns,
+                        enabled_columns=query_columns,
                         primary_keys=primary_keys,
                     )
 
@@ -2026,7 +2034,7 @@ def postgres_source(
                         incremental_field_type,
                         lo,
                         upper_bound_inclusive=hi,
-                        enabled_columns=enabled_columns,
+                        enabled_columns=query_columns,
                         primary_keys=primary_keys,
                     )
 
@@ -2058,7 +2066,7 @@ def postgres_source(
                             incremental_field,
                             incremental_field_type,
                             db_incremental_field_last_value,
-                            enabled_columns=enabled_columns,
+                            enabled_columns=query_columns,
                             primary_keys=primary_keys,
                         )
                         logger.debug(f"Postgres query: {query.as_string()}")
