@@ -7,7 +7,7 @@ FROM ghcr.io/posthog/playwright:v1.45.0
 
 WORKDIR /work
 
-RUN npm install -g pnpm
+RUN corepack enable
 
 COPY package.json pnpm-lock.yaml ./
 COPY patches/ patches/
