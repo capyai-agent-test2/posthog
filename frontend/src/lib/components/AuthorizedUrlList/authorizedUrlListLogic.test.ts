@@ -129,6 +129,20 @@ describe('the authorized urls list logic', () => {
             })
         })
 
+        it("doesn't treat the edited URL as a duplicate of itself", async () => {
+            await expectLogic(logic, () => {
+                logic.actions.setEditUrlIndex(2, 'https://example.com')
+            }).toMatchValues({
+                proposedUrlValidationErrors: {},
+            })
+
+            await expectLogic(logic, () => {
+                logic.actions.setProposedUrlValue('url', 'https://posthog.com/')
+            }).toMatchValues({
+                proposedUrlValidationErrors: { url: 'This URL already is registered' },
+            })
+        })
+
         it('updates the edited URL instead of adding a new one', async () => {
             jest.spyOn(api, 'update').mockResolvedValue({
                 app_urls: [
