@@ -25,7 +25,7 @@
         max-width: calc(100% + 0.5rem);
         padding: 0.25rem; // Some padding to give the focus outline more breathing space
         margin: -0.25rem;
-        overflow: auto;
+        overflow: visible;
     }
 
     .EditableField__display {
@@ -66,7 +66,7 @@
         gap: 0.5rem;
         align-items: center;
         margin-left: 0.5rem;
-        overflow: hidden;
+        overflow: visible;
     }
 
     input,

@@ -104,6 +104,12 @@ function buildPathGraph(
 }
 
 describe('pageUrl', () => {
+    it('should preserve more readable path prefixes before truncating', () => {
+        const { nodes } = buildPathGraph(['custom_event_name_with_long_header', 'checkout_completed'])
+
+        expect(pageUrl(nodes[0], true)).toBe('custom_event_n...g_header')
+    })
+
     it('should correctly process PathNodeData with hash based URL', () => {
         const testData = {
             name: '2_https://example.com/#/auth/login',
