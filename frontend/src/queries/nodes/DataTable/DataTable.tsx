@@ -31,7 +31,12 @@ import { BackToSource } from '~/queries/nodes/DataTable/BackToSource'
 import { ColumnConfigurator } from '~/queries/nodes/DataTable/ColumnConfigurator/ColumnConfigurator'
 import { DataTableCount } from '~/queries/nodes/DataTable/DataTableCount'
 import { DataTableExport } from '~/queries/nodes/DataTable/DataTableExport'
-import { DataTableLogicProps, DataTableRow, dataTableLogic } from '~/queries/nodes/DataTable/dataTableLogic'
+import {
+    DataTableLogicProps,
+    DataTableRow,
+    dataTableLogic,
+    getDataTableRowKey,
+} from '~/queries/nodes/DataTable/dataTableLogic'
 import { DataTableSavedFilters } from '~/queries/nodes/DataTable/DataTableSavedFilters'
 import { DataTableSavedFiltersButton } from '~/queries/nodes/DataTable/DataTableSavedFiltersButton'
 import { EventRowActions } from '~/queries/nodes/DataTable/EventRowActions'
@@ -913,9 +918,7 @@ export function DataTable({
                                     ) /* Bust the LemonTable cache when columns change */
                                 }
                                 dataSource={dataTableRows ?? []}
-                                rowKey={(_, rowIndex) => {
-                                    return rowIndex
-                                }}
+                                rowKey={(row, rowIndex) => getDataTableRowKey(row, rowIndex, columnsInResponse)}
                                 sorting={null}
                                 useURLForSorting={false}
                                 emptyState={
@@ -950,10 +953,18 @@ export function DataTable({
                                           ? {
                                                 ...(tabId !== undefined
                                                     ? {
-                                                          isRowExpanded: (_, rowIndex) =>
-                                                              expandedRows.includes(rowIndex),
-                                                          onRowExpand: (_, rowIndex) => toggleRowExpanded(rowIndex),
-                                                          onRowCollapse: (_, rowIndex) => toggleRowExpanded(rowIndex),
+                                                          isRowExpanded: (row, rowIndex) =>
+                                                              expandedRows.includes(
+                                                                  getDataTableRowKey(row, rowIndex, columnsInResponse)
+                                                              ),
+                                                          onRowExpand: (row, rowIndex) =>
+                                                              toggleRowExpanded(
+                                                                  getDataTableRowKey(row, rowIndex, columnsInResponse)
+                                                              ),
+                                                          onRowCollapse: (row, rowIndex) =>
+                                                              toggleRowExpanded(
+                                                                  getDataTableRowKey(row, rowIndex, columnsInResponse)
+                                                              ),
                                                       }
                                                     : {}),
                                                 expandedRowRender: function renderExpand({ result }) {

@@ -25,12 +25,12 @@ describe('tabUiStateLogic', () => {
     })
 
     it('toggles expanded rows scoped by tabId + vizKey', () => {
-        tabUiStateLogic.actions.toggleExpandedRow(TAB_A, VIZ_KEY, 3)
-        tabUiStateLogic.actions.toggleExpandedRow(TAB_A, VIZ_KEY, 7)
-        expect(tabUiStateLogic.values.expandedRowsFor(TAB_A, VIZ_KEY)).toEqual([3, 7])
+        tabUiStateLogic.actions.toggleExpandedRow(TAB_A, VIZ_KEY, 'event-3')
+        tabUiStateLogic.actions.toggleExpandedRow(TAB_A, VIZ_KEY, 'event-7')
+        expect(tabUiStateLogic.values.expandedRowsFor(TAB_A, VIZ_KEY)).toEqual(['event-3', 'event-7'])
 
-        tabUiStateLogic.actions.toggleExpandedRow(TAB_A, VIZ_KEY, 3)
-        expect(tabUiStateLogic.values.expandedRowsFor(TAB_A, VIZ_KEY)).toEqual([7])
+        tabUiStateLogic.actions.toggleExpandedRow(TAB_A, VIZ_KEY, 'event-3')
+        expect(tabUiStateLogic.values.expandedRowsFor(TAB_A, VIZ_KEY)).toEqual(['event-7'])
     })
 
     it('isolates expanded rows between tabs', () => {
