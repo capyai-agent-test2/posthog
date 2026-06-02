@@ -4,6 +4,7 @@ export type ParsedCSSSelector = Record<string, string | string[] | undefined>
 
 const POSITIONAL_PSEUDO_CLASSES = ['nth-child', 'nth-of-type']
 const POSITIONAL_PSEUDO_CLASS_REGEX = /:(nth-child|nth-of-type)\((\d+)\)/g
+const UNSUPPORTED_PSEUDO_FUNCTION_REGEX = /:[\w-]+\([^)]*\)/g
 
 export const parsedSelectorToSelectorString = (parsedSelector: ParsedCSSSelector): string => {
     const attributeSelectors = Object.entries(parsedSelector).reduce((acc, [key, value]) => {
@@ -41,7 +42,9 @@ export const parsedSelectorToSelectorString = (parsedSelector: ParsedCSSSelector
 export const parseCSSSelector = (s: string): ParsedCSSSelector => {
     const parts = {} as ParsedCSSSelector
     const positionalPseudoClasses = Array.from(s.matchAll(POSITIONAL_PSEUDO_CLASS_REGEX))
-    const selectorWithoutSupportedPseudoClasses = s.replace(POSITIONAL_PSEUDO_CLASS_REGEX, '')
+    const selectorWithoutPseudoFunctions = s
+        .replace(POSITIONAL_PSEUDO_CLASS_REGEX, '')
+        .replace(UNSUPPORTED_PSEUDO_FUNCTION_REGEX, '')
     let processing: string | undefined = undefined
     let attributeKey = ''
     let current = ''
@@ -66,7 +69,7 @@ export const parseCSSSelector = (s: string): ParsedCSSSelector => {
     // pulling in a library like parsel is taking on a new dependency for a hopefully limited use case
     // we don't need to support all the css selectors,
     // so, we'll just do it manually (until we need the new dependency)
-    Array.from(selectorWithoutSupportedPseudoClasses).forEach((char) => {
+    Array.from(selectorWithoutPseudoFunctions).forEach((char) => {
         if (char === '#') {
             closeItem()
             processing = 'id'
