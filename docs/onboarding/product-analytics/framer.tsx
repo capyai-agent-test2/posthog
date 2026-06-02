@@ -3,9 +3,7 @@ import { OnboardingComponentsContext, createInstallation } from 'scenes/onboardi
 import { StepDefinition } from '../steps'
 
 export const getFramerSteps = (ctx: OnboardingComponentsContext): StepDefinition[] => {
-    const { CodeBlock, Markdown, dedent, snippets } = ctx
-
-    const JSEventCapture = snippets?.JSEventCapture
+    const { CodeBlock, Markdown, dedent } = ctx
 
     return [
         {
@@ -54,7 +52,41 @@ export const getFramerSteps = (ctx: OnboardingComponentsContext): StepDefinition
         },
         {
             title: 'Send events',
-            content: <>{JSEventCapture && <JSEventCapture />}</>,
+            content: (
+                <>
+                    <Markdown>
+                        To capture custom events, create a Framer code component rather than a code override. In the
+                        Assets tab, click the plus icon next to Code, choose **New component**, and use this component:
+                    </Markdown>
+                    <CodeBlock
+                        blocks={[
+                            {
+                                language: 'javascript',
+                                file: 'CaptureButton.jsx',
+                                code: dedent`
+                                    export default function CaptureButton() {
+                                        const handleClick = () => {
+                                            window.posthog.capture('clicked_button', {
+                                                $set_once: { clicked_homepage_button: true },
+                                            })
+                                        }
+
+                                        return (
+                                            <button id="capture-button" onClick={handleClick}>
+                                                Click me
+                                            </button>
+                                        )
+                                    }
+                                `,
+                            },
+                        ]}
+                    />
+                    <Markdown>
+                        Save the file, drag the new `CaptureButton` from the Code tab onto your page, publish your site,
+                        and then click the button to see the event in PostHog.
+                    </Markdown>
+                </>
+            ),
         },
     ]
 }
