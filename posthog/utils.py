@@ -30,6 +30,7 @@ from django.db import ProgrammingError
 from django.db.models.functions import Lower
 from django.db.utils import DatabaseError
 from django.http import HttpRequest, HttpResponse
+from django.http.request import split_domain_port
 from django.template.loader import get_template
 from django.urls import URLPattern, re_path
 from django.utils import timezone
@@ -385,19 +386,22 @@ def get_js_url(request: HttpRequest) -> str:
     As the web app may be loaded from a non-localhost url (e.g. from the worker container calling the web container)
     it is necessary to set the JS_URL host based on the calling origin.
     """
-    from urllib.parse import urlparse
-
-    from django.http.request import split_domain_port
-
     parsed = urlparse(settings.JS_URL)
-    if settings.DEBUG and parsed.hostname == "localhost" and not request.is_secure():
+    if settings.DEBUG and parsed.hostname == "localhost":
+        domain, _ = split_domain_port(request.get_host())
+        codespaces_domain = re.sub(r"-\d+(\.app\.github\.dev)$", f"-{parsed.port}\\1", domain)
+        if codespaces_domain != domain:
+            return f"https://{codespaces_domain}"
+
+        if request.is_secure():
+            return settings.JS_URL
+
         # Rewrite the JS_URL hostname to match the request origin so the browser
         # can reach the Vite dev server when accessed via a non-localhost address
         # (e.g. from a Docker container or remote host). Skipped when the request
         # is HTTPS (e.g. ngrok) — browsers exempt localhost from mixed-content blocking,
         # so keeping http://localhost:8234 lets the browser load Vite assets directly.
         # split_domain_port keeps IPv6 hosts wrapped in brackets so the URL stays valid.
-        domain, _ = split_domain_port(request.get_host())
         # nosemgrep: python.flask.security.audit.directly-returned-format-string.directly-returned-format-string
         return f"http://{domain}:{parsed.port}"
     return settings.JS_URL
