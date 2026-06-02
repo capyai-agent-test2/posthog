@@ -3,6 +3,7 @@ import builtins
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, List, Optional, TypeVar, Union, cast  # noqa: UP035
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from django.db.models import Prefetch
 
@@ -107,6 +108,7 @@ API_PERSON_LIST_BYTES_READ_FROM_POSTGRES_COUNTER = Counter(
 )
 
 MAX_PERSON_LIST_PAGES_TO_SCAN = 10
+PERSON_LIST_PREVIOUS_OFFSETS_PARAM = "previous_offsets"
 
 
 class PersonLimitOffsetPagination(LimitOffsetPagination):
@@ -192,6 +194,46 @@ def get_serialized_people_page(
             break
 
     return serialized_people, consumed_actor_count
+
+
+def get_person_list_previous_offsets(request: request.Request) -> list[int]:
+    previous_offsets = request.GET.get(PERSON_LIST_PREVIOUS_OFFSETS_PARAM)
+    if not previous_offsets:
+        return []
+
+    try:
+        return [offset for offset in (int(value) for value in previous_offsets.split(",") if value) if offset >= 0]
+    except ValueError:
+        return []
+
+
+def format_person_list_url(request: request.Request, offset: int, previous_offsets: list[int]) -> Optional[str]:
+    url_to_format = request.build_absolute_uri()
+    if not url_to_format:
+        return None
+
+    parsed_url = urlsplit(url_to_format)
+    query_params = [
+        (key, value)
+        for key, value in parse_qsl(parsed_url.query, keep_blank_values=True)
+        if key not in (OFFSET, PERSON_LIST_PREVIOUS_OFFSETS_PARAM)
+    ]
+
+    if offset > 0:
+        query_params.append((OFFSET, str(offset)))
+
+    if previous_offsets:
+        query_params.append((PERSON_LIST_PREVIOUS_OFFSETS_PARAM, ",".join(str(offset) for offset in previous_offsets)))
+
+    return urlunsplit(
+        (
+            parsed_url.scheme,
+            parsed_url.netloc,
+            parsed_url.path,
+            urlencode(query_params),
+            parsed_url.fragment,
+        )
+    )
 
 
 class PersonUpdatePropertyRequestSerializer(serializers.Serializer):
@@ -566,6 +608,7 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
                 break
 
             if len(actor_ids) < filter.limit:
+                has_more = False
                 break
 
             has_more = True
@@ -598,12 +641,20 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
             )
             total_count = raw_paginated_result[0][0]
 
-        next_url = format_query_params_absolute_url(request, filter.offset + scanned_actor_count) if _should_paginate else None
-        previous_url = (
-            format_query_params_absolute_url(request, filter.offset - filter.limit)
-            if filter.offset - filter.limit >= 0
+        previous_offsets = get_person_list_previous_offsets(request)
+        next_url = (
+            format_person_list_url(request, filter.offset + scanned_actor_count, [*previous_offsets, filter.offset])
+            if _should_paginate
             else None
         )
+        if previous_offsets:
+            previous_url = format_person_list_url(request, previous_offsets[-1], previous_offsets[:-1])
+        else:
+            previous_url = (
+                format_person_list_url(request, filter.offset - filter.limit, [])
+                if filter.offset - filter.limit >= 0
+                else None
+            )
 
         # TEMPORARY: Work out usage patterns of this endpoint
         renderer = SafeJSONRenderer()

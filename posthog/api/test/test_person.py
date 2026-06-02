@@ -18,14 +18,14 @@ from posthog.test.base import (
 )
 from unittest import mock
 
-from django.test import SimpleTestCase
+from django.test import RequestFactory, SimpleTestCase
 from django.utils import timezone
 
 from parameterized import parameterized
 from rest_framework import status
 
 import posthog.models.person.deletion
-from posthog.api.person import get_serialized_people_page
+from posthog.api.person import format_person_list_url, get_person_list_previous_offsets, get_serialized_people_page
 from posthog.clickhouse.client import sync_execute
 from posthog.models import Cohort, Organization, Person, PropertyDefinition, Team
 from posthog.models.async_deletion import AsyncDeletion, DeletionType
@@ -64,6 +64,19 @@ class TestPersonListPagination(SimpleTestCase):
 
         self.assertEqual([person["id"] for person in serialized_people], person_ids[:3])
         self.assertEqual(consumed_actor_count, 4)
+
+    def test_person_list_url_tracks_previous_offsets(self) -> None:
+        request = RequestFactory().get("/api/projects/1/persons/?limit=3&offset=4&previous_offsets=0")
+
+        self.assertEqual(
+            format_person_list_url(request, 7, [0, 4]),
+            "http://testserver/api/projects/1/persons/?limit=3&offset=7&previous_offsets=0%2C4",
+        )
+
+    def test_person_list_previous_offsets_ignores_invalid_values(self) -> None:
+        request = RequestFactory().get("/api/projects/1/persons/?limit=3&previous_offsets=0,invalid")
+
+        self.assertEqual(get_person_list_previous_offsets(request), [])
 
 
 class TestPerson(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
