@@ -12,6 +12,10 @@ cp node_modules/posthog-js/dist/logs.js* dist/
 cp node_modules/posthog-js/dist/exception-autocapture.js* dist/
 cp node_modules/posthog-js/dist/web-vitals.js* dist/
 cp node_modules/posthog-js/dist/web-vitals-with-attribution.js* dist/
+cp node_modules/posthog-js/dist/web-vitals.js dist/performance-observer.js
+cp node_modules/posthog-js/dist/web-vitals.js.map dist/performance-observer.js.map
+cp node_modules/posthog-js/dist/web-vitals-with-attribution.js dist/performance-observer-attribution.js
+cp node_modules/posthog-js/dist/web-vitals-with-attribution.js.map dist/performance-observer-attribution.js.map
 cp node_modules/posthog-js/dist/tracing-headers.js* dist/
 cp node_modules/posthog-js/dist/dead-clicks-autocapture.js* dist/
 cp node_modules/posthog-js/dist/customizations.full.js* dist/
@@ -21,3 +25,31 @@ cp node_modules/posthog-js/dist/*integration.js* dist/ 2>/dev/null || true
 cp node_modules/posthog-js/dist/*recorder*.js* dist/ 2>/dev/null || true
 cp node_modules/posthog-js/dist/product-tours.js* dist/
 cp node_modules/posthog-js/dist/conversations.js* dist/
+
+python3 - "$PWD/dist" <<'PY'
+from pathlib import Path
+import sys
+
+dist_dir = Path(sys.argv[1])
+replacements_by_asset = {
+    "array.js": {
+        'var r;if(t.config.__preview_external_dependency_versioned_paths)': 'var o={"web-vitals":"performance-observer","web-vitals-with-attribution":"performance-observer-attribution"}[e]||e,r;if(t.config.__preview_external_dependency_versioned_paths)',
+        '"/static/"+t.version+"/"+e+".js"': '"/static/"+t.version+"/"+o+".js"',
+        '"/static/"+e+".js?v="+t.version': '"/static/"+o+".js?v="+t.version',
+    },
+    "array.full.js": {
+        'var i;if(e.config.__preview_external_dependency_versioned_paths)': 'var a={"web-vitals":"performance-observer","web-vitals-with-attribution":"performance-observer-attribution"}[t]||t,i;if(e.config.__preview_external_dependency_versioned_paths)',
+        '"/static/"+e.version+"/"+t+".js"': '"/static/"+e.version+"/"+a+".js"',
+        '"/static/"+t+".js?v="+e.version': '"/static/"+a+".js?v="+e.version',
+    },
+}
+
+for asset_name, replacements in replacements_by_asset.items():
+    asset_path = dist_dir / asset_name
+    content = asset_path.read_text()
+    for old, new in replacements.items():
+        if old not in content:
+            raise RuntimeError(f"Could not find expected posthog-js snippet in {asset_name}: {old}")
+        content = content.replace(old, new, 1)
+    asset_path.write_text(content)
+PY
