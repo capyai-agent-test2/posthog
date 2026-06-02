@@ -261,6 +261,32 @@ class TestProjectAPI(team_api_test_factory()):  # type: ignore
             self.assertIn("active subscription", response.json()["detail"])
             self.assertTrue(Project.objects.filter(id=self.project.id).exists())
 
+    @patch("posthog.api.project.delete_project_data_and_notify_task")
+    @patch("ee.billing.billing_manager.BillingManager.get_billing")
+    @patch("posthog.api.project.get_cached_instance_license")
+    def test_delete_non_last_project_skips_subscription_guard_billing_call(
+        self,
+        mock_get_license,
+        mock_get_billing,
+        mock_delete_task,
+    ):
+        mock_get_license.return_value = "license"
+        mock_get_billing.return_value = {"has_active_subscription": True}
+
+        self.organization_membership.level = OrganizationMembership.Level.ADMIN
+        self.organization_membership.save()
+        Project.objects.create_with_team(
+            organization=self.organization, name="Second project", initiating_user=self.user
+        )
+
+        with self.is_cloud(True):
+            response = self.client.delete(f"/api/projects/{self.project.id}")
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        mock_get_license.assert_not_called()
+        mock_get_billing.assert_not_called()
+        mock_delete_task.delay.assert_called_once()
+
     def test_team_deletion_does_not_cascade_to_persons(self):
         """Verify that deleting Team directly doesn't CASCADE delete Persons (on_delete=DO_NOTHING)."""
         # Create a Person

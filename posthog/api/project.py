@@ -787,17 +787,18 @@ class ProjectViewSet(TeamAndOrgViewSetMixin, AccessControlViewSetMixin, viewsets
         # Block deletion of the last project in an org with an active subscription (cloud only).
         # Fail open if the billing service is unreachable — a 500 here would create a worse stuck state.
         is_last_project = project.organization.projects.count() == 1
-        license = get_cached_instance_license()
-        try:
-            has_active_subscription = (
-                settings.EE_AVAILABLE
-                and is_cloud()
-                and license
-                and BillingManager(license).get_billing(project.organization).get("has_active_subscription")
-            )
-        except Exception:
-            logger.exception("Failed to check billing status before project deletion; allowing deletion to proceed")
-            has_active_subscription = False
+        has_active_subscription = False
+        if is_last_project:
+            license = get_cached_instance_license()
+            try:
+                has_active_subscription = (
+                    settings.EE_AVAILABLE
+                    and is_cloud()
+                    and license
+                    and BillingManager(license).get_billing(project.organization).get("has_active_subscription")
+                )
+            except Exception:
+                logger.exception("Failed to check billing status before project deletion; allowing deletion to proceed")
 
         if is_last_project and has_active_subscription:
             raise exceptions.ValidationError(
