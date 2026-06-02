@@ -7140,8 +7140,36 @@ const api = {
 } as const
 
 const warnedSharedViewLeaks = new Set<string>()
+const SENSITIVE_ACTION_REAUTH_CODE = 'sensitive_action_required_reauth'
+let sensitiveActionReauthenticationPromise: Promise<boolean> | null = null
 
-async function handleFetch(url: string, method: string, fetcher: () => Promise<Response>): Promise<Response> {
+async function waitForSensitiveActionReauthentication(): Promise<boolean> {
+    const logic = apiStatusLogic.findMounted()
+
+    if (!logic) {
+        return false
+    }
+
+    if (!sensitiveActionReauthenticationPromise) {
+        sensitiveActionReauthenticationPromise = new Promise<void>((resolve, reject) =>
+            logic.actions.setTimeSensitiveAuthenticationRequired([resolve, reject])
+        )
+            .then(() => true)
+            .catch(() => false)
+            .finally(() => {
+                sensitiveActionReauthenticationPromise = null
+            })
+    }
+
+    return await sensitiveActionReauthenticationPromise
+}
+
+async function handleFetch(
+    url: string,
+    method: string,
+    fetcher: () => Promise<Response>,
+    hasRetriedSensitiveAction = false
+): Promise<Response> {
     const startTime = new Date().getTime()
 
     let response
@@ -7185,6 +7213,15 @@ async function handleFetch(url: string, method: string, fetcher: () => Promise<R
         }
 
         const data = await getJSONOrNull(response)
+
+        if (
+            response.status === 403 &&
+            data?.code === SENSITIVE_ACTION_REAUTH_CODE &&
+            !hasRetriedSensitiveAction &&
+            (await waitForSensitiveActionReauthentication())
+        ) {
+            return await handleFetch(url, method, fetcher, true)
+        }
 
         if (response.status >= 400 && data) {
             if (typeof data.error === 'string') {

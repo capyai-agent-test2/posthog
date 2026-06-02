@@ -1,7 +1,9 @@
 import { MOCK_DEFAULT_ORGANIZATION, MOCK_DEFAULT_USER } from 'lib/api.mock'
 
+import { waitFor } from '@testing-library/react'
 import { expectLogic } from 'kea-test-utils'
 
+import api from 'lib/api'
 import { userLogic } from 'scenes/userLogic'
 
 import { useMocks } from '~/mocks/jest'
@@ -22,6 +24,44 @@ const MOCK_IMPERSONATED_USER: UserType = {
 
 describe('apiStatusLogic', () => {
     let logic: ReturnType<typeof apiStatusLogic.build>
+
+    it('retries sensitive action requests after reauthentication', async () => {
+        let requestCount = 0
+        useMocks({
+            post: {
+                '/api/organizations/': () => {
+                    requestCount += 1
+
+                    if (requestCount <= 2) {
+                        return [403, { code: 'sensitive_action_required_reauth', detail: 'Re-authentication required' }]
+                    }
+
+                    return [200, { id: `new-organization-${requestCount}` }]
+                },
+            },
+        })
+        initKeaTests()
+        logic = apiStatusLogic()
+        logic.mount()
+
+        const firstRequest = api.create('api/organizations/', { name: 'Acme Inc.' })
+        const secondRequest = api.create('api/organizations/', { name: 'Hedgehog Ltd.' })
+
+        await waitFor(() => {
+            if (!Array.isArray(logic.values.timeSensitiveAuthenticationRequired)) {
+                throw new Error('Reauthentication was not requested')
+            }
+        })
+
+        const [resolve] = logic.values.timeSensitiveAuthenticationRequired as [resolve: () => void, reject: () => void]
+        resolve()
+
+        await expect(Promise.all([firstRequest, secondRequest])).resolves.toEqual([
+            { id: 'new-organization-3' },
+            { id: 'new-organization-4' },
+        ])
+        expect(requestCount).toBe(4)
+    })
 
     describe('401 handling during impersonation', () => {
         it('skips auto-logout on 401 for impersonated users', async () => {
