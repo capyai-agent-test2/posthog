@@ -179,7 +179,7 @@ services:
         restart: on-failure
         environment:
             CLICKHOUSE_SKIP_USER_SETUP: 1
-            KAFKA_HOSTS: 'kafka:9092'
+            KAFKA_HOSTS: '${KAFKA_HOSTS:-kafka:9092}'
         healthcheck:
             test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1'] # nosemgrep: trailofbits.generic.wget-unencrypted-url.wget-unencrypted-url
             interval: 3s
@@ -269,7 +269,7 @@ services:
         environment: &worker_env
             OTEL_SDK_DISABLED: 'true'
             API_QUERIES_PER_TEAM: '{"1": 100}'
-            KAFKA_HOSTS: 'kafka'
+            KAFKA_HOSTS: '${KAFKA_HOSTS:-kafka}'
             DEPLOYMENT: hobby
             CDP_API_URL: 'http://plugins:6738'
             FLAGS_REDIS_ENABLED: false
@@ -289,7 +289,7 @@ services:
         environment:
             ADDRESS: '0.0.0.0:3000'
             KAFKA_TOPIC: 'events_plugin_ingestion'
-            KAFKA_HOSTS: 'kafka:9092'
+            KAFKA_HOSTS: '${KAFKA_HOSTS:-kafka:9092}'
             REDIS_URL: 'redis://redis7:6379/'
             CAPTURE_MODE: events
             RUST_LOG: 'info,rdkafka=warn'
@@ -304,7 +304,7 @@ services:
         environment:
             ADDRESS: '0.0.0.0:3000'
             KAFKA_TOPIC: 'session_recording_snapshot_item_events'
-            KAFKA_HOSTS: 'kafka:9092'
+            KAFKA_HOSTS: '${KAFKA_HOSTS:-kafka:9092}'
             REDIS_URL: 'redis://redis7:6379/'
             CAPTURE_MODE: recordings
 
@@ -318,7 +318,7 @@ services:
         environment:
             ADDRESS: '0.0.0.0:3000'
             KAFKA_TOPIC: 'events_plugin_ingestion'
-            KAFKA_HOSTS: 'kafka:9092'
+            KAFKA_HOSTS: '${KAFKA_HOSTS:-kafka:9092}'
             REDIS_URL: 'redis://redis7:6379/'
             CAPTURE_MODE: events
             RUST_LOG: 'info,rdkafka=warn'
@@ -342,7 +342,7 @@ services:
             BIND_PORT: '4318'
             RUST_LOG: info,rdkafka=warn
             RUST_BACKTRACE: '1'
-            KAFKA_HOSTS: kafka:9092
+            KAFKA_HOSTS: '${KAFKA_HOSTS:-kafka:9092}'
             JWT_SECRET: '<randomly generated secret key>'
             KAFKA_TOPIC: logs_ingestion
             KAFKA_METRICS_TOPIC: metrics_ingestion
@@ -359,7 +359,7 @@ services:
         restart: on-failure
         environment:
             DATABASE_URL: 'postgres://posthog:posthog@db:5432/posthog'
-            KAFKA_HOSTS: 'kafka:9092'
+            KAFKA_HOSTS: '${KAFKA_HOSTS:-kafka:9092}'
             SKIP_WRITES: 'false'
             SKIP_READS: 'false'
             FILTER_MODE: 'opt-out'
@@ -453,7 +453,7 @@ services:
             DATABASE_URL: 'postgres://posthog:posthog@db:5432/posthog'
             PERSONS_DATABASE_URL: 'postgres://posthog:posthog@db:5432/posthog'
             BEHAVIORAL_COHORTS_DATABASE_URL: 'postgres://posthog:posthog@db:5432/posthog'
-            KAFKA_HOSTS: 'kafka:9092'
+            KAFKA_HOSTS: '${KAFKA_HOSTS:-kafka:9092}'
             REDIS_URL: 'redis://redis7:6379/'
             CLICKHOUSE_HOST: 'clickhouse'
             CLICKHOUSE_DATABASE: 'posthog'
@@ -468,7 +468,7 @@ services:
             DATABASE_URL: 'postgres://posthog:posthog@db:5432/posthog'
             PERSONS_DATABASE_URL: 'postgres://posthog:posthog@db:5432/posthog'
             BEHAVIORAL_COHORTS_DATABASE_URL: 'postgres://posthog:posthog@db:5432/posthog'
-            KAFKA_HOSTS: 'kafka:9092'
+            KAFKA_HOSTS: '${KAFKA_HOSTS:-kafka:9092}'
             REDIS_URL: 'redis://redis7:6379/'
             CLICKHOUSE_HOST: 'clickhouse'
             CLICKHOUSE_DATABASE: 'posthog'
@@ -485,7 +485,7 @@ services:
         environment:
             PLUGIN_SERVER_MODE: 'recordings-blob-ingestion-v2'
             DATABASE_URL: 'postgres://posthog:posthog@db:5432/posthog'
-            KAFKA_HOSTS: 'kafka:9092'
+            KAFKA_HOSTS: '${KAFKA_HOSTS:-kafka:9092}'
             REDIS_URL: 'redis://redis7:6379/'
 
     recording-api:
@@ -509,7 +509,7 @@ services:
             PLUGIN_SERVER_MODE: 'ingestion-errortracking'
             DATABASE_URL: 'postgres://posthog:posthog@db:5432/posthog'
             PERSONS_DATABASE_URL: 'postgres://posthog:posthog@db:5432/posthog'
-            KAFKA_HOSTS: 'kafka:9092'
+            KAFKA_HOSTS: '${KAFKA_HOSTS:-kafka:9092}'
             REDIS_URL: 'redis://redis7:6379/'
             CDP_REDIS_HOST: redis7
             ENCRYPTION_SALT_KEYS: '00beef0000beef0000beef0000beef00'
@@ -520,7 +520,7 @@ services:
         environment:
             PLUGIN_SERVER_MODE: 'ingestion-logs'
             DATABASE_URL: 'postgres://posthog:posthog@db:5432/posthog'
-            KAFKA_HOSTS: 'kafka:9092'
+            KAFKA_HOSTS: '${KAFKA_HOSTS:-kafka:9092}'
             REDIS_URL: 'redis://redis7:6379/'
             LOGS_REDIS_HOST: redis7
 
@@ -530,7 +530,7 @@ services:
         environment:
             PLUGIN_SERVER_MODE: 'ingestion-traces'
             DATABASE_URL: 'postgres://posthog:posthog@db:5432/posthog'
-            KAFKA_HOSTS: 'kafka:9092'
+            KAFKA_HOSTS: '${KAFKA_HOSTS:-kafka:9092}'
             REDIS_URL: 'redis://redis7:6379/'
             TRACES_REDIS_HOST: redis7
 
@@ -687,7 +687,7 @@ services:
         restart: on-failure
         environment:
             DATABASE_URL: 'postgres://posthog:posthog@db:5432/cyclotron'
-            KAFKA_HOSTS: 'kafka:9092'
+            KAFKA_HOSTS: '${KAFKA_HOSTS:-kafka:9092}'
             KAFKA_TOPIC: 'clickhouse_app_metrics2'
         depends_on:
             db:
