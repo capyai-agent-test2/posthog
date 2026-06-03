@@ -85,7 +85,7 @@ export default function ViewRecordingButton({
 
     const { summaryBySessionId } = useValues(sessionSummaryProgressLogic)
     const { checkRecordingInfo } = useActions(sessionRecordingInfoLogic)
-    const { getRecordingExists, getSummaryOutcome } = useValues(sessionRecordingInfoLogic)
+    const { getRecordingExists, getSummaryOutcome, isRecordingExistsLoading } = useValues(sessionRecordingInfoLogic)
 
     useEffect(() => {
         if (!sessionId) {
@@ -99,6 +99,8 @@ export default function ViewRecordingButton({
     if (hasRecording === undefined && checkRecordingExists && sessionId) {
         hasRecording = getRecordingExists(sessionId)
     }
+    const isCheckingRecordingExists = checkRecordingExists && sessionId ? isRecordingExistsLoading(sessionId) : false
+    const isLoading = !!props.loading || isCheckingRecordingExists
 
     const { onClick, disabledReason, warningReason } = useRecordingButton({
         sessionId,
@@ -115,7 +117,7 @@ export default function ViewRecordingButton({
     // Live is freshest mid-summarisation; the prop is a parent-list short-circuit; persisted is the kea-cached fallback.
     const liveOutcome = summaryOutcomeEnabled && sessionId ? summaryBySessionId[sessionId]?.session_outcome : null
     const persistedOutcome = shouldFetchSummaryOutcome && sessionId ? getSummaryOutcome(sessionId) : null
-    const isInteractive = !disabledReason && !props.loading
+    const isInteractive = !disabledReason && !isLoading
     const outcomeTooltip =
         summaryOutcomeEnabled && isInteractive
             ? (selectOutcome([liveOutcome, summaryOutcome, persistedOutcome])?.description ?? undefined)
@@ -152,7 +154,7 @@ export default function ViewRecordingButton({
     if (variant === ViewRecordingButtonVariant.Link) {
         const linkContent = (
             <Link
-                onClick={disabledReason || props.loading ? undefined : onClick}
+                onClick={disabledReason || isLoading ? undefined : onClick}
                 disabledReason={
                     typeof disabledReason === 'string'
                         ? disabledReason
@@ -162,13 +164,13 @@ export default function ViewRecordingButton({
                 }
                 className={clsx(
                     props.className,
-                    props.loading && 'opacity-50',
+                    isLoading && 'opacity-50',
                     props.fullWidth && 'w-full',
                     disabledReason && 'opacity-50'
                 )}
                 data-attr={props['data-attr']}
             >
-                {props.loading ? <Spinner className="text-sm" /> : null}
+                {isLoading ? <Spinner className="text-sm" /> : null}
                 {label ?? 'View recording'}
                 {sideIcon}
                 {maybeUnwatchedIndicator}
@@ -207,6 +209,7 @@ export default function ViewRecordingButton({
                 noPadding={noPadding}
                 {...captureAttrs}
                 {...props}
+                loading={isLoading}
             />
         )
     }
@@ -220,6 +223,7 @@ export default function ViewRecordingButton({
             tooltip={outcomeTooltip}
             {...captureAttrs}
             {...props}
+            loading={isLoading}
         >
             <div className="flex items-center gap-2 whitespace-nowrap">
                 <span>{label ? label : 'View recording'}</span>
