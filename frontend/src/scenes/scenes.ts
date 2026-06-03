@@ -701,7 +701,7 @@ export const redirects: Record<
     '/me/settings': urls.settings('user'),
     '/new': urls.newTab(),
     '/live-debugger': urls.liveDebugger(),
-    '/organization/members': urls.settings('organization'),
+    '/organization/members': urls.settings('organization-members'),
     '/organization/settings': urls.settings('organization'),
     '/pipeline': urls.sources(),
     '/pipelines': urls.sources(),

@@ -85,6 +85,14 @@ describe('sceneLogic', () => {
         })
     })
 
+    it('redirects legacy organization member URL to member settings', async () => {
+        router.actions.push('/organization/members')
+
+        await expectLogic(logic).delay(1)
+
+        expect(router.values.location.pathname).toBe(urls.currentProject(urls.settings('organization-members')))
+    })
+
     it('persists the loaded scenes', async () => {
         const expectedAnnotation = partial({
             component: expect.any(Function),
