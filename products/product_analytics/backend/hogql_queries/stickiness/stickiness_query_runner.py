@@ -274,7 +274,8 @@ class StickinessQueryRunner(AnalyticsQueryRunner[StickinessQueryResponse]):
         queries: list[ast.SelectQuery] = []
 
         series_to_query = self.series
-        if compare_value is not None:
+        has_compare_tagged_series = any(series.is_previous_period_series is not None for series in self.series)
+        if compare_value is not None and has_compare_tagged_series:
             is_previous_period_series = compare_value == "previous"
             series_to_query = [
                 series for series in self.series if series.is_previous_period_series == is_previous_period_series

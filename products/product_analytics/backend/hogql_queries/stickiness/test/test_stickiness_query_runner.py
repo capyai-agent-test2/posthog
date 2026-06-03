@@ -1379,3 +1379,19 @@ def test_actor_query_with_compare_filter_respects_selected_period():
     runner._events_query.side_effect = [parse_select("SELECT 1"), parse_select("SELECT 2")]
     runner.to_actors_query(compare_value="previous")
     runner._events_query.assert_called_once_with(previous_series)
+
+
+def test_actor_query_compare_value_does_not_filter_non_compare_series():
+    runner = StickinessQueryRunner.__new__(StickinessQueryRunner)
+    runner.query = MagicMock(stickinessFilter=None)
+
+    series = SeriesWithExtras(
+        series=MagicMock(math="total", math_hogql=None, math_group_type_index=None),
+        series_order=0,
+        is_previous_period_series=None,
+    )
+    runner.series = [series]
+
+    runner._events_query = MagicMock(return_value=parse_select("SELECT 1"))
+    runner.to_actors_query(compare_value="current")
+    runner._events_query.assert_called_once_with(series)
