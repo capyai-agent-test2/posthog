@@ -1094,7 +1094,7 @@ Jane Smith,25
         # Should reference all supported ID column types with clearer messaging
         self.assertIn("at least one column with a supported ID header", response_data["detail"])
         self.assertIn("person_id", response_data["detail"])
-        self.assertIn("id", response_data["detail"])
+        self.assertIn("'id'", response_data["detail"])
         self.assertIn("distinct_id", response_data["detail"])
         self.assertIn("name, age", response_data["detail"])
 
@@ -1242,6 +1242,38 @@ another_user
             [str(person1.uuid), str(person2.uuid)],
             team_id=self.team.id,
             id_type="person_id",
+            email_property_key=None,
+        )
+
+    @patch("posthog.tasks.calculate_cohort.calculate_cohort_from_list.delay")
+    def test_static_cohort_csv_upload_distinct_id_preferred_over_id(self, patch_calculate_cohort_from_list):
+        """Test that distinct_id stays preferred over a generic id column."""
+        person1 = Person.objects.create(team=self.team, distinct_ids=["user123"])
+        person2 = Person.objects.create(team=self.team, distinct_ids=["user456"])
+
+        csv = SimpleUploadedFile(
+            "distinct_id_and_id.csv",
+            str.encode(
+                f"""name,id,distinct_id
+John Doe,{person1.uuid},user123
+Jane Smith,{person2.uuid},user456
+"""
+            ),
+            content_type="application/csv",
+        )
+
+        response = self.client.post(
+            f"/api/projects/{self.team.id}/cohorts/",
+            {"name": "test_distinct_id_preferred_over_id", "csv": csv, "is_static": True},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        patch_calculate_cohort_from_list.assert_called_once_with(
+            response.json()["id"],
+            ["user123", "user456"],
+            team_id=self.team.id,
+            id_type="distinct_id",
             email_property_key=None,
         )
 
