@@ -10,6 +10,7 @@ import { toolbarConfigLogic } from '~/toolbar/toolbarConfigLogic'
 import { ToolbarContainer } from '~/toolbar/ToolbarContainer'
 import { toolbarLogger } from '~/toolbar/toolbarLogger'
 import { captureToolbarException, toolbarPosthogJS } from '~/toolbar/toolbarPosthogJS'
+import { getToolbarRemScale } from '~/toolbar/toolbarRemScale'
 import { ToolbarProps } from '~/types'
 
 import { TOOLBAR_ID } from './utils'
@@ -19,6 +20,7 @@ type HTMLElementWithShadowRoot = HTMLElement & { shadowRoot: ShadowRoot }
 
 export function ToolbarApp(props: ToolbarProps = {}): JSX.Element {
     const { apiHost } = useValues(toolbarConfigLogic(props))
+    const toolbarRemScale = getToolbarRemScale()
 
     const shadowRef = useRef<HTMLElementWithShadowRoot | null>(null)
     const [didLoadStyles, setDidLoadStyles] = useState(false)
@@ -89,7 +91,13 @@ export function ToolbarApp(props: ToolbarProps = {}): JSX.Element {
 
     return (
         <>
-            <root.div id={TOOLBAR_ID} className="ph-no-capture" ref={shadowRef} onMouseDown={onMouseDown}>
+            <root.div
+                id={TOOLBAR_ID}
+                className="ph-no-capture"
+                ref={shadowRef}
+                onMouseDown={onMouseDown}
+                style={toolbarRemScale === 1 ? undefined : { zoom: toolbarRemScale }}
+            >
                 <div id="posthog-toolbar-styles" />
                 {didRender && (didLoadStyles || props.disableExternalStyles) ? <ToolbarContainer /> : null}
                 <ToastContainer autoClose={60000} transition={Slide} position="bottom-center" />
