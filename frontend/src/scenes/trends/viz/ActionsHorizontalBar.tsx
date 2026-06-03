@@ -73,15 +73,7 @@ export function ActionsHorizontalBar({
             ])
             setTotal(visibleResults.reduce((prev, item) => prev + item.aggregated_value, 0))
         }
-    }, [
-        indexedResults,
-        theme,
-        breakdownFilter,
-        allCohorts?.results,
-        formatPropertyValueForDisplay,
-        getTrendsColor,
-        getTrendsHidden,
-    ])
+    }, [indexedResults, theme, allCohorts?.results, formatPropertyValueForDisplay, getTrendsColor, getTrendsHidden])
 
     return data && total > 0 ? (
         <LineGraph

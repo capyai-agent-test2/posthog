@@ -1,7 +1,6 @@
-import { FormatPropertyValueForDisplayFunction } from 'models/propertyDefinitionsModel'
-
 import { formatBreakdownLabel } from 'scenes/insights/utils'
 
+import { FormatPropertyValueForDisplayFunction } from '~/models/propertyDefinitionsModel'
 import { CohortType, TrendResult } from '~/types'
 
 export function getTrendResultLabel(

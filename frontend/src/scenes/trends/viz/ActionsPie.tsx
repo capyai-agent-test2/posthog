@@ -72,14 +72,7 @@ export function ActionsPie({ inSharedMode, showPersonsModal = true, context }: C
             ])
             setTotal(visibleResults.reduce((prev, item) => prev + item.aggregated_value, 0))
         }
-    }, [
-        indexedResults,
-        breakdownFilter,
-        getTrendsColor,
-        getTrendsHidden,
-        allCohorts.results,
-        formatPropertyValueForDisplay,
-    ])
+    }, [indexedResults, getTrendsColor, getTrendsHidden, allCohorts.results, formatPropertyValueForDisplay])
 
     let onClick: ((payload: GraphPointPayload) => void) | undefined = undefined
     if (onDataPointClick) {
