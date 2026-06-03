@@ -53,6 +53,20 @@ describe('shim consumer integration', () => {
                 logic.mount()
             }).toDispatchActions(['loadRemoteConfig'])
         })
+
+        it('uses apiHost for hedgehog assets when the toolbar runs behind a reverse proxy', async () => {
+            toolbarConfigLogic.findMounted()?.unmount()
+            toolbarConfigLogic
+                .build({
+                    apiURL: 'http://localhost:3000/ingest',
+                    posthog: { requestRouter: { uiHost: 'https://eu.posthog.com' }, config: {} } as any,
+                })
+                .mount()
+
+            const { getHedgehogModeAssetsUrl } = await import('~/lib/components/HedgehogMode/HedgehogMode')
+
+            expect(getHedgehogModeAssetsUrl()).toBe('http://localhost:3000/ingest/static/hedgehog-mode')
+        })
     })
 
     describe('themeLogic with shims', () => {

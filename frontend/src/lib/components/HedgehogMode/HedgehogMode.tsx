@@ -17,12 +17,12 @@ export const HedgeHogModeRenderer =
 
 export const getHedgehogModeAssetsUrl = (): string => {
     let path = `/static/hedgehog-mode`
-    const toolbarAPIUrl = toolbarConfigLogic.findMounted()?.values.uiHost
+    const toolbarApiHost = toolbarConfigLogic.findMounted()?.values.apiHost
 
     if (inStorybook()) {
         // Nothing to do
-    } else if (toolbarAPIUrl) {
-        path = `${toolbarAPIUrl}${path}`
+    } else if (toolbarApiHost) {
+        path = `${toolbarApiHost}${path}`
     } else if (window.location.hostname !== 'localhost') {
         path = `${window.location.origin}${path}`
     }
