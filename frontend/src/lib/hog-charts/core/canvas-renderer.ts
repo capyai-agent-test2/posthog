@@ -79,7 +79,16 @@ function planLineStrokes(series: ResolvedSeries, length: number): Stroke[] {
 
 /** Walks data from [start, end] inclusive, emitting moveTo/lineTo. Caller owns beginPath/stroke. */
 function tracePath(drawCtx: DrawContext, data: number[], start: number, end: number): void {
-    const { ctx, xScale, yScale, labels } = drawCtx
+    const { ctx, xScale, yScale, labels, dimensions } = drawCtx
+    if (data.length === 1 && start === 0 && end === 0) {
+        const x = xScale(labels[0])
+        const y = yScale(data[0])
+        if (x != null && isFinite(y)) {
+            ctx.moveTo(dimensions.plotLeft, y)
+            ctx.lineTo(dimensions.plotLeft + dimensions.plotWidth, y)
+        }
+        return
+    }
     let started = false
     for (let i = start; i <= end; i++) {
         const x = xScale(labels[i])

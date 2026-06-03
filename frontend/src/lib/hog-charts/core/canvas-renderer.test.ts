@@ -83,6 +83,15 @@ describe('hog-charts canvas-renderer', () => {
                 expectedMoveTo: 0,
                 expectedLineTo: 0,
             },
+            {
+                name: 'draws a horizontal singleton line when the series has one point',
+                labels: ['a'],
+                data: [50],
+                gapValues: new Set<number>(),
+                expectedBeginPath: 1,
+                expectedMoveTo: 1,
+                expectedLineTo: 1,
+            },
         ])('$name', ({ labels, data, gapValues, expectedBeginPath, expectedMoveTo, expectedLineTo }) => {
             const ctx = mockCanvasContext()
             const series = makeSeries({ key: 's1', data })
@@ -92,6 +101,14 @@ describe('hog-charts canvas-renderer', () => {
             expect(ctx.beginPath).toHaveBeenCalledTimes(expectedBeginPath)
             expect(ctx.moveTo).toHaveBeenCalledTimes(expectedMoveTo)
             expect(ctx.lineTo).toHaveBeenCalledTimes(expectedLineTo)
+        })
+
+        it('stretches a singleton line across the full plot width', () => {
+            const ctx = mockCanvasContext()
+            const series = makeSeries({ key: 's1', data: [50] })
+            drawLine(makeDrawContext(ctx, ['only']), series)
+            expect(ctx.moveTo).toHaveBeenCalledWith(dimensions.plotLeft, expect.any(Number))
+            expect(ctx.lineTo).toHaveBeenCalledWith(dimensions.plotLeft + dimensions.plotWidth, expect.any(Number))
         })
 
         it('uses yValues override instead of series.data when provided', () => {
@@ -288,14 +305,14 @@ describe('hog-charts canvas-renderer', () => {
             expect(dashCalls(ctx)).toEqual([[10, 10], []])
         })
 
-        it('does not crash on a length-1 data array', () => {
+        it('renders a horizontal line for a length-1 data array', () => {
             const ctx = mockCanvasContext()
             const series = makeSeries({ key: 's1', data: [42], stroke: { partial: { fromIndex: 0 } } })
             drawLine(makeDrawContext(ctx, ['a']), series)
-            // Single point: moveTo once, no lineTo, stroke draws nothing visible.
+            // Single-point series render as a horizontal singleton line rather than an invisible path.
             expect(ctx.beginPath).toHaveBeenCalledTimes(1)
             expect(ctx.moveTo).toHaveBeenCalledTimes(1)
-            expect(ctx.lineTo).toHaveBeenCalledTimes(0)
+            expect(ctx.lineTo).toHaveBeenCalledTimes(1)
         })
     })
 
