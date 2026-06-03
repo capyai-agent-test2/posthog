@@ -793,6 +793,12 @@ class PathsQueryRunner(AnalyticsQueryRunner[PathsQueryResponse]):
             )
         return conditions
 
+    def _requested_edge_limit(self) -> int:
+        return self.query.pathsFilter.edgeLimit or EDGE_LIMIT_DEFAULT
+
+    def _query_edge_limit(self) -> int:
+        return self._requested_edge_limit() * max(self.event_in_session_limit, 1)
+
     def to_query(self) -> ast.SelectQuery | ast.SelectSetQuery:
         placeholders: dict[str, ast.Expr] = {
             "paths_per_person_query": self.paths_per_person_query(),
@@ -824,7 +830,7 @@ class PathsQueryRunner(AnalyticsQueryRunner[PathsQueryResponse]):
             if conditions:
                 paths_query.having = ast.And(exprs=conditions)
 
-            paths_query.limit = ast.Constant(value=self.query.pathsFilter.edgeLimit or EDGE_LIMIT_DEFAULT)
+            paths_query.limit = ast.Constant(value=self._query_edge_limit())
 
         return paths_query
 
@@ -901,7 +907,7 @@ class PathsQueryRunner(AnalyticsQueryRunner[PathsQueryResponse]):
             ),  # Make sure funnel queries never OOM
         )
 
-        response.results = self.validate_results(response.results)
+        response.results = self.validate_results(response.results)[: self._requested_edge_limit()]
 
         assert response.results is not None
         results = (
