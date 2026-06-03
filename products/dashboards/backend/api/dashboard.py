@@ -2819,10 +2819,13 @@ class DashboardsViewSet(
                             {
                                 "name": "Pageviews",
                                 "type": "INSIGHT",
-                                "filters": {
-                                    "insight": "TRENDS",
-                                    "events": [{"id": "$pageview", "type": "events"}],
-                                    "date_from": "-7d",
+                                "query": {
+                                    "kind": "InsightVizNode",
+                                    "source": {
+                                        "kind": "TrendsQuery",
+                                        "series": [{"kind": "EventsNode", "event": "$pageview", "name": "$pageview"}],
+                                        "dateRange": {"date_from": "-7d"},
+                                    },
                                 },
                                 "layouts": {
                                     "sm": {"x": 0, "y": 0, "w": 6, "h": 5},
