@@ -1,4 +1,5 @@
 import { useActions, useValues } from 'kea'
+import { useEffect, useMemo, useState } from 'react'
 
 import { LemonCheckbox, LemonLabel } from '@posthog/lemon-ui'
 
@@ -64,7 +65,18 @@ export function LifecycleToggles({ insightProps }: EditorFilterProps): JSX.Eleme
     const { updateInsightFilter } = useActions(insightVizDataLogic(insightProps))
     const { aggregationLabel } = useValues(groupsModel)
 
-    const toggledLifecycles = (insightFilter as LifecycleFilter)?.toggledLifecycles || DEFAULT_LIFECYCLE_TOGGLES
+    const persistedToggledLifecycles =
+        (insightFilter as LifecycleFilter)?.toggledLifecycles ?? DEFAULT_LIFECYCLE_TOGGLES
+    const [toggledLifecycles, setToggledLifecycles] = useState<LifecycleToggle[]>(persistedToggledLifecycles)
+    const persistedToggledLifecyclesKey = useMemo(
+        () => persistedToggledLifecycles.join(','),
+        [persistedToggledLifecycles]
+    )
+
+    useEffect(() => {
+        setToggledLifecycles(persistedToggledLifecycles)
+    }, [persistedToggledLifecycles, persistedToggledLifecyclesKey])
+
     const customAggregationTarget = (querySource as LifecycleQuery | null)?.customAggregationTarget === true
     const aggregationTargetLabel = customAggregationTarget
         ? AGGREGATION_LABEL_FOR_CUSTOM_DATA_WAREHOUSE
@@ -72,11 +84,15 @@ export function LifecycleToggles({ insightProps }: EditorFilterProps): JSX.Eleme
     const aggregationTargetPronoun = getAggregationTargetPronoun(aggregationGroupTypeIndex, customAggregationTarget)
 
     const toggleLifecycle = (name: LifecycleToggle): void => {
-        if (toggledLifecycles.includes(name)) {
-            updateInsightFilter({ toggledLifecycles: toggledLifecycles.filter((n) => n !== name) })
-        } else {
-            updateInsightFilter({ toggledLifecycles: [...toggledLifecycles, name] })
-        }
+        setToggledLifecycles((currentToggledLifecycles) => {
+            const nextToggledLifecycles = currentToggledLifecycles.includes(name)
+                ? currentToggledLifecycles.filter((lifecycle) => lifecycle !== name)
+                : [...currentToggledLifecycles, name]
+
+            updateInsightFilter({ toggledLifecycles: nextToggledLifecycles })
+
+            return nextToggledLifecycles
+        })
     }
 
     return (
