@@ -23,7 +23,7 @@ from posthog.models.utils import UUIDTModel, execute_with_timeout
 from posthog.storage.hypercache import HyperCache, HyperCacheStoreMissing
 
 from products.cdp.backend.models.hog_functions.hog_function import HogFunction
-from products.cdp.backend.models.plugin import PluginConfig
+from products.cdp.backend.models.plugin import PluginConfig, PluginSourceFile
 from products.error_tracking.backend.models import ErrorTrackingSuppressionRule
 from products.feature_flags.backend.models.feature_flag import FeatureFlag
 from products.product_tours.backend.models import ProductTour
@@ -505,6 +505,19 @@ def site_app_saved(sender, instance: "PluginConfig", created, **kwargs):
     instance_team_id = instance.team_id
     if instance_team_id is not None:
         transaction.on_commit(lambda: _update_team_remote_config(instance_team_id))
+
+
+@receiver(post_save, sender=PluginSourceFile)
+@receiver(post_delete, sender=PluginSourceFile)
+def site_app_source_file_changed(sender, instance: "PluginSourceFile", **kwargs):
+    if instance.filename != "site.ts":
+        return
+
+    team_ids = PluginConfig.objects.filter(plugin_id=instance.plugin_id, team_id__isnull=False).values_list(
+        "team_id", flat=True
+    )
+    for team_id in set(team_ids):
+        transaction.on_commit(lambda team_id=team_id: _update_team_remote_config(team_id))
 
 
 @receiver(post_save, sender=HogFunction)
