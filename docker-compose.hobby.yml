@@ -146,13 +146,22 @@ services:
             PERSONHOG_ENABLED: 'true'
             PERSONHOG_ROLLOUT_PERCENTAGE: '100'
         depends_on:
-            - db
-            - redis7
-            - clickhouse
-            - kafka
-            - objectstorage
-            - seaweedfs
-            - personhog-router
+            db:
+                condition: service_healthy
+            redis7:
+                condition: service_healthy
+            clickhouse:
+                condition: service_started
+            kafka:
+                condition: service_healthy
+            objectstorage:
+                condition: service_started
+            seaweedfs:
+                condition: service_started
+            temporal:
+                condition: service_healthy
+            personhog-router:
+                condition: service_started
 
     plugins:
         extends:
