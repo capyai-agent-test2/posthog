@@ -84,12 +84,17 @@ export function formatUnitByQuantity(value: number, unit: string): string {
 }
 
 export function getExperimentAggregationGroupTypeIndex(experiment: Experiment): number | null {
-    return (
-        experiment.parameters?.aggregation_group_type_index ??
-        experiment.feature_flag?.filters?.aggregation_group_type_index ??
-        experiment.filters?.aggregation_group_type_index ??
-        null
-    )
+    const parametersAggregationGroupTypeIndex = experiment.parameters?.aggregation_group_type_index
+    if (parametersAggregationGroupTypeIndex !== undefined) {
+        return parametersAggregationGroupTypeIndex
+    }
+
+    const featureFlagAggregationGroupTypeIndex = experiment.feature_flag?.filters?.aggregation_group_type_index
+    if (featureFlagAggregationGroupTypeIndex !== undefined) {
+        return featureFlagAggregationGroupTypeIndex
+    }
+
+    return experiment.filters?.aggregation_group_type_index ?? null
 }
 
 export function ensureIsPercent(value: string | number | undefined): number {

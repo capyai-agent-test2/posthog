@@ -75,6 +75,26 @@ describe('utils', () => {
             expect(getExperimentAggregationGroupTypeIndex(experiment)).toBe(2)
         })
 
+        it('treats explicit null on synced sources as user targeting', () => {
+            const experiment = {
+                parameters: { aggregation_group_type_index: null },
+                feature_flag: { filters: { aggregation_group_type_index: 0 } },
+                filters: { aggregation_group_type_index: 2 },
+            } as Experiment
+
+            expect(getExperimentAggregationGroupTypeIndex(experiment)).toBeNull()
+        })
+
+        it('treats explicit null on the feature flag as user targeting', () => {
+            const experiment = {
+                parameters: {},
+                feature_flag: { filters: { aggregation_group_type_index: null } },
+                filters: { aggregation_group_type_index: 2 },
+            } as Experiment
+
+            expect(getExperimentAggregationGroupTypeIndex(experiment)).toBeNull()
+        })
+
         it('returns null for user-based experiments', () => {
             const experiment = {
                 parameters: {},
