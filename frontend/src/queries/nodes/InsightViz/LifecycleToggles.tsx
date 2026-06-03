@@ -75,7 +75,7 @@ export function LifecycleToggles({ insightProps }: EditorFilterProps): JSX.Eleme
 
     useEffect(() => {
         setToggledLifecycles(persistedToggledLifecycles)
-    }, [persistedToggledLifecycles, persistedToggledLifecyclesKey])
+    }, [insightFilter, persistedToggledLifecycles, persistedToggledLifecyclesKey])
 
     const customAggregationTarget = (querySource as LifecycleQuery | null)?.customAggregationTarget === true
     const aggregationTargetLabel = customAggregationTarget
