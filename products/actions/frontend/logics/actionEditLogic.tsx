@@ -335,8 +335,10 @@ export const actionEditLogic = kea<actionEditLogicType>([
         setAction: () => {
             actions.setMatchingEventsQuery(values.defaultMatchingEventsQuery)
         },
-        setActionValue: () => {
-            actions.setMatchingEventsQuery(values.defaultMatchingEventsQuery)
+        setActionValue: ({ name }) => {
+            if (name === 'steps') {
+                actions.setMatchingEventsQuery(values.defaultMatchingEventsQuery)
+            }
         },
         resetAction: () => {
             actions.setMatchingEventsQuery(values.defaultMatchingEventsQuery)

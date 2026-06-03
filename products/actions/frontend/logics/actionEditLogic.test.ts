@@ -58,4 +58,28 @@ describe('actionEditLogic', () => {
         expect((actionLogic.values.matchingEventsQuery?.source as { after?: string } | null)?.after).toBe('-90d')
         expect(actionLogic.values.matchingEventsQuery?.kind).toBe(NodeKind.DataTableNode)
     })
+
+    it('does not reset matching events query on non-step form edits', () => {
+        const action = {
+            id: 1,
+            name: 'Signed up',
+            steps: [{ ...DEFAULT_ACTION_STEP }],
+        } as ActionType
+
+        const actionLogic = actionEditLogic({ id: 1, action, tabId: 'tab-1' })
+        actionLogic.mount()
+
+        const modifiedQuery: DataTableNode = {
+            ...actionLogic.values.matchingEventsQuery!,
+            source: {
+                ...(actionLogic.values.matchingEventsQuery!.source as Record<string, any>),
+                after: '-90d',
+            },
+        }
+
+        actionLogic.actions.setMatchingEventsQuery(modifiedQuery)
+        actionLogic.actions.setActionValue('name', 'Renamed action')
+
+        expect(actionLogic.values.matchingEventsQuery).toEqual(modifiedQuery)
+    })
 })
