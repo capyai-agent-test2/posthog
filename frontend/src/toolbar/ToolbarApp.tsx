@@ -91,15 +91,11 @@ export function ToolbarApp(props: ToolbarProps = {}): JSX.Element {
 
     return (
         <>
-            <root.div
-                id={TOOLBAR_ID}
-                className="ph-no-capture"
-                ref={shadowRef}
-                onMouseDown={onMouseDown}
-                style={toolbarRemScale === 1 ? undefined : { zoom: toolbarRemScale }}
-            >
+            <root.div id={TOOLBAR_ID} className="ph-no-capture" ref={shadowRef} onMouseDown={onMouseDown}>
                 <div id="posthog-toolbar-styles" />
-                {didRender && (didLoadStyles || props.disableExternalStyles) ? <ToolbarContainer /> : null}
+                {didRender && (didLoadStyles || props.disableExternalStyles) ? (
+                    <ToolbarContainer toolbarRemScale={toolbarRemScale} />
+                ) : null}
                 <ToastContainer autoClose={60000} transition={Slide} position="bottom-center" />
             </root.div>
         </>
