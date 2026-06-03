@@ -14,7 +14,8 @@ export interface TrendsBarResultLike {
     id?: string | number
     label?: string | null
     data: number[]
-    aggregated_value?: number
+    count?: number | string | null
+    aggregated_value?: number | string | null
     days?: string[]
     compare?: boolean
     compare_label?: string | null
@@ -23,6 +24,23 @@ export interface TrendsBarResultLike {
     order?: number | null
     breakdown_value?: unknown
     filter?: unknown
+}
+
+export function getTrendsBarAggregatedValue(result: TrendsBarResultLike): number {
+    if (result.aggregated_value != null) {
+        const aggregatedValue = Number(result.aggregated_value)
+        if (Number.isFinite(aggregatedValue)) {
+            return aggregatedValue
+        }
+        return 0
+    }
+
+    const count = Number(result.count)
+    if (Number.isFinite(count)) {
+        return count
+    }
+
+    return 0
 }
 
 export interface BuildTrendsBarSeriesOpts<R extends TrendsBarResultLike, M = unknown> {
@@ -137,10 +155,7 @@ export function buildTrendsBarAggregatedSeries<R extends TrendsBarResultLike, M 
     const n = visible.length
     const series = visible.map((r, index) => {
         const data = new Array<number>(n).fill(0)
-        const value = r.aggregated_value ?? 0
-        if (Number.isFinite(value)) {
-            data[index] = value
-        }
+        data[index] = getTrendsBarAggregatedValue(r)
         return buildMainTrendsBarSeries(r, index, opts, data)
     })
     return { series, labels, displayLabels }
