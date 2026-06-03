@@ -16,6 +16,7 @@ interface HoverTooltipState extends SharedTooltipBase {
     isMouseOver: boolean
     hideTimeout: ReturnType<typeof setTimeout> | null
     interactiveTimeout: ReturnType<typeof setTimeout> | null
+    visibleOwner: string | null
     lastRendered: ReactNode
     lastRenderedOwner: string | null
 }
@@ -31,6 +32,7 @@ const hover: HoverTooltipState = {
     isMouseOver: false,
     hideTimeout: null,
     interactiveTimeout: null,
+    visibleOwner: null,
     lastRendered: null,
     lastRenderedOwner: null,
 }
@@ -104,6 +106,7 @@ function hideHoverNow(): void {
     if (hover.element) {
         hover.element.style.opacity = '0'
     }
+    hover.visibleOwner = null
     disableHoverInteractivity()
 }
 
@@ -254,6 +257,7 @@ export function showTooltip(id: string): void {
     }
     clearHoverHideTimeout()
     hover.element.style.opacity = '1'
+    hover.visibleOwner = id
 }
 
 export function hideTooltip(id?: string): void {
@@ -320,11 +324,15 @@ export function unpinTooltip(id: string): void {
 }
 
 export function cleanupTooltip(id: string): void {
-    if (hover.owner !== id && pinned.owner !== id) {
+    const ownsHoverState =
+        hover.owner === id || activeRenderId === id || hover.lastRenderedOwner === id || hover.visibleOwner === id
+    if (!ownsHoverState && pinned.owner !== id) {
         return
     }
-    if (hover.owner === id) {
-        hover.owner = null
+    if (ownsHoverState) {
+        if (hover.owner === id) {
+            hover.owner = null
+        }
         if (activeRenderId === id) {
             activeRenderId = null
         }
