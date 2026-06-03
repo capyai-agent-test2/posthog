@@ -3,7 +3,7 @@ import { ReplayPlugin, playerConfig } from 'posthog-js/rrweb'
 import { PLACEHOLDER_SVG_DATA_IMAGE_URL } from '../mobile/transformer/shared'
 
 const PROXY_URL = 'https://replay.ph-proxy.com' as const
-const HTTP_URL_PATTERN = /https?:\/\/[^\s"'()?#]+(?:[?#][^\s"'()]*)?/i
+const HTTP_URL_PATTERN = /^(https?:\/\/[^\s"'()?#]+(?:[?#][^\s"'()]*)?)$/i
 const JS_URL_PATTERN = /^(https?:\/\/[^\s"?#]+\.js(?:[?#][^\s"]*)?)$/i
 
 export const CorsPlugin: ReplayPlugin & {
@@ -80,12 +80,13 @@ export const CorsPlugin: ReplayPlugin & {
             scriptElement.src = CorsPlugin._replaceJSUrl(scriptElement.src)
         }
 
-        if (node instanceof HTMLImageElement || node instanceof HTMLSourceElement) {
-            if (node.src) {
-                node.src = CorsPlugin._replaceAssetUrl(node.src)
+        if (node.nodeName === 'IMG' || node.nodeName === 'SOURCE') {
+            const assetNode = node as HTMLImageElement | HTMLSourceElement
+            if (assetNode.src) {
+                assetNode.src = CorsPlugin._replaceAssetUrl(assetNode.src)
             }
-            if (node.srcset) {
-                node.srcset = CorsPlugin._replaceSrcSetUrls(node.srcset)
+            if (assetNode.srcset) {
+                assetNode.srcset = CorsPlugin._replaceSrcSetUrls(assetNode.srcset)
             }
         }
     },

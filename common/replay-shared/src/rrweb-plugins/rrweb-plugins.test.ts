@@ -25,7 +25,7 @@ describe('CorsPlugin', () => {
         expect(CorsPlugin._replaceAssetUrl(content)).toEqual(`https://replay.ph-proxy.com/proxy?url=${content}`)
     })
 
-    it.each(['my-image.jpeg', '/static/index.css', 'data:image/png;base64,abc123'])(
+    it.each(['my-image.jpeg', '/static/index.css', 'data:image/png;base64,abc123', 'blob:https://app.posthog.com/123'])(
         'should not replace non-http asset urls',
         (content: string) => {
             expect(CorsPlugin._replaceAssetUrl(content)).toEqual(content)
@@ -46,10 +46,12 @@ describe('CorsPlugin', () => {
         expect(el.href).toEqual(`https://replay.ph-proxy.com/proxy?url=https://app.posthog.com/my-image.js`)
     })
 
-    it('can replace image src and srcset attributes', () => {
-        const el = document.createElement('img')
-        el.src = 'http://10.1.1.25/static/logo.png'
-        el.srcset = 'http://10.1.1.25/static/logo.png 1x, https://app.posthog.com/static/logo@2x.png 2x'
+    it('can replace image src and srcset attributes without relying on instanceof', () => {
+        const el = {
+            nodeName: 'IMG',
+            src: 'http://10.1.1.25/static/logo.png',
+            srcset: 'http://10.1.1.25/static/logo.png 1x, https://app.posthog.com/static/logo@2x.png 2x',
+        } as HTMLImageElement
         CorsPlugin.onBuild?.(el, { id: 1, replayer: null as unknown as any })
         expect(el.src).toEqual(`https://replay.ph-proxy.com/proxy?url=http://10.1.1.25/static/logo.png`)
         expect(el.srcset).toEqual(
