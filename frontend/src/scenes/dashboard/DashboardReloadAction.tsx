@@ -1,5 +1,4 @@
 import { useActions, useValues } from 'kea'
-import { useEffect, useState } from 'react'
 
 import { IconCheck, IconSparkles, IconX } from '@posthog/icons'
 import { IconRefresh } from '@posthog/icons'
@@ -11,6 +10,7 @@ import { TZLabel } from 'lib/components/TZLabel'
 import { dayjs } from 'lib/dayjs'
 import { useFeatureFlag } from 'lib/hooks/useFeatureFlag'
 import { usePageVisibilityCb } from 'lib/hooks/usePageVisibility'
+import { usePeriodicRerender } from 'lib/hooks/usePeriodicRerender'
 import { LemonMenuOverlay } from 'lib/lemon-ui/LemonMenu/LemonMenu'
 import { LemonRadio } from 'lib/lemon-ui/LemonRadio'
 import { humanFriendlyDuration } from 'lib/utils'
@@ -96,18 +96,7 @@ export function DashboardReloadAction(): JSX.Element {
     const dashboardAIRefreshEnabled =
         useFeatureFlag('PRODUCT_ANALYTICS_DASHBOARD_AI_ANALYSIS') && !hasOverrides && !refreshDisabledReason
 
-    // Force a re-render when nextAllowedDashboardRefresh is reached, since the blockRefresh
-    // selector uses now() which isn't reactive - it only recomputes on dependency changes
-    const [, setRenderTrigger] = useState(0)
-    useEffect(() => {
-        if (nextAllowedDashboardRefresh) {
-            const msUntilRefreshAllowed = dayjs(nextAllowedDashboardRefresh).diff(dayjs())
-            if (msUntilRefreshAllowed > 0) {
-                const timeoutId = setTimeout(() => setRenderTrigger((n) => n + 1), msUntilRefreshAllowed + 100)
-                return () => clearTimeout(timeoutId)
-            }
-        }
-    }, [nextAllowedDashboardRefresh])
+    usePeriodicRerender(refreshDisabledReason ? 1000 : 60_000)
 
     const options = INTERVAL_OPTIONS.map((option) => {
         return {
