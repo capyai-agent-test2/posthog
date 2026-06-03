@@ -71,6 +71,7 @@ export function EventDetails({ event, tableProps }: EventDetailsProps): JSX.Elem
                                                 recordingStatus={properties.$recording_status}
                                                 timestamp={event.timestamp}
                                                 hasRecording={properties.$has_recording as boolean | undefined}
+                                                checkRecordingExists
                                                 size="small"
                                                 type="secondary"
                                                 openPlayerIn={RecordingPlayerType.NewTab}
