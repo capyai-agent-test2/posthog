@@ -3,7 +3,7 @@ import { OnboardingComponentsContext, createInstallation } from 'scenes/onboardi
 import { StepDefinition } from '../steps'
 
 export const getWebSteps = (ctx: OnboardingComponentsContext): StepDefinition[] => {
-    const { CodeBlock, Markdown, Tab, dedent, snippets } = ctx
+    const { CalloutBox, CodeBlock, Markdown, Tab, dedent, snippets } = ctx
 
     const JSEventCapture = snippets?.JSEventCapture
     const JSHtmlSnippet = snippets?.JSHtmlSnippet
@@ -69,6 +69,12 @@ export const getWebSteps = (ctx: OnboardingComponentsContext): StepDefinition[] 
                             </Tab.Panel>
                         </Tab.Panels>
                     </Tab.Group>
+                    <CalloutBox type="fyi" title="Content Security Policy">
+                        If your site uses a Content Security Policy, allow the exact `api_host` shown in the snippet in
+                        `connect-src`. For PostHog Cloud, that is usually `us.i.posthog.com` or `eu.i.posthog.com`. If
+                        you use the HTML snippet, also allow the matching `*-assets.i.posthog.com` host in `script-src`,
+                        or use a reverse proxy instead.
+                    </CalloutBox>
                 </>
             ),
         },
