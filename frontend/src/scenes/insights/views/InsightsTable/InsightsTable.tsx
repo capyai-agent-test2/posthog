@@ -106,9 +106,7 @@ export function InsightsTable({
         displayResults,
         savedSorting,
     } = useValues(insightsTableDataLogic(insightProps))
-    const { setDetailedResultsAggregationType, toggleColumnPin, setTableSorting } = useActions(
-        insightsTableDataLogic(insightProps)
-    )
+    const { setDetailedResultsAggregationType, toggleColumnPin } = useActions(insightsTableDataLogic(insightProps))
     const { weekStartDay, timezone, baseCurrency } = useValues(teamLogic)
     const [maxVisibleColumns, setMaxVisibleColumns] = useState(MAX_VALUE_COLUMNS)
 
@@ -510,7 +508,6 @@ export function InsightsTable({
                 savedSorting ?? (isMainInsightView && allowAggregation ? DEFAULT_TRENDS_TABLE_SORTING : null)
             }
             noSortingCancellation={isMainInsightView && allowAggregation}
-            onSort={isMainInsightView ? setTableSorting : undefined}
             useURLForSorting={!editMode}
             rowRibbonColor={
                 isLegend

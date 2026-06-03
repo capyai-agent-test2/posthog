@@ -1,4 +1,4 @@
-import { actions, connect, kea, key, listeners, path, props, reducers, selectors } from 'kea'
+import { actions, connect, kea, key, path, props, reducers, selectors } from 'kea'
 
 import type { Sorting } from 'lib/lemon-ui/LemonTable'
 import { insightVizDataLogic } from 'scenes/insights/insightVizDataLogic'
@@ -28,14 +28,6 @@ export function legacyOrderToSorting(order?: string | null): Sorting | null {
     return order.startsWith('-') ? { columnKey: order.slice(1), order: -1 } : { columnKey: order, order: 1 }
 }
 
-export function sortingToLegacyOrder(sorting: Sorting | null): string | undefined {
-    if (!sorting) {
-        return undefined
-    }
-
-    return `${sorting.order === -1 ? '-' : ''}${sorting.columnKey}`
-}
-
 export function compareResultKey(item: IndexedTrendResult): string {
     return JSON.stringify([item.action?.order ?? 0, item.label ?? '', item.breakdown_value ?? ''])
 }
@@ -52,17 +44,11 @@ export const insightsTableDataLogic = kea<insightsTableDataLogicType>([
             trendsDataLogic(props),
             ['indexedResults', 'compareFilter', 'trendsFilter'],
         ],
-        actions: [
-            insightVizDataLogic(props),
-            ['setDetailedResultsAggregationType'],
-            trendsDataLogic(props),
-            ['updateInsightFilter'],
-        ],
+        actions: [insightVizDataLogic(props), ['setDetailedResultsAggregationType']],
     })),
 
     actions({
         toggleColumnPin: (columnKey: string) => ({ columnKey }),
-        setTableSorting: (sorting: Sorting | null) => ({ sorting }),
     }),
 
     reducers({
@@ -158,10 +144,4 @@ export const insightsTableDataLogic = kea<insightsTableDataLogicType>([
             },
         ],
     }),
-
-    listeners(({ actions }) => ({
-        setTableSorting: ({ sorting }) => {
-            actions.updateInsightFilter({ order: sortingToLegacyOrder(sorting) } as TrendsTableFilterWithOrder)
-        },
-    })),
 ])

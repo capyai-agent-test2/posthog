@@ -23,7 +23,6 @@ import {
     DEFAULT_TRENDS_TABLE_SORTING,
     insightsTableDataLogic,
     legacyOrderToSorting,
-    sortingToLegacyOrder,
 } from './insightsTableDataLogic'
 
 describe('insightsTableDataLogic', () => {
@@ -149,28 +148,6 @@ describe('insightsTableDataLogic', () => {
                     savedSorting: DEFAULT_TRENDS_TABLE_SORTING,
                 })
             })
-
-            it('persists updated sorting back to the insight filter order', async () => {
-                const vizLogic = insightVizDataLogic(props)
-                vizLogic.mount()
-                vizLogic.actions.updateQuerySource({
-                    kind: NodeKind.TrendsQuery,
-                    series: [{ kind: NodeKind.EventsNode, event: '$pageview' }],
-                    trendsFilter: { display: ChartDisplayType.ActionsTable } as any,
-                })
-
-                await expectLogic(logic, () => {
-                    logic.actions.setTableSorting({ columnKey: 'label', order: 1 })
-                }).toFinishAllListeners()
-
-                expect((vizLogic.values.querySource as TrendsQuery).trendsFilter).toMatchObject({ order: 'label' })
-
-                await expectLogic(logic, () => {
-                    logic.actions.setTableSorting(null)
-                }).toFinishAllListeners()
-
-                expect((vizLogic.values.querySource as TrendsQuery).trendsFilter).toMatchObject({ order: undefined })
-            })
         })
     })
 
@@ -180,12 +157,10 @@ describe('insightsTableDataLogic', () => {
             ['label', { columnKey: 'label', order: 1 }],
         ])('maps %s to sorting', (legacyOrder, sorting) => {
             expect(legacyOrderToSorting(legacyOrder as string)).toEqual(sorting)
-            expect(sortingToLegacyOrder(sorting as { columnKey: string; order: 1 | -1 })).toEqual(legacyOrder)
         })
 
-        it('returns empty values when sorting is unset', () => {
+        it('returns null when sorting is unset', () => {
             expect(legacyOrderToSorting(undefined)).toBeNull()
-            expect(sortingToLegacyOrder(null)).toBeUndefined()
         })
     })
 
