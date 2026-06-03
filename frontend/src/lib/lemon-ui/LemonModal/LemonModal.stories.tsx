@@ -152,3 +152,21 @@ export const WithCustomContent: Story = {
         )
     },
 }
+
+export const WithoutHeader: Story = {
+    render: () => {
+        const [isOpen, setIsOpen] = useState(false)
+        return (
+            <>
+                <LemonButton type="primary" onClick={() => setIsOpen(true)}>
+                    Show upgrade-style modal
+                </LemonButton>
+                <LemonModal isOpen={isOpen} onClose={() => setIsOpen(false)}>
+                    <div className="max-w-md">
+                        This modal has no header, so the close button should no longer sit on top of the opening text.
+                    </div>
+                </LemonModal>
+            </>
+        )
+    },
+}

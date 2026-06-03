@@ -95,6 +95,10 @@
         &.LemonModal__content--embedded {
             padding: 0;
         }
+
+        &.LemonModal__content--close-spaced {
+            padding-right: 3rem;
+        }
     }
 
     .LemonModal__container {
