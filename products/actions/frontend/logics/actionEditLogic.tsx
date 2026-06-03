@@ -11,11 +11,14 @@ import { lemonToast } from 'lib/lemon-ui/LemonToast/LemonToast'
 import { Link } from 'lib/lemon-ui/Link'
 import { eventDefinitionsTableLogic } from 'scenes/data-management/events/eventDefinitionsTableLogic'
 import { sceneLogic } from 'scenes/sceneLogic'
+import { filterTestAccountsDefaultsLogic } from 'scenes/settings/environment/filterTestAccountDefaultsLogic'
 import { urls } from 'scenes/urls'
 
 import { deleteFromTree, getLastNewFolder, refreshTreeItem } from '~/layout/panel-layout/ProjectTree/projectTreeLogic'
 import { actionsModel } from '~/models/actionsModel'
 import { tagsModel } from '~/models/tagsModel'
+import { defaultDataTableColumns } from '~/queries/nodes/DataTable/utils'
+import { DataTableNode, NodeKind } from '~/queries/schema/schema-general'
 import { ActionStepType, ActionType } from '~/types'
 
 import type { ActionReferenceApi } from '../generated/api.schemas'
@@ -45,6 +48,58 @@ export const DEFAULT_ACTION_STEP: ActionStepType = {
     href_matching: 'contains',
 }
 
+function createMatchingEventsQuery(
+    id: number | undefined,
+    actionChanged: boolean,
+    steps: ActionStepType[] | undefined,
+    filterTestAccountsDefault: boolean
+): DataTableNode {
+    const source: Record<string, any> = {
+        kind: NodeKind.EventsQuery,
+        select: defaultDataTableColumns(NodeKind.EventsQuery),
+        after: '-24h',
+        filterTestAccounts: filterTestAccountsDefault,
+    }
+
+    if (id && !actionChanged) {
+        source.actionId = id
+    } else {
+        source.actionSteps = steps?.map(
+            ({
+                event,
+                properties,
+                selector,
+                tag_name,
+                text,
+                text_matching,
+                href,
+                href_matching,
+                url,
+                url_matching,
+            }) => ({
+                event,
+                properties,
+                selector,
+                tag_name,
+                text,
+                text_matching,
+                href,
+                href_matching,
+                url,
+                url_matching,
+            })
+        )
+    }
+
+    return {
+        kind: NodeKind.DataTableNode,
+        source,
+        full: true,
+        showEventFilter: false,
+        showPropertyFilter: false,
+    }
+}
+
 export const actionEditLogic = kea<actionEditLogicType>([
     path((key) => ['scenes', 'actions', 'actionEditLogic', key]),
     props({} as ActionEditLogicProps),
@@ -59,7 +114,10 @@ export const actionEditLogic = kea<actionEditLogicType>([
             ['loadEventDefinitions'],
             tagsModel,
             ['loadTags'],
+            filterTestAccountsDefaultsLogic,
+            ['setDefault', 'setTeamDefault', 'setLocalDefault'],
         ],
+        values: [filterTestAccountsDefaultsLogic, ['filterTestAccountsDefault']],
     })),
     actions({
         setAction: (action: Partial<ActionType>, options: SetActionProps = { merge: true }) => ({
@@ -72,6 +130,7 @@ export const actionEditLogic = kea<actionEditLogicType>([
         migrateToHogFunction: true,
         setReferencesSearch: (search: string) => ({ search }),
         setOriginalAction: (action: ActionType | null) => ({ action }),
+        setMatchingEventsQuery: (matchingEventsQuery: DataTableNode) => ({ matchingEventsQuery }),
     }),
     reducers(({ props }) => ({
         createNew: [
@@ -95,6 +154,12 @@ export const actionEditLogic = kea<actionEditLogicType>([
             (props.action ?? null) as ActionType | null,
             {
                 setOriginalAction: (_, { action }) => action,
+            },
+        ],
+        matchingEventsQuery: [
+            null as DataTableNode | null,
+            {
+                setMatchingEventsQuery: (_, { matchingEventsQuery }) => matchingEventsQuery,
             },
         ],
     })),
@@ -180,6 +245,11 @@ export const actionEditLogic = kea<actionEditLogicType>([
     })),
 
     selectors({
+        defaultMatchingEventsQuery: [
+            (s) => [s.action, s.actionChanged, (_, props) => props.id, s.filterTestAccountsDefault],
+            (action, actionChanged, id, filterTestAccountsDefault): DataTableNode =>
+                createMatchingEventsQuery(id, actionChanged, action?.steps, filterTestAccountsDefault),
+        ],
         hasCohortFilters: [
             (s) => [s.action],
             (action) =>
@@ -262,9 +332,30 @@ export const actionEditLogic = kea<actionEditLogicType>([
                 }
             })
         },
+        setAction: () => {
+            actions.setMatchingEventsQuery(values.defaultMatchingEventsQuery)
+        },
+        setActionValue: ({ name }) => {
+            if (name === 'steps') {
+                actions.setMatchingEventsQuery(values.defaultMatchingEventsQuery)
+            }
+        },
+        resetAction: () => {
+            actions.setMatchingEventsQuery(values.defaultMatchingEventsQuery)
+        },
+        setDefault: () => {
+            actions.setMatchingEventsQuery(values.defaultMatchingEventsQuery)
+        },
+        setTeamDefault: () => {
+            actions.setMatchingEventsQuery(values.defaultMatchingEventsQuery)
+        },
+        setLocalDefault: () => {
+            actions.setMatchingEventsQuery(values.defaultMatchingEventsQuery)
+        },
     })),
 
-    afterMount(({ actions, props }) => {
+    afterMount(({ actions, props, values }) => {
+        actions.setMatchingEventsQuery(values.defaultMatchingEventsQuery)
         if (!props.id) {
             actions.setActionValue('steps', [{ ...DEFAULT_ACTION_STEP }])
         } else {
