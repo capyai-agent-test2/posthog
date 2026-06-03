@@ -48,6 +48,7 @@ from posthog.hogql.constants import LimitContext
 from posthog.hogql.query import execute_hogql_query
 
 from posthog.clickhouse.client.execute import sync_execute
+from posthog.hogql.parser import parse_select
 from posthog.hogql_queries.query_runner import get_query_runner
 from posthog.models.group.util import create_group
 from posthog.settings import HOGQL_INCREASED_MAX_EXECUTION_TIME
@@ -56,7 +57,10 @@ from posthog.test.test_utils import create_group_type_mapping_without_created_at
 from products.actions.backend.models.action import Action
 from products.data_warehouse.backend.test.utils import create_data_warehouse_table_from_csv
 from products.event_definitions.backend.models.property_definition import PropertyDefinition
-from products.product_analytics.backend.hogql_queries.stickiness.stickiness_query_runner import StickinessQueryRunner
+from products.product_analytics.backend.hogql_queries.stickiness.stickiness_query_runner import (
+    SeriesWithExtras,
+    StickinessQueryRunner,
+)
 
 TEST_BUCKET = "test_storage_bucket-posthog.hogql.datawarehouse.stickinessquery"
 
@@ -1349,3 +1353,45 @@ class TestStickinessQueryRunner(ClickhouseTestMixin, APIBaseTest):
             team=self.team,
         )
         self.assertEqual(len(response.results), 2)  # p2 and p3 were active for <= 2 days
+
+
+def test_actor_query_with_compare_filter_respects_selected_period():
+    runner = StickinessQueryRunner.__new__(StickinessQueryRunner)
+    runner.query = MagicMock(stickinessFilter=None)
+
+    current_series = SeriesWithExtras(
+        series=MagicMock(math="total", math_hogql=None, math_group_type_index=None),
+        series_order=0,
+        is_previous_period_series=False,
+    )
+    previous_series = SeriesWithExtras(
+        series=MagicMock(math="total", math_hogql=None, math_group_type_index=None),
+        series_order=0,
+        is_previous_period_series=True,
+    )
+    runner.series = [current_series, previous_series]
+
+    runner._events_query = MagicMock(side_effect=[parse_select("SELECT 1"), parse_select("SELECT 2")])
+    runner.to_actors_query(compare_value="current")
+    runner._events_query.assert_called_once_with(current_series)
+
+    runner._events_query.reset_mock(side_effect=True)
+    runner._events_query.side_effect = [parse_select("SELECT 1"), parse_select("SELECT 2")]
+    runner.to_actors_query(compare_value="previous")
+    runner._events_query.assert_called_once_with(previous_series)
+
+
+def test_actor_query_compare_value_does_not_filter_non_compare_series():
+    runner = StickinessQueryRunner.__new__(StickinessQueryRunner)
+    runner.query = MagicMock(stickinessFilter=None)
+
+    series = SeriesWithExtras(
+        series=MagicMock(math="total", math_hogql=None, math_group_type_index=None),
+        series_order=0,
+        is_previous_period_series=None,
+    )
+    runner.series = [series]
+
+    runner._events_query = MagicMock(return_value=parse_select("SELECT 1"))
+    runner.to_actors_query(compare_value="current")
+    runner._events_query.assert_called_once_with(series)

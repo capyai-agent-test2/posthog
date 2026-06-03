@@ -8,6 +8,7 @@ from django.utils.timezone import now
 from posthog.schema import (
     ActionsNode,
     CachedStickinessQueryResponse,
+    Compare,
     DataWarehouseEventsModifier,
     DataWarehouseNode,
     EventsNode,
@@ -265,11 +266,22 @@ class StickinessQueryRunner(AnalyticsQueryRunner[StickinessQueryResponse]):
         return queries
 
     def to_actors_query(
-        self, interval_num: Optional[int] = None, operator: Optional[str] = None
+        self,
+        interval_num: Optional[int] = None,
+        operator: Optional[str] = None,
+        compare_value: Optional[Compare] = None,
     ) -> ast.SelectQuery | ast.SelectSetQuery:
         queries: list[ast.SelectQuery] = []
 
-        for series in self.series:
+        series_to_query = self.series
+        has_compare_tagged_series = any(series.is_previous_period_series is not None for series in self.series)
+        if compare_value is not None and has_compare_tagged_series:
+            is_previous_period_series = compare_value == "previous"
+            series_to_query = [
+                series for series in self.series if series.is_previous_period_series == is_previous_period_series
+            ]
+
+        for series in series_to_query:
             events_query = self._events_query(series)
             aggregation_alias = "actor_id"
             if series.series.math == "hogql" and series.series.math_hogql is not None:
