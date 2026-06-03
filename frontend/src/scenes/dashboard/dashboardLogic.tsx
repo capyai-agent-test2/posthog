@@ -110,6 +110,8 @@ import {
     getDashboardWidgetType,
     getInsightWithRetry,
     layoutsByTile,
+    normalizeDashboardFilterOverride,
+    normalizeDashboardVariablesOverride,
     parseURLFilters,
     parseURLVariables,
     runWithLimit,
@@ -408,7 +410,11 @@ export const dashboardLogic = kea<dashboardLogicType>([
                     await breakpoint(200)
 
                     try {
-                        const apiUrl = values.apiUrl('force_cache', values.filtersOverrideForLoad, values.urlVariables)
+                        const apiUrl = values.apiUrl(
+                            'force_cache',
+                            normalizeDashboardFilterOverride(values.filtersOverrideForLoad),
+                            normalizeDashboardVariablesOverride(values.urlVariables)
+                        )
                         const dashboardResponse: Response = await api.getResponse(apiUrl)
                         const dashboard: DashboardType<InsightModel> | null = await getJSONOrNull(dashboardResponse)
 
@@ -435,8 +441,8 @@ export const dashboardLogic = kea<dashboardLogicType>([
                         props.id,
                         {
                             layoutSize: values.currentLayoutSize,
-                            filtersOverride: values.filtersOverrideForLoad,
-                            variablesOverride: values.urlVariables,
+                            filtersOverride: normalizeDashboardFilterOverride(values.filtersOverrideForLoad),
+                            variablesOverride: normalizeDashboardVariablesOverride(values.urlVariables),
                         },
                         // onMessage callback - handles both metadata and tiles
                         (data) => {
@@ -1473,13 +1479,17 @@ export const dashboardLogic = kea<dashboardLogicType>([
                     filtersOverride?: DashboardFilter,
                     variablesOverride?: Record<string, HogQLVariable>,
                     layoutSize?: 'sm' | 'xs'
-                ) =>
-                    `api/environments/${teamLogic.values.currentTeamId}/dashboards/${id}/?${toParams({
+                ) => {
+                    const normalizedFiltersOverride = normalizeDashboardFilterOverride(filtersOverride)
+                    const normalizedVariablesOverride = normalizeDashboardVariablesOverride(variablesOverride)
+
+                    return `api/environments/${teamLogic.values.currentTeamId}/dashboards/${id}/?${toParams({
                         refresh,
-                        filters_override: filtersOverride,
-                        variables_override: variablesOverride,
+                        filters_override: normalizedFiltersOverride,
+                        variables_override: normalizedVariablesOverride,
                         layout_size: layoutSize,
                     })}`
+                }
             },
         ],
         currentLayoutSize: [

@@ -1,8 +1,10 @@
+import api from 'lib/api'
 import { dayjs } from 'lib/dayjs'
 
 import { DashboardPlacement, DashboardTile, QueryBasedInsightModel } from '~/types'
 
 import {
+    getInsightWithRetry,
     getDashboardTileDisplayName,
     isWidgetTileVisibleOnPlacement,
     parseURLFilters,
@@ -126,5 +128,40 @@ describe('shouldSharedDashboardAutoForceForStaleTime', () => {
         ])('when %s, returns expected result', (_, isoTime, expected) => {
             expect(shouldSharedDashboardAutoForceForStaleTime(dayjs(isoTime))).toBe(expected)
         })
+    })
+})
+
+describe('getInsightWithRetry', () => {
+    const insight = {
+        id: 1,
+        short_id: 'abc123',
+        name: 'Test insight',
+    } as QueryBasedInsightModel
+
+    it('omits empty dashboard, tile, and variable overrides from the request URL', async () => {
+        const error = new Error('boom')
+        const getResponseSpy = jest.spyOn(api, 'getResponse').mockRejectedValue(error)
+
+        await expect(
+            getInsightWithRetry(
+                1,
+                insight,
+                7,
+                'query-id',
+                'blocking',
+                undefined,
+                { date_from: null, date_to: null, explicitDate: false },
+                {},
+                { date_from: null, date_to: null, explicitDate: false },
+                1,
+                0
+            )
+        ).rejects.toThrow(error)
+
+        expect(getResponseSpy).toHaveBeenCalledTimes(1)
+        const [url] = getResponseSpy.mock.calls[0]
+        expect(url).not.toContain('filters_override=')
+        expect(url).not.toContain('variables_override=')
+        expect(url).not.toContain('tile_filters_override=')
     })
 })
