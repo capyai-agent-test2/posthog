@@ -71,52 +71,54 @@ export function PlayerSidebar(): JSX.Element {
                       : { width: desiredSize ?? undefined }
             }
         >
-            <Resizer
-                logicKey={logicKey}
-                placement={sidebarOpen && isVerticallyStacked ? 'top' : 'left'}
-                containerRef={ref}
-                closeThreshold={100}
-                offset="0.25rem"
-            />
             {sidebarOpen && (
-                <div className="SessionRecordingPlayer__sidebar__content">
-                    <div className="flex bg-surface-primary pt-[1px]">
-                        <div className="w-2.5 border-b shrink-0" />
-                        <LemonTabs
-                            activeKey={activeTab}
-                            onChange={(tabId) => setTab(tabId)}
-                            tabs={sidebarTabs.map((tabId) => ({
-                                key: tabId,
-                                label: capitalizeFirstLetter(splitKebabCase(tabId)),
-                            }))}
-                            barClassName="!mb-0"
-                            size="small"
-                            className="overflow-x-auto hide-scrollbar"
-                        />
-                        <div className="flex flex-1 border-b shrink-0" />
-                        <div className="flex gap-1 border-b end">
-                            <LemonButton
+                <>
+                    <Resizer
+                        logicKey={logicKey}
+                        placement={isVerticallyStacked ? 'top' : 'left'}
+                        containerRef={ref}
+                        closeThreshold={100}
+                        offset="0.25rem"
+                    />
+                    <div className="SessionRecordingPlayer__sidebar__content">
+                        <div className="flex bg-surface-primary pt-[1px]">
+                            <div className="w-2.5 border-b shrink-0" />
+                            <LemonTabs
+                                activeKey={activeTab}
+                                onChange={(tabId) => setTab(tabId)}
+                                tabs={sidebarTabs.map((tabId) => ({
+                                    key: tabId,
+                                    label: capitalizeFirstLetter(splitKebabCase(tabId)),
+                                }))}
+                                barClassName="!mb-0"
                                 size="small"
-                                icon={isVerticallyStacked ? <IconSidePanel /> : <IconBottomPanel />}
-                                onClick={() =>
-                                    setPreferredSidebarStacking(
-                                        preferredSidebarStacking === SessionRecordingSidebarStacking.Vertical
-                                            ? SessionRecordingSidebarStacking.Horizontal
-                                            : SessionRecordingSidebarStacking.Vertical
-                                    )
-                                }
-                                tooltip={`Dock to ${isVerticallyStacked ? 'right' : 'bottom'}`}
+                                className="overflow-x-auto hide-scrollbar"
                             />
-                            <LemonButton
-                                size="small"
-                                icon={<IconX />}
-                                onClick={() => setSidebarOpen(false)}
-                                tooltip="Close sidebar"
-                            />
+                            <div className="flex flex-1 border-b shrink-0" />
+                            <div className="flex gap-1 border-b end">
+                                <LemonButton
+                                    size="small"
+                                    icon={isVerticallyStacked ? <IconSidePanel /> : <IconBottomPanel />}
+                                    onClick={() =>
+                                        setPreferredSidebarStacking(
+                                            preferredSidebarStacking === SessionRecordingSidebarStacking.Vertical
+                                                ? SessionRecordingSidebarStacking.Horizontal
+                                                : SessionRecordingSidebarStacking.Vertical
+                                        )
+                                    }
+                                    tooltip={`Dock to ${isVerticallyStacked ? 'right' : 'bottom'}`}
+                                />
+                                <LemonButton
+                                    size="small"
+                                    icon={<IconX />}
+                                    onClick={() => setSidebarOpen(false)}
+                                    tooltip="Close sidebar"
+                                />
+                            </div>
                         </div>
+                        <PlayerSidebarTab />
                     </div>
-                    <PlayerSidebarTab />
-                </div>
+                </>
             )}
         </div>
     )
