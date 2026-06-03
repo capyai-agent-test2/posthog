@@ -352,4 +352,25 @@ describe('LemonInputSelect', () => {
         const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1]
         expect(lastCall[0]).toContain('alice@example.com')
     })
+
+    it('multiple-select mode: pressing enter while searching adds the typed match instead of removing an existing custom value', async () => {
+        const onChange = jest.fn()
+
+        const { container } = render(
+            <LemonInputSelect<string>
+                mode="multiple"
+                options={[{ key: '.hero .cta', label: '.hero .cta' }]}
+                value={['#nav .cta']}
+                onChange={onChange}
+                allowCustomValues
+            />
+        )
+
+        const input = await openDropdown(container)
+
+        await userEvent.type(input, '.hero .cta{Enter}')
+
+        const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1]
+        expect(lastCall[0]).toEqual(['#nav .cta', '.hero .cta'])
+    })
 })

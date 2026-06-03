@@ -300,7 +300,11 @@ export function LemonInputSelect<T = string>({
     const valuesKey = JSON.stringify(stringKeys)
     const allOptionsMap: Map<string, LemonInputSelectOption<T>> = useMemo(() => {
         // Custom values are values that are not in the options list - O(n) instead of O(n×m)
-        const customValues = stringKeys.filter((key) => !optionMaps.keySet.has(key))
+        // When searching in multiple mode, don't re-insert already-selected custom values into the
+        // result list. They're already visible as snacks and can otherwise steal Enter from the value
+        // the user is actively trying to add.
+        const customValues =
+            mode === 'multiple' && inputValue ? [] : stringKeys.filter((key) => !optionMaps.keySet.has(key))
         // Custom values are shown as options before other options (Map guarantees preserves insertion order)
         const allOptionsMap = new Map<string, LemonInputSelectOption<T>>()
         for (const customValue of customValues) {
@@ -314,7 +318,7 @@ export function LemonInputSelect<T = string>({
         // The below is a side effect (boo!) - but it's fine, since it's idempotent
         fuseRef.current.setCollection(Array.from(allOptionsMap.values()))
         return allOptionsMap
-    }, [optionsKey, valuesKey, optionMaps, options, stringKeys])
+    }, [inputValue, mode, optionsKey, valuesKey, optionMaps, options, stringKeys])
 
     const visibleOptions = useMemo(() => {
         const ret: LemonInputSelectOption<T>[] = []
