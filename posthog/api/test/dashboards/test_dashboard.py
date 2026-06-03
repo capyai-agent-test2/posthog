@@ -1840,6 +1840,27 @@ class TestDashboard(APIBaseTest, QueryMatchingTest):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json()["quick_filter_ids"], [str(qf1.id), str(qf2.id)])
 
+    def test_dashboard_patch_empty_filters_clears_persisted_date_override(self):
+        dashboard = Dashboard.objects.create(
+            team=self.team,
+            name="dashboard with date override",
+            created_by=self.user,
+            filters={"date_from": "-30d"},
+        )
+
+        response = self.client.patch(
+            f"/api/environments/{self.team.id}/dashboards/{dashboard.id}/",
+            {"filters": {}},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["filters"], {})
+        self.assertIsNone(response.json()["persisted_filters"])
+
+        dashboard.refresh_from_db()
+        self.assertEqual(dashboard.filters, {})
+
     def test_return_cached_results_dashboard_has_filters(self):
         # create a dashboard with two 7-day insights
         query_7d = TrendsQuery(
