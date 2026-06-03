@@ -17,7 +17,14 @@ import {
     PropertyMathType,
 } from '~/types'
 
-import { AggregationType, compareResultKey, insightsTableDataLogic } from './insightsTableDataLogic'
+import {
+    AggregationType,
+    compareResultKey,
+    DEFAULT_TRENDS_TABLE_SORTING,
+    insightsTableDataLogic,
+    legacyOrderToSorting,
+    sortingToLegacyOrder,
+} from './insightsTableDataLogic'
 
 describe('insightsTableDataLogic', () => {
     let logic: ReturnType<typeof insightsTableDataLogic.build>
@@ -126,6 +133,59 @@ describe('insightsTableDataLogic', () => {
                     aggregation: AggregationType.Median,
                 })
             })
+        })
+
+        describe('savedSorting', () => {
+            it('maps legacy descending count order to table sorting', async () => {
+                const query: TrendsQuery = {
+                    kind: NodeKind.TrendsQuery,
+                    series: [{ kind: NodeKind.EventsNode, event: '$pageview', math: BaseMathType.TotalCount }],
+                    trendsFilter: { display: ChartDisplayType.ActionsTable, order: '-count' } as any,
+                }
+
+                insightVizDataLogic(props).actions.updateQuerySource(query)
+
+                await expectLogic(logic).toMatchValues({
+                    savedSorting: DEFAULT_TRENDS_TABLE_SORTING,
+                })
+            })
+
+            it('persists updated sorting back to the insight filter order', async () => {
+                const vizLogic = insightVizDataLogic(props)
+                vizLogic.mount()
+                vizLogic.actions.updateQuerySource({
+                    kind: NodeKind.TrendsQuery,
+                    series: [{ kind: NodeKind.EventsNode, event: '$pageview' }],
+                    trendsFilter: { display: ChartDisplayType.ActionsTable } as any,
+                })
+
+                await expectLogic(logic, () => {
+                    logic.actions.setTableSorting({ columnKey: 'label', order: 1 })
+                }).toFinishAllListeners()
+
+                expect((vizLogic.values.querySource as TrendsQuery).trendsFilter).toMatchObject({ order: 'label' })
+
+                await expectLogic(logic, () => {
+                    logic.actions.setTableSorting(null)
+                }).toFinishAllListeners()
+
+                expect((vizLogic.values.querySource as TrendsQuery).trendsFilter).toMatchObject({ order: undefined })
+            })
+        })
+    })
+
+    describe('sorting helpers', () => {
+        it.each([
+            ['-count', { columnKey: 'count', order: -1 }],
+            ['label', { columnKey: 'label', order: 1 }],
+        ])('maps %s to sorting', (legacyOrder, sorting) => {
+            expect(legacyOrderToSorting(legacyOrder as string)).toEqual(sorting)
+            expect(sortingToLegacyOrder(sorting as { columnKey: string; order: 1 | -1 })).toEqual(legacyOrder)
+        })
+
+        it('returns empty values when sorting is unset', () => {
+            expect(legacyOrderToSorting(undefined)).toBeNull()
+            expect(sortingToLegacyOrder(null)).toBeUndefined()
         })
     })
 

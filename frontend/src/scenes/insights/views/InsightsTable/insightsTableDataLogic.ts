@@ -1,11 +1,12 @@
-import { actions, connect, kea, key, path, props, reducers, selectors } from 'kea'
+import { actions, connect, kea, key, listeners, path, props, reducers, selectors } from 'kea'
 
+import type { Sorting } from 'lib/lemon-ui/LemonTable'
 import { insightVizDataLogic } from 'scenes/insights/insightVizDataLogic'
 import { keyForInsightLogicProps } from 'scenes/insights/sharedUtils'
 import { trendsDataLogic } from 'scenes/trends/trendsDataLogic'
 import { IndexedTrendResult } from 'scenes/trends/types'
 
-import { ChartDisplayType, CompareLabelType, InsightLogicProps } from '~/types'
+import { ChartDisplayType, CompareLabelType, InsightLogicProps, TrendsFilterType } from '~/types'
 
 import type { insightsTableDataLogicType } from './insightsTableDataLogicType'
 
@@ -13,6 +14,26 @@ export enum AggregationType {
     Total = 'total',
     Average = 'average',
     Median = 'median',
+}
+
+type TrendsTableFilterWithOrder = TrendsFilterType & { order?: string | null }
+
+export const DEFAULT_TRENDS_TABLE_SORTING: Sorting = { columnKey: 'count', order: -1 }
+
+export function legacyOrderToSorting(order?: string | null): Sorting | null {
+    if (!order) {
+        return null
+    }
+
+    return order.startsWith('-') ? { columnKey: order.slice(1), order: -1 } : { columnKey: order, order: 1 }
+}
+
+export function sortingToLegacyOrder(sorting: Sorting | null): string | undefined {
+    if (!sorting) {
+        return undefined
+    }
+
+    return `${sorting.order === -1 ? '-' : ''}${sorting.columnKey}`
 }
 
 export function compareResultKey(item: IndexedTrendResult): string {
@@ -29,13 +50,19 @@ export const insightsTableDataLogic = kea<insightsTableDataLogicType>([
             insightVizDataLogic(props),
             ['isTrends', 'display', 'series', 'detailedResultsAggregationType as persistedAggregationType'],
             trendsDataLogic(props),
-            ['indexedResults', 'compareFilter'],
+            ['indexedResults', 'compareFilter', 'trendsFilter'],
         ],
-        actions: [insightVizDataLogic(props), ['setDetailedResultsAggregationType']],
+        actions: [
+            insightVizDataLogic(props),
+            ['setDetailedResultsAggregationType'],
+            trendsDataLogic(props),
+            ['updateInsightFilter'],
+        ],
     })),
 
     actions({
         toggleColumnPin: (columnKey: string) => ({ columnKey }),
+        setTableSorting: (sorting: Sorting | null) => ({ sorting }),
     }),
 
     reducers({
@@ -116,6 +143,11 @@ export const insightsTableDataLogic = kea<insightsTableDataLogicType>([
                     return previousResultMap.get(compareResultKey(item))
                 },
         ],
+        savedSorting: [
+            (s) => [s.trendsFilter],
+            (trendsFilter): Sorting | null =>
+                legacyOrderToSorting((trendsFilter as TrendsTableFilterWithOrder | null)?.order),
+        ],
         displayResults: [
             (s) => [s.compareFilter, s.indexedResults],
             (compareFilter, indexedResults): IndexedTrendResult[] => {
@@ -126,4 +158,10 @@ export const insightsTableDataLogic = kea<insightsTableDataLogicType>([
             },
         ],
     }),
+
+    listeners(({ actions }) => ({
+        setTableSorting: ({ sorting }) => {
+            actions.updateInsightFilter({ order: sortingToLegacyOrder(sorting) } as TrendsTableFilterWithOrder)
+        },
+    })),
 ])
