@@ -1,6 +1,7 @@
 import json
 from datetime import timedelta
 from functools import wraps
+from pathlib import Path
 from urllib.parse import quote
 
 from freezegun import freeze_time
@@ -25,6 +26,13 @@ from posthog.models.user import User
 
 from products.dashboards.backend.models.dashboard import Dashboard
 from products.product_analytics.backend.models.insight import Insight
+
+
+def test_exporter_template_declares_charset_before_embedded_export_data() -> None:
+    template_path = Path(__file__).parents[3] / "frontend" / "src" / "exporter" / "index.html"
+    template = template_path.read_text(encoding="utf-8")
+
+    assert template.index('{% include "head.html" %}') < template.index("posthog-exported-data")
 
 
 def mock_exporter_template(test_func):
