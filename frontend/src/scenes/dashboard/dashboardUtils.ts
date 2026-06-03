@@ -6,7 +6,7 @@ import { getDashboardWidgetCatalogEntry } from '@posthog/products-dashboards/fro
 import api, { ApiMethodOptions, getJSONOrNull } from 'lib/api'
 import type { Dayjs } from 'lib/dayjs'
 import { currentSessionId } from 'lib/internalMetrics'
-import { objectClean, shouldCancelQuery, toParams } from 'lib/utils'
+import { isEmptyObject, objectClean, shouldCancelQuery, toParams } from 'lib/utils'
 import { accessLevelSatisfied } from 'lib/utils/accessControlUtils'
 
 import { getQueryBasedInsightModel } from '~/queries/nodes/InsightViz/utils'
@@ -27,6 +27,7 @@ import {
 } from '~/types'
 
 import { SHARED_DASHBOARD_AUTO_FORCE_IF_STALE_MINUTES } from './dashboardConstants'
+import { isDashboardFilterEmpty } from './dashboardFilterEmpty'
 
 /** Shape used for staff JSON export, customer save-as-template, and API `create_from_template_json`. */
 export function dashboardToSaveableTemplate(
@@ -266,6 +267,9 @@ export async function getInsightWithRetry(
     }
 
     let attempt = 0
+    const normalizedFiltersOverride = normalizeDashboardFilterOverride(filtersOverride)
+    const normalizedVariablesOverride = normalizeDashboardVariablesOverride(variablesOverride)
+    const normalizedTileFiltersOverride = normalizeDashboardFilterOverride(tileFiltersOverride)
 
     while (attempt < maxAttempts) {
         try {
@@ -274,9 +278,9 @@ export async function getInsightWithRetry(
                 from_dashboard: dashboardId, // needed to load insight in correct context
                 client_query_id: queryId,
                 session_id: currentSessionId(),
-                ...(filtersOverride ? { filters_override: filtersOverride } : {}),
-                ...(variablesOverride ? { variables_override: variablesOverride } : {}),
-                ...(tileFiltersOverride ? { tile_filters_override: tileFiltersOverride } : {}),
+                ...(normalizedFiltersOverride ? { filters_override: normalizedFiltersOverride } : {}),
+                ...(normalizedVariablesOverride ? { variables_override: normalizedVariablesOverride } : {}),
+                ...(normalizedTileFiltersOverride ? { tile_filters_override: normalizedTileFiltersOverride } : {}),
             })}`
             const insightResponse: Response = await api.getResponse(apiUrl, methodOptions)
             const legacyInsight: InsightModel | null = await getJSONOrNull(insightResponse)
@@ -293,9 +297,11 @@ export async function getInsightWithRetry(
                             from_dashboard: dashboardId,
                             client_query_id: queryId,
                             session_id: currentSessionId(),
-                            ...(filtersOverride ? { filters_override: filtersOverride } : {}),
-                            ...(variablesOverride ? { variables_override: variablesOverride } : {}),
-                            ...(tileFiltersOverride ? { tile_filters_override: tileFiltersOverride } : {}),
+                            ...(normalizedFiltersOverride ? { filters_override: normalizedFiltersOverride } : {}),
+                            ...(normalizedVariablesOverride ? { variables_override: normalizedVariablesOverride } : {}),
+                            ...(normalizedTileFiltersOverride
+                                ? { tile_filters_override: normalizedTileFiltersOverride }
+                                : {}),
                         })}`
                         // The async call returns an insight with a query_status object
                         const insightResponse = await api.get(asyncApiUrl, methodOptions)
@@ -308,9 +314,15 @@ export async function getInsightWithRetry(
                                     from_dashboard: dashboardId,
                                     client_query_id: queryId,
                                     session_id: currentSessionId(),
-                                    ...(filtersOverride ? { filters_override: filtersOverride } : {}),
-                                    ...(variablesOverride ? { variables_override: variablesOverride } : {}),
-                                    ...(tileFiltersOverride ? { tile_filters_override: tileFiltersOverride } : {}),
+                                    ...(normalizedFiltersOverride
+                                        ? { filters_override: normalizedFiltersOverride }
+                                        : {}),
+                                    ...(normalizedVariablesOverride
+                                        ? { variables_override: normalizedVariablesOverride }
+                                        : {}),
+                                    ...(normalizedTileFiltersOverride
+                                        ? { tile_filters_override: normalizedTileFiltersOverride }
+                                        : {}),
                                 })}`
                                 const refreshedInsightResponse: Response = await api.getResponse(
                                     cacheUrl,
@@ -436,4 +448,16 @@ export function combineDashboardFilters(...filters: DashboardFilter[]): Dashboar
         })
         return combined
     }, {} as DashboardFilter)
+}
+
+export function normalizeDashboardFilterOverride<T extends DashboardFilter | TileFilters>(
+    filter: T | null | undefined
+): T | undefined {
+    return filter && !isDashboardFilterEmpty(filter) ? filter : undefined
+}
+
+export function normalizeDashboardVariablesOverride(
+    variables: Record<string, HogQLVariable> | null | undefined
+): Record<string, HogQLVariable> | undefined {
+    return variables && !isEmptyObject(variables) ? variables : undefined
 }

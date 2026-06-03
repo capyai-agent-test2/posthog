@@ -415,6 +415,23 @@ describe('dashboardLogic', () => {
             )
         })
 
+        it('omits empty filter and variable overrides from the dashboard load URL', async () => {
+            await expectLogic(logic).toFinishAllListeners()
+
+            await expectLogic(logic, () => {
+                logic.actions.setDates(null, null, false)
+            }).toFinishAllListeners()
+
+            const url = logic.values.apiUrl(
+                'force_cache',
+                logic.values.effectiveEditBarFilters,
+                {} as Record<string, HogQLVariable>
+            )
+
+            expect(url).not.toContain('filters_override=')
+            expect(url).not.toContain('variables_override=')
+        })
+
         it('dashboard save after changing global dates runs tile refresh to repopulate insight results missing from PATCH', async () => {
             await expectLogic(logic).toFinishAllListeners()
 
