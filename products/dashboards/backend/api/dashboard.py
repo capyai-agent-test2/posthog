@@ -27,7 +27,7 @@ import pydantic_core
 import posthoganalytics
 from asgiref.sync import sync_to_async
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema, extend_schema_view
 from opentelemetry import trace
 from pydantic import BaseModel
 from rest_framework import exceptions, serializers, status, viewsets
@@ -1721,6 +1721,37 @@ class DashboardSerializer(DashboardMetadataSerializer):
 
 
 @extend_schema_view(
+    create=extend_schema(
+        description=(
+            "Create an empty dashboard. Add tiles after creation with the dashboard tile endpoints, "
+            "or use `create_from_template_json` to create a dashboard and insight tiles in one request."
+        ),
+        examples=[
+            OpenApiExample(
+                "Create a dashboard",
+                description="Creates an empty dashboard. Use the returned `id` in later tile requests.",
+                value={"name": "Weekly product metrics", "description": "Activation and retention trends"},
+                request_only=True,
+            ),
+        ],
+    ),
+    partial_update=extend_schema(
+        examples=[
+            OpenApiExample(
+                "Add a text tile",
+                description="Adds a markdown text tile to an existing dashboard.",
+                value={
+                    "tiles": [
+                        {
+                            "text": {"body": "## Activation"},
+                            "layouts": {"sm": {"x": 0, "y": 0, "w": 12, "h": 1}},
+                        }
+                    ]
+                },
+                request_only=True,
+            ),
+        ],
+    ),
     list=extend_schema(
         parameters=[
             OpenApiParameter(
@@ -2769,6 +2800,43 @@ class DashboardsViewSet(
             logger.warning("dashboard_run_insights_format_failed", exc_info=True, insight_id=insight.id)
             return None
 
+    @extend_schema(
+        request=OpenApiTypes.OBJECT,
+        responses={200: DashboardSerializer},
+        examples=[
+            OpenApiExample(
+                "Create dashboard with an insight tile",
+                description=(
+                    "Creates a dashboard and adds a trends insight tile in one request. "
+                    "Replace `PROJECT_ID` in the URL path with your project ID."
+                ),
+                value={
+                    "template": {
+                        "template_name": "Weekly product metrics",
+                        "dashboard_description": "Activation and retention trends",
+                        "dashboard_filters": {"date_from": "-7d"},
+                        "tiles": [
+                            {
+                                "name": "Pageviews",
+                                "type": "INSIGHT",
+                                "filters": {
+                                    "insight": "TRENDS",
+                                    "events": [{"id": "$pageview", "type": "events"}],
+                                    "date_from": "-7d",
+                                },
+                                "layouts": {
+                                    "sm": {"x": 0, "y": 0, "w": 6, "h": 5},
+                                    "xs": {"x": 0, "y": 0, "w": 1, "h": 5},
+                                },
+                            }
+                        ],
+                        "variables": [],
+                    }
+                },
+                request_only=True,
+            ),
+        ],
+    )
     @action(
         methods=["POST"],
         detail=False,
