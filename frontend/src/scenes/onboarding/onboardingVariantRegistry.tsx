@@ -1,13 +1,21 @@
 import { useValues } from 'kea'
+import { router } from 'kea-router'
+import { Error404 } from 'layout/Error404'
 
 import { ProductSelection } from 'scenes/onboarding/productSelection/ProductSelection'
 
 import { OnboardingFlowHost } from './OnboardingFlowHost'
 import { onboardingLogic } from './onboardingLogic'
+import { isInvalidOnboardingPath } from './onboardingPathUtils'
 
 /** Control = the entire existing (legacy) onboarding flow (product selection + step host). */
 function LegacyOnboarding(): JSX.Element | null {
     const { productKey } = useValues(onboardingLogic)
+    const { location } = useValues(router)
+
+    if (isInvalidOnboardingPath(location.pathname, productKey)) {
+        return <Error404 />
+    }
 
     if (!productKey) {
         return <ProductSelection />
