@@ -14,7 +14,7 @@ export interface Response {
 export const fixSQLErrorsLogic = kea<fixSQLErrorsLogicType>([
     path(['scenes', 'data-warehouse', 'editor', 'fixSQLErrorsLogic']),
     actions({
-        fixErrors: (query: string, error?: string) => ({ query, error }),
+        fixErrors: (query: string, error?: string, tabUri?: string) => ({ query, error, tabUri }),
     }),
     loaders({
         response: [

@@ -832,7 +832,11 @@ export const sqlEditorLogic = kea<sqlEditorLogicType>([
         }
 
         return {
-            fixErrorsSuccess: ({ response }) => {
+            fixErrorsSuccess: ({ response, payload }) => {
+                if (payload?.tabUri && payload.tabUri !== values.activeTab?.uri.toString()) {
+                    return
+                }
+
                 actions.setSuggestedQueryInput(response.query, 'hogql_fixer')
 
                 posthog.capture('ai-error-fixer-success', {

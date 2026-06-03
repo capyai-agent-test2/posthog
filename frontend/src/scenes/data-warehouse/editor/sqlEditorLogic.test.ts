@@ -20,6 +20,7 @@ import { initKeaTests } from '~/test/init'
 import { ChartDisplayType, InsightShortId, QueryBasedInsightModel } from '~/types'
 
 import { editorSceneLogic } from './editorSceneLogic'
+import { fixSQLErrorsLogic } from './fixSQLErrorsLogic'
 import { OutputTab } from './outputPaneLogic'
 import { activeTabMatchesUrlTarget, getDisplayTypeToSaveInsight, sqlEditorLogic } from './sqlEditorLogic'
 
@@ -1356,6 +1357,43 @@ describe('sqlEditorLogic', () => {
             expect(logic.values.sourceQuery.source.sendRawQuery).toBeUndefined()
 
             performQuerySpy.mockRestore()
+        })
+    })
+
+    describe('fix errors with AI', () => {
+        it('applies completed fixes only to the tab that requested them', async () => {
+            const firstTabLogic = sqlEditorLogic({
+                tabId: TAB_ID,
+                monaco: createMockMonaco(),
+                editor: createMockEditor(),
+            })
+            const secondTabLogic = sqlEditorLogic({
+                tabId: '2',
+                monaco: createMockMonaco(),
+                editor: createMockEditor(),
+            })
+            const fixerLogic = fixSQLErrorsLogic()
+
+            logic = firstTabLogic
+            firstTabLogic.mount()
+            secondTabLogic.mount()
+            fixerLogic.mount()
+
+            firstTabLogic.actions.createTab('SELECT broken FROM events')
+            secondTabLogic.actions.createTab('SELECT still_here FROM events')
+            await expectLogic(firstTabLogic).toDispatchActions(['createTab', 'updateTab'])
+            await expectLogic(secondTabLogic).toDispatchActions(['createTab', 'updateTab'])
+
+            fixerLogic.actions.fixErrorsSuccess(
+                { query: 'SELECT fixed FROM events', trace_id: 'trace-id' },
+                { query: 'SELECT broken FROM events', error: 'missing column', tabUri: 'tab-1' }
+            )
+
+            expect(firstTabLogic.values.suggestedQueryInput).toEqual('SELECT fixed FROM events')
+            expect(secondTabLogic.values.suggestedQueryInput).toEqual('SELECT still_here FROM events')
+
+            secondTabLogic.unmount()
+            fixerLogic.unmount()
         })
     })
 })
