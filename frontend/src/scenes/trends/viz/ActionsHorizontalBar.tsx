@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react'
 
 import { formatAggregationAxisValueWithShareOfTotal } from 'scenes/insights/aggregationAxisFormat'
 import { insightLogic } from 'scenes/insights/insightLogic'
-import { formatBreakdownLabel } from 'scenes/insights/utils'
 import { teamLogic } from 'scenes/teamLogic'
 import { datasetToActorsQuery } from 'scenes/trends/viz/datasetToActorsQuery'
+import { getTrendResultLabel } from 'scenes/trends/viz/utils'
 
 import { cohortsModel } from '~/models/cohortsModel'
 import { propertyDefinitionsModel } from '~/models/propertyDefinitionsModel'
@@ -39,7 +39,6 @@ export function ActionsHorizontalBar({
         showValuesOnSeries,
         hasDataWarehouseSeries,
         querySource,
-        breakdownFilter,
         isSingleSeriesDefinition,
         isBreakdownSeries,
         getTrendsColor,
@@ -51,24 +50,18 @@ export function ActionsHorizontalBar({
         if (indexedResults) {
             const visibleResults = indexedResults.filter((item) => !getTrendsHidden(item))
             const colorList = visibleResults.map(getTrendsColor)
+            const labels = visibleResults.map((item) =>
+                getTrendResultLabel(item, allCohorts?.results, formatPropertyValueForDisplay)
+            )
 
             setData([
                 {
-                    labels: visibleResults.map((item) => item.label),
+                    labels,
                     data: visibleResults.map((item) => item.aggregated_value),
                     actions: visibleResults.map((item) => item.action),
                     personsValues: visibleResults.map((item) => item.persons),
                     breakdownValues: visibleResults.map((item) => item.breakdown_value),
-                    breakdownLabels: visibleResults.map((item) => {
-                        return formatBreakdownLabel(
-                            item.breakdown_value,
-                            breakdownFilter,
-                            allCohorts?.results,
-                            formatPropertyValueForDisplay,
-                            undefined,
-                            item.label
-                        )
-                    }),
+                    breakdownLabels: labels,
                     compareLabels: visibleResults.map((item) => item.compare_label),
                     backgroundColor: colorList,
                     hoverBackgroundColor: colorList,
@@ -80,15 +73,7 @@ export function ActionsHorizontalBar({
             ])
             setTotal(visibleResults.reduce((prev, item) => prev + item.aggregated_value, 0))
         }
-    }, [
-        indexedResults,
-        theme,
-        breakdownFilter,
-        allCohorts?.results,
-        formatPropertyValueForDisplay,
-        getTrendsColor,
-        getTrendsHidden,
-    ])
+    }, [indexedResults, theme, allCohorts?.results, formatPropertyValueForDisplay, getTrendsColor, getTrendsHidden])
 
     return data && total > 0 ? (
         <LineGraph

@@ -5,10 +5,10 @@ import { useEffect, useState } from 'react'
 
 import { formatAggregationAxisValue } from 'scenes/insights/aggregationAxisFormat'
 import { insightLogic } from 'scenes/insights/insightLogic'
-import { formatBreakdownLabel } from 'scenes/insights/utils'
 import { PieChart } from 'scenes/insights/views/LineGraph/PieChart'
 import { teamLogic } from 'scenes/teamLogic'
 import { datasetToActorsQuery } from 'scenes/trends/viz/datasetToActorsQuery'
+import { getTrendResultLabel } from 'scenes/trends/viz/utils'
 
 import { cohortsModel } from '~/models/cohortsModel'
 import { propertyDefinitionsModel } from '~/models/propertyDefinitionsModel'
@@ -38,7 +38,6 @@ export function ActionsPie({ inSharedMode, showPersonsModal = true, context }: C
         pieChartVizOptions,
         hasDataWarehouseSeries,
         querySource,
-        breakdownFilter,
         getTrendsColor,
         getTrendsHidden,
     } = useValues(trendsDataLogic(insightProps))
@@ -52,22 +51,18 @@ export function ActionsPie({ inSharedMode, showPersonsModal = true, context }: C
             const visibleResults = indexedResults.filter((item) => !getTrendsHidden(item))
             const days = visibleResults.length > 0 ? visibleResults[0].days : []
             const colorList = visibleResults.map(getTrendsColor)
+            const labels = visibleResults.map((item) =>
+                getTrendResultLabel(item, allCohorts.results, formatPropertyValueForDisplay)
+            )
 
             setData([
                 {
                     id: 0,
-                    labels: visibleResults.map((item) => item.label),
+                    labels,
                     data: visibleResults.map((item) => item.aggregated_value),
                     actions: visibleResults.map((item) => item.action),
                     breakdownValues: visibleResults.map((item) => item.breakdown_value),
-                    breakdownLabels: visibleResults.map((item) => {
-                        return formatBreakdownLabel(
-                            item.breakdown_value,
-                            breakdownFilter,
-                            allCohorts.results,
-                            formatPropertyValueForDisplay
-                        )
-                    }),
+                    breakdownLabels: labels,
                     compareLabels: visibleResults.map((item) => item.compare_label),
                     personsValues: visibleResults.map((item) => item.persons),
                     days,
@@ -77,14 +72,7 @@ export function ActionsPie({ inSharedMode, showPersonsModal = true, context }: C
             ])
             setTotal(visibleResults.reduce((prev, item) => prev + item.aggregated_value, 0))
         }
-    }, [
-        indexedResults,
-        breakdownFilter,
-        getTrendsColor,
-        getTrendsHidden,
-        allCohorts.results,
-        formatPropertyValueForDisplay,
-    ])
+    }, [indexedResults, getTrendsColor, getTrendsHidden, allCohorts.results, formatPropertyValueForDisplay])
 
     let onClick: ((payload: GraphPointPayload) => void) | undefined = undefined
     if (onDataPointClick) {
