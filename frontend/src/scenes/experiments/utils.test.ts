@@ -32,6 +32,7 @@ import {
     exposureConfigToFilter,
     featureFlagEligibleForExperiment,
     filterToExposureConfig,
+    getExperimentAggregationGroupTypeIndex,
     getEventCountQuery,
     getOrderedMetricsWithResults,
     getViewRecordingFilters,
@@ -43,6 +44,48 @@ import {
 } from './utils'
 
 describe('utils', () => {
+    describe('getExperimentAggregationGroupTypeIndex', () => {
+        it('prefers synced experiment parameters over stale legacy filters', () => {
+            const experiment = {
+                parameters: { aggregation_group_type_index: 1 },
+                feature_flag: { filters: { aggregation_group_type_index: 0 } },
+                filters: { aggregation_group_type_index: 2 },
+            } as Experiment
+
+            expect(getExperimentAggregationGroupTypeIndex(experiment)).toBe(1)
+        })
+
+        it('falls back to the feature flag filters when parameters are unset', () => {
+            const experiment = {
+                parameters: {},
+                feature_flag: { filters: { aggregation_group_type_index: 0 } },
+                filters: { aggregation_group_type_index: 2 },
+            } as Experiment
+
+            expect(getExperimentAggregationGroupTypeIndex(experiment)).toBe(0)
+        })
+
+        it('falls back to legacy experiment filters for older payloads', () => {
+            const experiment = {
+                parameters: {},
+                feature_flag: { filters: {} },
+                filters: { aggregation_group_type_index: 2 },
+            } as Experiment
+
+            expect(getExperimentAggregationGroupTypeIndex(experiment)).toBe(2)
+        })
+
+        it('returns null for user-based experiments', () => {
+            const experiment = {
+                parameters: {},
+                feature_flag: { filters: {} },
+                filters: {},
+            } as Experiment
+
+            expect(getExperimentAggregationGroupTypeIndex(experiment)).toBeNull()
+        })
+    })
+
     describe('percentageDistribution', () => {
         it('given variant count, calculates correct rollout percentages', async () => {
             expect(percentageDistribution(1)).toEqual([100])

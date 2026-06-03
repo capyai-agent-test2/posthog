@@ -83,6 +83,15 @@ export function formatUnitByQuantity(value: number, unit: string): string {
     return value === 1 ? unit : unit + 's'
 }
 
+export function getExperimentAggregationGroupTypeIndex(experiment: Experiment): number | null {
+    return (
+        experiment.parameters?.aggregation_group_type_index ??
+        experiment.feature_flag?.filters?.aggregation_group_type_index ??
+        experiment.filters?.aggregation_group_type_index ??
+        null
+    )
+}
+
 export function ensureIsPercent(value: string | number | undefined): number {
     const parsedNum = typeof value === 'string' ? parseInt(value, 10) : (value ?? 0)
     const num = isNaN(parsedNum) ? 0 : parsedNum
