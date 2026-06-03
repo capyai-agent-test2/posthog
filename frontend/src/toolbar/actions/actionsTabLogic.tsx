@@ -22,6 +22,19 @@ import { AccessControlLevel, ActionType, ElementType } from '~/types'
 import type { actionsTabLogicType } from './actionsTabLogicType'
 import { ActionStepPropertyKey } from './ActionStep'
 
+interface ToolbarValidationErrorResponse {
+    attr?: unknown
+    code?: unknown
+    detail?: unknown
+}
+
+function getActionSaveErrorMessage(errorData: ToolbarValidationErrorResponse, status: number): string {
+    if (errorData.attr === 'name' && errorData.code === 'unique') {
+        return 'Action with this name already exists.'
+    }
+    return typeof errorData.detail === 'string' ? errorData.detail : `Request failed: ${status}`
+}
+
 function newAction(
     element: HTMLElement | null,
     dataAttributes: string[] = [],
@@ -236,8 +249,12 @@ export const actionsTabLogic = kea<actionsTabLogicType>([
                         res = await toolbarFetch(`/api/projects/@current/actions/`, 'POST', actionToSave)
                     }
                     if (!res.ok) {
-                        const errorData = await res.json().catch(() => ({}))
-                        throw new Error(errorData.detail || `Request failed: ${res.status}`)
+                        const errorData: ToolbarValidationErrorResponse = await res.json().catch(() => ({}))
+                        const message = getActionSaveErrorMessage(errorData, res.status)
+                        if (errorData.attr === 'name') {
+                            actions.setActionFormManualErrors({ name: message })
+                        }
+                        throw new Error(message)
                     }
                     const response: ActionType = await res.json()
                     breakpoint() // guard against stale async after unmount
