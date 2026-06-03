@@ -1,6 +1,7 @@
 <!doctype html>
 <html>
     <head>
+        {% include "head.html" %}
         <meta name="robots" content="noindex" />
         {{ exported_data|json_script:"posthog-exported-data" }}
         <script nonce="{{ request.csp_nonce }}">
@@ -20,7 +21,7 @@
                 document.documentElement.className += ' ' + window.POSTHOG_EXPORTED_DATA.rootClassName
             }
         </script>
-        {% include "head.html" %} {% if add_og_tags %}
+        {% if add_og_tags %}
         <meta property="og:title" content="{{ asset_title }}" />
         <meta property="og:type" content="website" />
         <meta property="og:description" content="{{ asset_description }}" />
