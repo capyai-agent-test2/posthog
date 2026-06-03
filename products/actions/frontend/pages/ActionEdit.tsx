@@ -1,7 +1,7 @@
 import { BuiltLogic, Logic, LogicWrapper, useActions, useValues } from 'kea'
 import { Form } from 'kea-forms'
 import { router } from 'kea-router'
-import { useEffect, useMemo } from 'react'
+import { useEffect } from 'react'
 
 import { IconCopy, IconPlus, IconTrash } from '@posthog/icons'
 import { LemonCollapse } from '@posthog/lemon-ui'
@@ -28,7 +28,6 @@ import { useAttachedLogic } from 'lib/logic/scenes/useAttachedLogic'
 import { ButtonPrimitive } from 'lib/ui/Button/ButtonPrimitives'
 import { getAccessControlDisabledReason, userHasAccess } from 'lib/utils/accessControlUtils'
 import { interProjectCopyLogic } from 'scenes/resource-transfer/interProjectCopyLogic'
-import { filterTestAccountsDefaultsLogic } from 'scenes/settings/environment/filterTestAccountDefaultsLogic'
 import { teamLogic } from 'scenes/teamLogic'
 import { urls } from 'scenes/urls'
 
@@ -47,9 +46,8 @@ import {
     ScenePanelInfoSection,
 } from '~/layout/scenes/SceneLayout'
 import { tagsModel } from '~/models/tagsModel'
-import { defaultDataTableColumns } from '~/queries/nodes/DataTable/utils'
 import { Query } from '~/queries/Query/Query'
-import { NodeKind, ProductIntentContext, ProductKey } from '~/queries/schema/schema-general'
+import { ProductIntentContext, ProductKey } from '~/queries/schema/schema-general'
 import { AccessControlLevel, AccessControlResourceType, ActionStepType, FilterLogicalOperator } from '~/types'
 
 import { ActionHogFunctions } from '../components/ActionHogFunctions'
@@ -424,7 +422,7 @@ export function ActionEdit({ action: loadedAction, id, tabId, actionLoading, att
                                     id={id}
                                     isComplete={isComplete}
                                     actionChanged={actionChanged}
-                                    steps={action.steps}
+                                    logicProps={logicProps}
                                 />
                             ),
                         },
@@ -458,59 +456,15 @@ function MatchingEvents({
     id,
     isComplete,
     actionChanged,
-    steps,
+    logicProps,
 }: {
     id?: number
     isComplete: boolean
     actionChanged: boolean
-    steps?: ActionStepType[]
+    logicProps: ActionEditLogicProps
 }): JSX.Element {
-    const { filterTestAccountsDefault } = useValues(filterTestAccountsDefaultsLogic)
-
-    const query = useMemo(() => {
-        const source: Record<string, any> = {
-            kind: NodeKind.EventsQuery,
-            select: defaultDataTableColumns(NodeKind.EventsQuery),
-            after: '-24h',
-            filterTestAccounts: filterTestAccountsDefault,
-        }
-        if (id && !actionChanged) {
-            source.actionId = id
-        } else {
-            source.actionSteps = steps?.map(
-                ({
-                    event,
-                    properties,
-                    selector,
-                    tag_name,
-                    text,
-                    text_matching,
-                    href,
-                    href_matching,
-                    url,
-                    url_matching,
-                }) => ({
-                    event,
-                    properties,
-                    selector,
-                    tag_name,
-                    text,
-                    text_matching,
-                    href,
-                    href_matching,
-                    url,
-                    url_matching,
-                })
-            )
-        }
-        return {
-            kind: NodeKind.DataTableNode as const,
-            source,
-            full: true,
-            showEventFilter: false,
-            showPropertyFilter: false,
-        }
-    }, [id, actionChanged, steps, filterTestAccountsDefault])
+    const { matchingEventsQuery } = useValues(actionEditLogic(logicProps))
+    const { setMatchingEventsQuery } = useActions(actionEditLogic(logicProps))
 
     if (id && !isComplete && !actionChanged) {
         return (
@@ -521,7 +475,7 @@ function MatchingEvents({
         )
     }
 
-    return <Query query={query} />
+    return matchingEventsQuery ? <Query query={matchingEventsQuery} setQuery={setMatchingEventsQuery} /> : <></>
 }
 
 function ReferencesList({ logicProps }: { logicProps: ActionEditLogicProps }): JSX.Element {
