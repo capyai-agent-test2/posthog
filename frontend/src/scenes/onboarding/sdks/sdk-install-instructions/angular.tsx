@@ -32,17 +32,24 @@ import { appConfig } from './app/app.config';
 import { AppComponent } from './app/app.component';
 import posthog from 'posthog-js'
 
-posthog.init(
-  process.env.POSTHOG_PROJECT_TOKEN,
-  {
-    api_host:process.env.POSTHOG_HOST,
-    ${
-        !isPersonProfilesDisabled
-            ? `person_profiles: 'identified_only', // or 'always' to create profiles for anonymous users as well`
-            : null
+declare const Zone: any
+const isNgZoneEnabled = typeof Zone !== 'undefined' && Zone.root?.run
+const runOutsideAngular = <T>(callback: () => T): T =>
+  isNgZoneEnabled ? Zone.root.run(callback) : callback()
+
+runOutsideAngular(() =>
+  posthog.init(
+    process.env.POSTHOG_PROJECT_TOKEN,
+    {
+      api_host: process.env.POSTHOG_HOST,
+      ${
+          !isPersonProfilesDisabled
+              ? `person_profiles: 'identified_only', // or 'always' to create profiles for anonymous users as well`
+              : null
+      }
+      defaults: '${SDK_DEFAULTS_DATE}'
     }
-    defaults: '${SDK_DEFAULTS_DATE}'
-  }
+  )
 )
 
 bootstrapApplication(AppComponent, appConfig)
@@ -68,6 +75,10 @@ export function SDKInstallAngularInstructions(): JSX.Element {
                 In your <code>src/main.ts</code>, initialize PostHog using your project token and instance address:
             </p>
             <AngularInitializeCodeSnippet />
+            <p>
+                Run the initialization outside Angular&apos;s zone so PostHog&apos;s listeners and session replay hooks
+                don&apos;t trigger unnecessary change detection.
+            </p>
         </>
     )
 }
