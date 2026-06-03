@@ -3,7 +3,7 @@ from typing import Optional
 
 from posthog.temporal.data_imports.pipelines.pipeline.typings import PartitionFormat, PartitionMode
 
-from products.data_warehouse.backend.types import IncrementalField
+from products.data_warehouse.backend.types import IncrementalField, IncrementalFieldType
 
 
 @dataclass
@@ -21,9 +21,20 @@ ENDPOINTS: dict[str, EndpointConfig] = {
 }
 
 
+SLACK_MESSAGE_INCREMENTAL_FIELDS: list[IncrementalField] = [
+    IncrementalField(
+        label="timestamp",
+        type=IncrementalFieldType.DateTime,
+        field="timestamp",
+        field_type=IncrementalFieldType.DateTime,
+    )
+]
+
+
 def messages_endpoint_config() -> EndpointConfig:
     return EndpointConfig(
         primary_keys=["channel_id", "ts"],
+        incremental_fields=SLACK_MESSAGE_INCREMENTAL_FIELDS,
         partition_keys=["timestamp"],
         partition_mode="datetime",
         partition_format="week",
