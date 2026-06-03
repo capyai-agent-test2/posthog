@@ -86,20 +86,22 @@ export default function ViewRecordingButton({
     const { summaryBySessionId } = useValues(sessionSummaryProgressLogic)
     const { checkRecordingInfo } = useActions(sessionRecordingInfoLogic)
     const { getRecordingExists, getSummaryOutcome, isRecordingExistsLoading } = useValues(sessionRecordingInfoLogic)
+    const shouldCheckRecordingExists = checkRecordingExists && hasRecording === undefined
 
     useEffect(() => {
         if (!sessionId) {
             return
         }
-        if (checkRecordingExists || shouldFetchSummaryOutcome) {
+        if (shouldCheckRecordingExists || shouldFetchSummaryOutcome) {
             checkRecordingInfo(sessionId, { includeOutcome: shouldFetchSummaryOutcome })
         }
-    }, [checkRecordingExists, shouldFetchSummaryOutcome, sessionId, checkRecordingInfo])
+    }, [shouldCheckRecordingExists, shouldFetchSummaryOutcome, sessionId, checkRecordingInfo])
 
-    if (hasRecording === undefined && checkRecordingExists && sessionId) {
+    if (shouldCheckRecordingExists && sessionId) {
         hasRecording = getRecordingExists(sessionId)
     }
-    const isCheckingRecordingExists = checkRecordingExists && sessionId ? isRecordingExistsLoading(sessionId) : false
+    const isCheckingRecordingExists =
+        shouldCheckRecordingExists && sessionId ? isRecordingExistsLoading(sessionId) : false
     const isLoading = !!props.loading || isCheckingRecordingExists
 
     const { onClick, disabledReason, warningReason } = useRecordingButton({
