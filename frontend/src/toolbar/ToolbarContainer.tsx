@@ -41,6 +41,8 @@ export function ToolbarContainer({ toolbarRemScale = 1 }: { toolbarRemScale?: nu
                     ref={setFloatingContainer}
                     {...themeProps}
                     className="fixed inset-0 pointer-events-none z-[2147483647] [&>*]:pointer-events-auto"
+                    // eslint-disable-next-line react/forbid-dom-props
+                    style={toolbarRemScale === 1 ? undefined : { zoom: toolbarRemScale }}
                 />
             </FloatingContainerContext.Provider>
         </Fade>
