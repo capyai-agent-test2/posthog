@@ -13,6 +13,7 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.test import (
     Client as DjangoClient,
     RequestFactory,
+    SimpleTestCase,
 )
 from django.urls import reverse
 
@@ -25,7 +26,7 @@ from social_core.exceptions import AuthCanceled, AuthFailed, AuthMissingParamete
 
 from posthog.api.test.test_organization import create_organization
 from posthog.api.test.test_team import create_team
-from posthog.middleware import per_request_logging_context_middleware
+from posthog.middleware import AllowIPMiddleware, per_request_logging_context_middleware
 from posthog.models import Cohort
 from posthog.models.organization import Organization
 from posthog.models.team import Team
@@ -188,6 +189,23 @@ class TestAccessMiddleware(APIBaseTest):
             # Valid IP should work
             response = self.client.get("/", headers={"x-forwarded-for": "192.168.1.1"})
             self.assertNotIn(b"PostHog is not available", response.content)
+
+
+class TestAllowIPMiddlewareSimple(SimpleTestCase):
+    @parameterized.expand(
+        [
+            ("/e/",),
+            ("/s/",),
+        ]
+    )
+    @override_settings(ALLOWED_IP_BLOCKS=["192.168.0.0/31", "127.0.0.0/25", "128.0.0.1"])
+    def test_telemetry_endpoints_bypass_allowed_ip_blocks(self, path: str) -> None:
+        request = RequestFactory().get(path, REMOTE_ADDR="10.0.0.1")
+
+        response = AllowIPMiddleware(lambda _: HttpResponse("ok"))(request)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.content, b"ok")
 
 
 class TestAutoProjectMiddleware(APIBaseTest):
