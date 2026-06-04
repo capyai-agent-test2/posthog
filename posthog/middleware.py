@@ -65,7 +65,9 @@ ALWAYS_ALLOWED_ENDPOINTS = [
     "_health",
     "flags",
     "messaging-preferences",
+    "e",
     "i",
+    "s",
 ]
 
 default_cookie_options = {
