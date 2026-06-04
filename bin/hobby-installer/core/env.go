@@ -3,11 +3,43 @@ package core
 import (
 	"bufio"
 	"fmt"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
 	"time"
 )
+
+var nodeTagHTTPClient = &http.Client{Timeout: 10 * time.Second}
+
+var nodeTagExists = func(tag string) bool {
+	if tag == "" {
+		return false
+	}
+
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://hub.docker.com/v2/repositories/posthog/posthog-node/tags/%s", tag), nil)
+	if err != nil {
+		return false
+	}
+
+	resp, err := nodeTagHTTPClient.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode == http.StatusOK
+}
+
+func resolveNodeTag(explicitTag, appTag, registryURL string) string {
+	if explicitTag != "" {
+		return explicitTag
+	}
+	if registryURL == "posthog/posthog" && nodeTagExists(appTag) {
+		return appTag
+	}
+	return "latest"
+}
 
 type EnvConfig struct {
 	PosthogSecret        string
@@ -38,10 +70,7 @@ func NewEnvConfig(domain, version string) (*EnvConfig, error) {
 
 	tlsBlock := os.Getenv("TLS_BLOCK")
 
-	nodeTag := os.Getenv("POSTHOG_NODE_TAG")
-	if nodeTag == "" {
-		nodeTag = "latest"
-	}
+	nodeTag := resolveNodeTag(os.Getenv("POSTHOG_NODE_TAG"), version, registryURL)
 
 	return &EnvConfig{
 		PosthogSecret:        secret,
@@ -147,6 +176,17 @@ func UpdateEnvForUpgrade(version string) error {
 
 	if version != "" {
 		if err := UpdateEnvValue("POSTHOG_APP_TAG", version); err != nil {
+			return err
+		}
+	}
+
+	if existing["POSTHOG_NODE_TAG"] == "" {
+		appTag := version
+		if appTag == "" {
+			appTag = existing["POSTHOG_APP_TAG"]
+		}
+		nodeTag := resolveNodeTag("", appTag, existing["REGISTRY_URL"])
+		if err := UpdateEnvValue("POSTHOG_NODE_TAG", nodeTag); err != nil {
 			return err
 		}
 	}

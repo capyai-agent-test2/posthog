@@ -4,6 +4,23 @@ set -e
 
 export DEBIAN_FRONTEND=noninteractive
 
+resolve_node_tag() {
+    local app_tag="$1"
+    local registry_url="$2"
+
+    if [ -n "$POSTHOG_NODE_TAG" ]; then
+        echo "$POSTHOG_NODE_TAG"
+        return
+    fi
+
+    if [ "$registry_url" = "posthog/posthog" ] && [ -n "$app_tag" ] && curl --connect-timeout 5 --max-time 10 -sf "https://hub.docker.com/v2/repositories/posthog/posthog-node/tags/$app_tag" > /dev/null 2>&1; then
+        echo "$app_tag"
+        return
+    fi
+
+    echo "latest"
+}
+
 # Automatically restart without asking.
 # this gets around needrestart command halting for user input
 export RESTART_MODE=l
@@ -131,7 +148,14 @@ fi
 # Tag changes on an existing instance are handled by bin/upgrade-hobby.
 if [ -f .env ]; then
     echo "Existing .env found, preserving configuration"
+    EXISTING_NODE_TAG=$(grep '^POSTHOG_NODE_TAG=' .env | cut -d '=' -f2-)
+    if [ -n "$EXISTING_NODE_TAG" ]; then
+        export POSTHOG_NODE_TAG="$EXISTING_NODE_TAG"
+    else
+        unset POSTHOG_NODE_TAG
+    fi
 else
+    export POSTHOG_NODE_TAG="$(resolve_node_tag "$POSTHOG_APP_TAG" "$REGISTRY_URL")"
     POSTHOG_SECRET=$(head -c 28 /dev/urandom | sha224sum -b | head -c 56)
     ENCRYPTION_SALT_KEYS=$(openssl rand -hex 16)
     cat > .env <<EOF
@@ -143,6 +167,7 @@ REGISTRY_URL=$REGISTRY_URL
 CADDY_TLS_BLOCK=$TLS_BLOCK
 CADDY_HOST="$DOMAIN, http://, https://"
 POSTHOG_APP_TAG=$POSTHOG_APP_TAG
+POSTHOG_NODE_TAG=$POSTHOG_NODE_TAG
 EOF
 fi
 
