@@ -156,8 +156,6 @@ export const login2FALogic = kea<login2FALogicType>([
     listeners(({ values }) => ({
         submitTwofactortokenSuccess: () => {
             handleLoginRedirect()
-            // Reload the page after login to ensure POSTHOG_APP_CONTEXT is set correctly.
-            window.location.reload()
         },
         beginPasskey2FASuccess: () => {
             // The loader returns null on user cancellation to avoid surfacing
@@ -168,8 +166,6 @@ export const login2FALogic = kea<login2FALogicType>([
                 return
             }
             handleLoginRedirect()
-            // Reload the page after login to ensure POSTHOG_APP_CONTEXT is set correctly.
-            window.location.reload()
         },
     })),
     afterMount(({ actions }) => {

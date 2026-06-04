@@ -62,7 +62,6 @@ export const emailMFAVerifyLogic = kea<emailMFAVerifyLogicType>([
 
                         // Login successful - redirect to app
                         handleLoginRedirect()
-                        window.location.reload()
 
                         return response
                     } catch (e) {
