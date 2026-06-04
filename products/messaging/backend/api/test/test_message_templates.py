@@ -4,8 +4,15 @@ from rest_framework import status
 
 from posthog.models import Organization, Team
 
+from products.messaging.backend.api.message_templates import EmailTemplateSerializer
 from products.messaging.backend.models.message_category import MessageCategory
 from products.messaging.backend.models.message_template import MessageTemplate
+
+
+def test_email_template_serializer_allows_blank_html():
+    serializer = EmailTemplateSerializer(data={"subject": "Hello", "text": "Plain text body", "html": ""})
+
+    assert serializer.is_valid(), serializer.errors
 
 
 class TestMessageTemplatesAPI(APIBaseTest):
@@ -100,6 +107,19 @@ class TestMessageTemplatesAPI(APIBaseTest):
         assert response.status_code == status.HTTP_201_CREATED
         assert response.json()["name"] == "Valid Template"
         assert response.json()["content"]["email"]["subject"] == "Hello"
+
+    def test_create_email_template_with_blank_html_succeeds(self):
+        response = self.client.post(
+            f"/api/environments/{self.team.id}/messaging_templates/",
+            data={
+                "name": "Plaintext Template",
+                "content": {"email": {"subject": "Hello", "text": "Plain text body", "html": ""}},
+                "type": "email",
+            },
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.json()["content"]["email"]["html"] == ""
 
     def test_create_email_template_without_email_content_succeeds(self):
         response = self.client.post(

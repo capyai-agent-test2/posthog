@@ -15,7 +15,7 @@ from products.messaging.backend.models.message_template import MessageTemplate
 class EmailTemplateSerializer(serializers.Serializer):
     subject = serializers.CharField(required=False)
     text = serializers.CharField(required=False)
-    html = serializers.CharField(required=False)
+    html = serializers.CharField(required=False, allow_blank=True)
     design = serializers.JSONField(required=False)
 
 
