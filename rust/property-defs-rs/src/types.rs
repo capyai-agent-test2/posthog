@@ -1,4 +1,4 @@
-use std::{fmt, hash::Hash, str::FromStr, sync::LazyLock};
+use std::{collections::HashSet, fmt, hash::Hash, str::FromStr, sync::LazyLock};
 
 use chrono::{DateTime, Duration, DurationRound, RoundingError, Utc};
 use regex::Regex;
@@ -270,6 +270,8 @@ impl Event {
             return updates;
         };
 
+        let mut emitted_property_keys = HashSet::new();
+
         // If this is a groupidentify event, we ONLY bubble up the group properties
         if self.event == "$groupidentify" {
             let Some(Value::String(group_type)) = props.get("$group_type") else {
@@ -287,6 +289,7 @@ impl Event {
 
             self.get_props_from_object(
                 &mut updates,
+                &mut emitted_property_keys,
                 group_properties,
                 PropertyParentType::Group,
                 Some(group_type),
@@ -295,15 +298,28 @@ impl Event {
         }
 
         // Grab the "ordinary" (non-person) event properties
-        self.get_props_from_object(&mut updates, &props, PropertyParentType::Event, None);
+        self.get_props_from_object(
+            &mut updates,
+            &mut emitted_property_keys,
+            &props,
+            PropertyParentType::Event,
+            None,
+        );
 
         // If there are any person properties, also push those into the flat property map.
         if let Some(Value::Object(set_props)) = props.get("$set") {
-            self.get_props_from_object(&mut updates, set_props, PropertyParentType::Person, None)
+            self.get_props_from_object(
+                &mut updates,
+                &mut emitted_property_keys,
+                set_props,
+                PropertyParentType::Person,
+                None,
+            )
         }
         if let Some(Value::Object(set_once_props)) = props.get("$set_once") {
             self.get_props_from_object(
                 &mut updates,
+                &mut emitted_property_keys,
                 set_once_props,
                 PropertyParentType::Person,
                 None,
@@ -316,6 +332,7 @@ impl Event {
     fn get_props_from_object(
         &self,
         updates: &mut Vec<Update>,
+        emitted_property_keys: &mut HashSet<(PropertyParentType, Option<GroupType>, String)>,
         set: &Map<String, Value>,
         parent_type: PropertyParentType,
         group_type: Option<GroupType>,
@@ -326,48 +343,114 @@ impl Event {
                 continue;
             }
 
-            if !will_fit_in_postgres_column(key) {
-                let skipped = if parent_type == PropertyParentType::Event {
-                    2 // EventProperty + PropertyDefinition
-                } else {
-                    1 // PropertyDefinition only
-                };
-                metrics::counter!(
-                    UPDATES_SKIPPED,
-                    &[("reason", "property_name_wont_fit_in_postgres")]
-                )
-                .increment(skipped);
-                continue;
-            }
+            self.add_property_update(
+                updates,
+                emitted_property_keys,
+                key,
+                value,
+                parent_type,
+                group_type.clone(),
+            );
+            self.add_nested_property_updates(
+                updates,
+                emitted_property_keys,
+                key,
+                value,
+                parent_type,
+                group_type.clone(),
+            );
+        }
+    }
 
-            // posthog_eventproperty only tracks which properties appear on which events —
-            // person, group, and session properties have no meaningful event association
-            // and no read path consumes those rows.
-            if parent_type == PropertyParentType::Event {
-                updates.push(Update::EventProperty(EventProperty {
-                    team_id: self.team_id,
-                    project_id: self.project_id,
-                    event: sanitize_string(&self.event),
-                    property: sanitize_string(key),
-                }));
-            }
+    fn add_nested_property_updates(
+        &self,
+        updates: &mut Vec<Update>,
+        emitted_property_keys: &mut HashSet<(PropertyParentType, Option<GroupType>, String)>,
+        prefix: &str,
+        value: &Value,
+        parent_type: PropertyParentType,
+        group_type: Option<GroupType>,
+    ) {
+        let Value::Object(nested_props) = value else {
+            return;
+        };
 
-            let property_type = detect_property_type(key, value);
-            let is_numerical = matches!(property_type, Some(PropertyValueType::Numeric));
+        for (nested_key, nested_value) in nested_props {
+            let property_key = format!("{prefix}.{nested_key}");
+            self.add_property_update(
+                updates,
+                emitted_property_keys,
+                &property_key,
+                nested_value,
+                parent_type,
+                group_type.clone(),
+            );
+            self.add_nested_property_updates(
+                updates,
+                emitted_property_keys,
+                &property_key,
+                nested_value,
+                parent_type,
+                group_type.clone(),
+            );
+        }
+    }
 
-            updates.push(Update::Property(PropertyDefinition {
+    fn add_property_update(
+        &self,
+        updates: &mut Vec<Update>,
+        emitted_property_keys: &mut HashSet<(PropertyParentType, Option<GroupType>, String)>,
+        key: &str,
+        value: &Value,
+        parent_type: PropertyParentType,
+        group_type: Option<GroupType>,
+    ) {
+        if !will_fit_in_postgres_column(key) {
+            let skipped = if parent_type == PropertyParentType::Event {
+                2 // EventProperty + PropertyDefinition
+            } else {
+                1 // PropertyDefinition only
+            };
+            metrics::counter!(
+                UPDATES_SKIPPED,
+                &[("reason", "property_name_wont_fit_in_postgres")]
+            )
+            .increment(skipped);
+            return;
+        }
+
+        let sanitized_key = sanitize_string(key);
+        if !emitted_property_keys.insert((parent_type, group_type.clone(), sanitized_key.clone())) {
+            return;
+        }
+
+        // posthog_eventproperty only tracks which properties appear on which events —
+        // person, group, and session properties have no meaningful event association
+        // and no read path consumes those rows.
+        if parent_type == PropertyParentType::Event {
+            updates.push(Update::EventProperty(EventProperty {
                 team_id: self.team_id,
                 project_id: self.project_id,
-                name: sanitize_string(key),
-                is_numerical,
-                property_type,
-                event_type: parent_type,
-                group_type_index: group_type.clone(),
-                property_type_format: None,
-                volume_30_day: None,
-                query_usage_30_day: None,
+                event: sanitize_string(&self.event),
+                property: sanitized_key.clone(),
             }));
         }
+
+        let property_type = detect_property_type(key, value);
+        let is_numerical = matches!(property_type, Some(PropertyValueType::Numeric));
+
+        updates.push(Update::Property(PropertyDefinition {
+            team_id: self.team_id,
+            project_id: self.project_id,
+            name: sanitized_key,
+            is_numerical,
+            property_type,
+            event_type: parent_type,
+            group_type_index: group_type,
+            property_type_format: None,
+            volume_30_day: None,
+            query_usage_30_day: None,
+        }));
     }
 }
 
@@ -576,5 +659,104 @@ mod tests {
     fn as_unresolved_strips_resolved_index() {
         let gt = GroupType::Resolved("company".into(), 2);
         assert_eq!(gt.as_unresolved(), GroupType::Unresolved("company".into()));
+    }
+
+    #[test]
+    fn into_updates_tracks_nested_event_properties() {
+        let event = Event {
+            team_id: 111,
+            project_id: 111,
+            event: "purchase".to_string(),
+            properties: Some(
+                serde_json::json!({
+                    "product": {
+                        "name": "PostHog",
+                        "price": 0,
+                        "usage": 10000,
+                    }
+                })
+                .to_string(),
+            ),
+        };
+
+        let updates = event.into_updates(10000);
+        assert!(updates.contains(&Update::EventProperty(EventProperty {
+            team_id: 111,
+            project_id: 111,
+            event: "purchase".to_string(),
+            property: "product.name".to_string(),
+        })));
+        assert!(updates.contains(&Update::Property(PropertyDefinition {
+            team_id: 111,
+            project_id: 111,
+            name: "product.price".to_string(),
+            is_numerical: true,
+            property_type: Some(PropertyValueType::Numeric),
+            event_type: PropertyParentType::Event,
+            group_type_index: None,
+            property_type_format: None,
+            volume_30_day: None,
+            query_usage_30_day: None,
+        })));
+        assert!(updates.contains(&Update::Property(PropertyDefinition {
+            team_id: 111,
+            project_id: 111,
+            name: "product.usage".to_string(),
+            is_numerical: true,
+            property_type: Some(PropertyValueType::Numeric),
+            event_type: PropertyParentType::Event,
+            group_type_index: None,
+            property_type_format: None,
+            volume_30_day: None,
+            query_usage_30_day: None,
+        })));
+    }
+
+    #[test]
+    fn into_updates_deduplicates_nested_property_collisions() {
+        let event = Event {
+            team_id: 111,
+            project_id: 111,
+            event: "purchase".to_string(),
+            properties: Some(
+                serde_json::json!({
+                    "product": {
+                        "price": 0,
+                    },
+                    "product.price": "0",
+                })
+                .to_string(),
+            ),
+        };
+
+        let updates = event.into_updates(10000);
+        let matching_property_definitions = updates
+            .iter()
+            .filter(|update| {
+                matches!(
+                    update,
+                    Update::Property(PropertyDefinition {
+                        name,
+                        event_type: PropertyParentType::Event,
+                        ..
+                    }) if name == "product.price"
+                )
+            })
+            .count();
+        let matching_event_properties = updates
+            .iter()
+            .filter(|update| {
+                matches!(
+                    update,
+                    Update::EventProperty(EventProperty {
+                        property,
+                        ..
+                    }) if property == "product.price"
+                )
+            })
+            .count();
+
+        assert_eq!(matching_property_definitions, 1);
+        assert_eq!(matching_event_properties, 1);
     }
 }
