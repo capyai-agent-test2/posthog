@@ -510,6 +510,11 @@ async fn test_vercel_ai_prompt_metadata_is_preserved_on_ingestion() {
 
     assert_eq!(props["$ai_prompt_name"], "support-system");
     assert_eq!(props["$ai_prompt_version"], 3);
+    assert_eq!(
+        props["ai.telemetry.metadata.$ai_prompt_name"],
+        "support-system"
+    );
+    assert_eq!(props["ai.telemetry.metadata.$ai_prompt_version"], 3);
 }
 
 #[tokio::test]
