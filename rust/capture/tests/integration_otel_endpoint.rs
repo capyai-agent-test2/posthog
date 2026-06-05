@@ -460,6 +460,59 @@ async fn test_span_attributes_and_resource_attributes_passthrough() {
 }
 
 #[tokio::test]
+async fn test_vercel_ai_prompt_metadata_is_preserved_on_ingestion() {
+    let sink = CapturingSink::new();
+    let request = ExportTraceServiceRequest {
+        resource_spans: vec![ResourceSpans {
+            resource: Some(Resource {
+                attributes: vec![make_kv(
+                    "posthog.distinct_id",
+                    any_value::Value::StringValue("user-3".to_string()),
+                )],
+                dropped_attributes_count: 0,
+            }),
+            scope_spans: vec![ScopeSpans {
+                scope: None,
+                spans: vec![make_span(
+                    vec![0xAB; 16],
+                    vec![0xCD; 8],
+                    vec![],
+                    0,
+                    vec![
+                        make_kv(
+                            "ai.operationId",
+                            any_value::Value::StringValue("ai.generateText.doGenerate".to_string()),
+                        ),
+                        make_kv(
+                            "ai.telemetry.metadata.$ai_prompt_name",
+                            any_value::Value::StringValue("support-system".to_string()),
+                        ),
+                        make_kv(
+                            "ai.telemetry.metadata.$ai_prompt_version",
+                            any_value::Value::IntValue(3),
+                        ),
+                    ],
+                )],
+                schema_url: String::new(),
+            }],
+            schema_url: String::new(),
+        }],
+    };
+
+    let status = send_request(&sink, &request).await;
+    assert_eq!(status, 200);
+
+    let events = sink.get_events().await;
+    assert_eq!(events.len(), 1);
+
+    let data = parse_event_data(&events[0]);
+    let props = &data["properties"];
+
+    assert_eq!(props["$ai_prompt_name"], "support-system");
+    assert_eq!(props["$ai_prompt_version"], 3);
+}
+
+#[tokio::test]
 async fn test_multiple_resource_spans() {
     let sink = CapturingSink::new();
     let request = ExportTraceServiceRequest {

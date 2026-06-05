@@ -105,6 +105,26 @@ fn apply_geoip_default(properties: &mut serde_json::Map<String, Value>) {
     );
 }
 
+fn apply_vercel_ai_metadata_aliases(properties: &mut serde_json::Map<String, Value>) {
+    for (metadata_key, posthog_key) in [
+        ("ai.telemetry.metadata.$ai_prompt_name", "$ai_prompt_name"),
+        (
+            "ai.telemetry.metadata.$ai_prompt_version",
+            "$ai_prompt_version",
+        ),
+    ] {
+        if properties.contains_key(posthog_key) {
+            continue;
+        }
+
+        let Some(value) = properties.get(metadata_key).cloned() else {
+            continue;
+        };
+
+        properties.insert(posthog_key.to_string(), value);
+    }
+}
+
 fn nanos_to_datetime(nanos: u64) -> Option<DateTime<Utc>> {
     if nanos == 0 {
         return None;
@@ -155,6 +175,7 @@ pub fn expand_into_events(
                 properties.extend(span_attrs);
 
                 apply_geoip_default(&mut properties);
+                apply_vercel_ai_metadata_aliases(&mut properties);
 
                 properties.insert(
                     "$ai_trace_id".to_string(),
@@ -488,6 +509,102 @@ mod tests {
         let events = expand_into_events(&request, "user");
         let props = events[0].properties.as_object().unwrap();
         assert!(!props.contains_key("$ai_parent_id"));
+    }
+
+    #[test]
+    fn test_vercel_ai_prompt_metadata_is_aliased_to_posthog_properties() {
+        let request = ExportTraceServiceRequest {
+            resource_spans: vec![ResourceSpans {
+                resource: None,
+                scope_spans: vec![ScopeSpans {
+                    scope: None,
+                    spans: vec![make_span(
+                        vec![0; 16],
+                        vec![0; 8],
+                        vec![],
+                        0,
+                        0,
+                        "",
+                        vec![
+                            make_kv(
+                                "ai.operationId",
+                                any_value::Value::StringValue(
+                                    "ai.generateText.doGenerate".to_string(),
+                                ),
+                            ),
+                            make_kv(
+                                "ai.telemetry.metadata.$ai_prompt_name",
+                                any_value::Value::StringValue("support-system".to_string()),
+                            ),
+                            make_kv(
+                                "ai.telemetry.metadata.$ai_prompt_version",
+                                any_value::Value::IntValue(3),
+                            ),
+                        ],
+                    )],
+                    schema_url: String::new(),
+                }],
+                schema_url: String::new(),
+            }],
+        };
+
+        let events = expand_into_events(&request, "user");
+        let props = events[0].properties.as_object().unwrap();
+        assert_eq!(props["$ai_prompt_name"], "support-system");
+        assert_eq!(props["$ai_prompt_version"], 3);
+        assert_eq!(
+            props["ai.telemetry.metadata.$ai_prompt_name"],
+            "support-system"
+        );
+        assert_eq!(props["ai.telemetry.metadata.$ai_prompt_version"], 3);
+    }
+
+    #[test]
+    fn test_explicit_posthog_prompt_properties_win_over_vercel_ai_metadata_aliases() {
+        let request = ExportTraceServiceRequest {
+            resource_spans: vec![ResourceSpans {
+                resource: None,
+                scope_spans: vec![ScopeSpans {
+                    scope: None,
+                    spans: vec![make_span(
+                        vec![0; 16],
+                        vec![0; 8],
+                        vec![],
+                        0,
+                        0,
+                        "",
+                        vec![
+                            make_kv(
+                                "ai.operationId",
+                                any_value::Value::StringValue(
+                                    "ai.generateText.doGenerate".to_string(),
+                                ),
+                            ),
+                            make_kv(
+                                "ai.telemetry.metadata.$ai_prompt_name",
+                                any_value::Value::StringValue("metadata-name".to_string()),
+                            ),
+                            make_kv(
+                                "ai.telemetry.metadata.$ai_prompt_version",
+                                any_value::Value::IntValue(3),
+                            ),
+                            make_kv(
+                                "$ai_prompt_name",
+                                any_value::Value::StringValue("canonical-name".to_string()),
+                            ),
+                            make_kv("$ai_prompt_version", any_value::Value::IntValue(7)),
+                        ],
+                    )],
+                    schema_url: String::new(),
+                }],
+                schema_url: String::new(),
+            }],
+        };
+
+        let events = expand_into_events(&request, "user");
+        let props = events[0].properties.as_object().unwrap();
+        assert_eq!(props["$ai_prompt_name"], "canonical-name");
+        assert_eq!(props["$ai_prompt_version"], 7);
     }
 
     #[test]
