@@ -44,6 +44,22 @@ describe('sessionPlayerModalLogic', () => {
             expect(router.values.hashParams).not.toHaveProperty('sessionRecordingId')
         })
 
+        it('can open and close without updating the URL', () => {
+            router.actions.push('/insights/new', {}, { insight: 'FUNNELS', q: 'draft-query-state' })
+            expectLogic(logic, () => logic.actions.openSessionPlayer({ id: 'abc' }, null, false))
+                .toDispatchActions(['loadSessionRecordingsSuccess'])
+                .toMatchValues({
+                    selectedSessionRecording: { id: 'abc' },
+                    activeSessionRecording: listOfSessionRecordings[0],
+                })
+            expect(router.values.hashParams).toEqual({ insight: 'FUNNELS', q: 'draft-query-state' })
+
+            expectLogic(logic, () => logic.actions.closeSessionPlayer()).toMatchValues({
+                activeSessionRecording: null,
+            })
+            expect(router.values.hashParams).toEqual({ insight: 'FUNNELS', q: 'draft-query-state' })
+        })
+
         it('is read from the URL on the session recording page', async () => {
             router.actions.push('/replay', { timestamp: 12345678 }, { sessionRecordingId: 'abc' })
             expect(router.values.hashParams).toHaveProperty('sessionRecordingId', 'abc')

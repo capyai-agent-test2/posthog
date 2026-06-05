@@ -37,6 +37,7 @@ type ViewRecordingProps = {
     minimumDuration?: number
     timestamp?: string | Dayjs
     openPlayerIn?: RecordingPlayerType
+    syncModalWithUrl?: boolean
     matchingEvents?: MatchedRecording[]
     hasRecording?: boolean
     /** If true, automatically check if a recording exists for this session via batched API call */
@@ -67,6 +68,7 @@ export default function ViewRecordingButton({
     timestamp,
     label,
     openPlayerIn = RecordingPlayerType.NewTab,
+    syncModalWithUrl = true,
     checkIfViewed = false,
     matchingEvents,
     hasRecording,
@@ -108,6 +110,7 @@ export default function ViewRecordingButton({
         timestamp,
         matchingEvents,
         openPlayerIn,
+        syncModalWithUrl,
         hasRecording,
     })
 
@@ -283,6 +286,7 @@ export function useRecordingButton({
     timestamp,
     matchingEvents,
     openPlayerIn,
+    syncModalWithUrl,
     hasRecording,
 }: ViewRecordingProps): {
     onClick: () => void
@@ -299,7 +303,8 @@ export function useRecordingButton({
 
             openSessionPlayer(
                 { id: sessionId ?? '', matching_events: matchingEvents ?? undefined },
-                Math.max(fiveSecondsBeforeEvent, 0)
+                Math.max(fiveSecondsBeforeEvent, 0),
+                syncModalWithUrl
             )
         } else {
             const timestampMs = timestamp ? dayjs(timestamp).valueOf() - 5000 : undefined
