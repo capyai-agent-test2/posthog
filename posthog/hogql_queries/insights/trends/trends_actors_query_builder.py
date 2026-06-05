@@ -21,7 +21,7 @@ from posthog.schema import (
 
 from posthog.hogql import ast
 from posthog.hogql.constants import LimitContext
-from posthog.hogql.parser import parse_expr
+from posthog.hogql.parser import parse_expr, parse_select
 from posthog.hogql.property import action_to_expr, property_to_expr
 from posthog.hogql.timings import HogQLTimings
 
@@ -32,6 +32,7 @@ from posthog.hogql_queries.insights.trends.aggregation_operations import (
 from posthog.hogql_queries.insights.trends.breakdown import Breakdown
 from posthog.hogql_queries.insights.trends.display import TrendsDisplay
 from posthog.hogql_queries.insights.trends.utils import group_node_to_expr, is_groups_math
+from posthog.hogql_queries.insights.utils.breakdowns import BREAKDOWN_OTHER_STRING_LABEL
 from posthog.hogql_queries.utils.query_compare_to_date_range import QueryCompareToDateRange
 from posthog.hogql_queries.utils.query_date_range import QueryDateRange
 from posthog.hogql_queries.utils.query_previous_period_date_range import QueryPreviousPeriodDateRange
@@ -493,11 +494,70 @@ class TrendsActorsQueryBuilder:
         )
 
         if self.breakdown_value is not None and breakdown.enabled:
+            if self._is_other_breakdown_value(self.breakdown_value):
+                conditions.append(self._other_breakdown_where_expr(breakdown))
+
             breakdown_filter = breakdown.get_actors_query_where_filter(lookup_values=self.breakdown_value)
             if breakdown_filter is not None:
                 conditions.append(breakdown_filter)
 
         return conditions
+
+    def _is_other_breakdown_value(self, breakdown_value: str | int | list[str]) -> bool:
+        if isinstance(breakdown_value, list):
+            return BREAKDOWN_OTHER_STRING_LABEL in breakdown_value
+        return breakdown_value == BREAKDOWN_OTHER_STRING_LABEL
+
+    def _other_breakdown_where_expr(self, breakdown: Breakdown) -> ast.Expr:
+        top_breakdown_values_query = self._top_breakdown_values_query(breakdown)
+        return ast.CompareOperation(
+            left=self._actors_breakdown_value_expr(breakdown),
+            op=ast.CompareOperationOp.NotIn,
+            right=top_breakdown_values_query,
+        )
+
+    def _actors_breakdown_value_expr(self, breakdown: Breakdown) -> ast.Expr:
+        breakdown_columns = breakdown.column_exprs
+        if breakdown.is_multiple_breakdown:
+            return ast.Array(exprs=[column.expr for column in breakdown_columns])
+        return breakdown_columns[0].expr
+
+    def _top_breakdown_values_query(self, breakdown: Breakdown) -> ast.SelectQuery:
+        from posthog.hogql_queries.insights.trends.trends_query_builder import (
+            TrendsQueryBuilder,  # noqa: PLC0415 - avoids loading the trends query builder from its actors-query dependency
+        )
+
+        query_builder = TrendsQueryBuilder(
+            trends_query=self.trends_query,
+            team=self.team,
+            query_date_range=self.trends_previous_date_range if self.is_compare_previous else self.trends_date_range,
+            series=self.entity,
+            timings=self.timings,
+            modifiers=self.modifiers,
+            limit_context=self.limit_context,
+        )
+        inner_query = query_builder._inner_select_query(query_builder._base_events_query())
+
+        return parse_select(
+            """
+            SELECT breakdown_value
+            FROM (
+                SELECT
+                    breakdown_value,
+                    sum(count) AS total_count_for_breakdown,
+                    {breakdown_order} AS ordering
+                FROM {inner_query}
+                GROUP BY breakdown_value
+                ORDER BY ordering ASC, total_count_for_breakdown DESC, breakdown_value ASC
+                LIMIT {breakdown_limit}
+            )
+            """,
+            placeholders={
+                "breakdown_order": query_builder._breakdown_query_order_by(breakdown),
+                "breakdown_limit": ast.Constant(value=query_builder._get_breakdown_limit()),
+                "inner_query": inner_query,
+            },
+        )
 
     def _filter_empty_actors_expr(self) -> list[ast.Expr]:
         conditions: list[ast.Expr] = []
