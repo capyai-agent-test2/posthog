@@ -298,6 +298,7 @@ function InsightCardInternal(
                                     readOnly
                                     embedded
                                     inSharedMode={placement === DashboardPlacement.Public}
+                                    filtersOverride={filtersOverride}
                                     variablesOverride={variablesOverride}
                                     editMode={false}
                                 />

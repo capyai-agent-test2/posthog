@@ -61,11 +61,13 @@ import { SessionPropertyFilters } from '~/queries/nodes/SessionsNode/SessionProp
 import {
     ActorsQuery,
     AnyResponseType,
+    DashboardFilter,
     DataTableNode,
     EventsNode,
     EventsQuery,
     GroupsQuery,
     HogQLQuery,
+    HogQLVariable,
     MarketingAnalyticsTableQuery,
     NodeKind,
     NonIntegratedConversionsColumnsSchemaNames,
@@ -127,6 +129,8 @@ interface DataTableProps {
     attachTo?: BuiltLogic | LogicWrapper
     /** Owning internal tab; used to scope per-tab UI state across tab unmounts */
     tabId?: string
+    filtersOverride?: DashboardFilter | null
+    variablesOverride?: Record<string, HogQLVariable> | null
 }
 
 const eventGroupTypes = [
@@ -149,6 +153,8 @@ export function DataTable({
     dataAttr,
     attachTo,
     tabId,
+    filtersOverride,
+    variablesOverride,
 }: DataTableProps): JSX.Element {
     const [uniqueNodeKey] = useState(() => uniqueNode++)
     const [dataKey] = useState(() => `DataNode.${uniqueKey || uniqueNodeKey}`)
@@ -172,6 +178,8 @@ export function DataTable({
         dataNodeCollectionId: context?.insightProps?.dataNodeCollectionId || dataKey,
         refresh: context?.refresh,
         maxPaginationLimit: context?.dataTableMaxPaginationLimit,
+        filtersOverride,
+        variablesOverride,
         limitContext: context?.limitContext,
     }
     const {
