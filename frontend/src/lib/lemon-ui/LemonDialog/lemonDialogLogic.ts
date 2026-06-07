@@ -4,13 +4,16 @@ import { forms } from 'kea-forms'
 import type { lemonDialogLogicType } from './lemonDialogLogicType'
 
 export type LemonDialogFormPropsType = {
-    logicKey: string
     errors?: Record<string, (value: string) => string | undefined>
+}
+
+type LemonDialogLogicProps = LemonDialogFormPropsType & {
+    logicKey: string
 }
 
 export const lemonDialogLogic = kea<lemonDialogLogicType>([
     path(['components', 'lemon-dialog', 'lemonDialogLogic']),
-    props({} as LemonDialogFormPropsType),
+    props({} as LemonDialogLogicProps),
     key(({ logicKey }) => logicKey),
     forms(({ props }) => ({
         form: {
