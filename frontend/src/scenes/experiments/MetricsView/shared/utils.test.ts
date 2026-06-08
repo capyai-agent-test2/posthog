@@ -1,18 +1,23 @@
 import type { ExperimentFunnelsQuery, ExperimentMetric, ExperimentTrendsQuery } from '~/queries/schema/schema-general'
 import { ExperimentMetricType, NodeKind } from '~/queries/schema/schema-general'
-import { ExperimentMetricGoal, ExperimentMetricMathType } from '~/types'
+import type { Experiment } from '~/types'
+import { ExperimentMetricGoal, ExperimentMetricMathType, ExperimentStatsMethod } from '~/types'
 
 import {
     type ExperimentVariantResult,
     formatChanceToWinForGoal,
+    formatExperimentConfidenceLevel,
     formatPValue,
     formatTickValue,
     getChanceToWin,
     getDefaultMetricTitle,
+    getExperimentConfidenceLevel,
     getMetricColors,
     getMetricTag,
     isWinning,
 } from './utils'
+
+type ExperimentWithStatsConfig = Pick<Experiment, 'stats_config'>
 
 describe('getMetricTag', () => {
     it('handles different metric types correctly', () => {
@@ -280,5 +285,72 @@ describe('formatTickValue', () => {
         [1.5, '150%'],
     ])('formatTickValue(%p) === %p', (input, expected) => {
         expect(formatTickValue(input)).toBe(expected)
+    })
+})
+
+describe('getExperimentConfidenceLevel', () => {
+    it.each([
+        [
+            {
+                stats_config: {
+                    method: ExperimentStatsMethod.Bayesian,
+                    bayesian: { ci_level: 0.9 },
+                },
+            } satisfies ExperimentWithStatsConfig,
+            undefined,
+            0.9,
+        ],
+        [
+            {
+                stats_config: {
+                    method: ExperimentStatsMethod.Frequentist,
+                    frequentist: { alpha: 0.1 },
+                },
+            } satisfies ExperimentWithStatsConfig,
+            undefined,
+            0.9,
+        ],
+        [
+            { stats_config: { method: ExperimentStatsMethod.Bayesian } } satisfies ExperimentWithStatsConfig,
+            undefined,
+            0.95,
+        ],
+        [
+            { stats_config: { method: ExperimentStatsMethod.Frequentist } } satisfies ExperimentWithStatsConfig,
+            undefined,
+            0.95,
+        ],
+        [null, ExperimentStatsMethod.Bayesian, 0.95],
+        [null, ExperimentStatsMethod.Frequentist, 0.95],
+    ])('returns %p for %p', (experiment, statsMethod, expected) => {
+        expect(getExperimentConfidenceLevel(experiment, statsMethod)).toBe(expected)
+    })
+})
+
+describe('formatExperimentConfidenceLevel', () => {
+    it.each([
+        [
+            {
+                stats_config: {
+                    method: ExperimentStatsMethod.Bayesian,
+                    bayesian: { ci_level: 0.9 },
+                },
+            } satisfies ExperimentWithStatsConfig,
+            undefined,
+            '90%',
+        ],
+        [
+            {
+                stats_config: {
+                    method: ExperimentStatsMethod.Frequentist,
+                    frequentist: { alpha: 0.01 },
+                },
+            } satisfies ExperimentWithStatsConfig,
+            undefined,
+            '99%',
+        ],
+        [null, ExperimentStatsMethod.Bayesian, '95%'],
+    ])('formats %p for %p', (experiment, statsMethod, expected) => {
+        expect(formatExperimentConfidenceLevel(experiment, statsMethod)).toBe(expected)
     })
 })
