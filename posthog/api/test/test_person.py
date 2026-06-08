@@ -20,6 +20,7 @@ from unittest import mock
 
 from django.utils import timezone
 
+import requests
 from parameterized import parameterized
 from rest_framework import status
 
@@ -1020,6 +1021,74 @@ class TestPerson(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
                 "$set": {"foo": "bar"},
             },
             process_person_profile=True,
+        )
+
+    @parameterized.expand(
+        [
+            ("update_property", lambda person: {"key": "foo", "value": "bar"}),
+            ("", lambda person: {"properties": {"foo": "bar"}}),
+        ]
+    )
+    @mock.patch("posthog.api.person.capture_internal")
+    def test_update_person_property_returns_error_when_capture_fails(
+        self, path_suffix: str, payload_factory, mock_capture
+    ) -> None:
+        person = _create_person(
+            team=self.team,
+            distinct_ids=["some_distinct_id"],
+            properties={"$browser": "whatever", "$os": "Mac OS X"},
+            immediate=True,
+        )
+        mock_capture.return_value.raise_for_status.side_effect = Exception("capture failed")
+
+        response = self.client.post(
+            f"/api/person/{person.uuid}/{path_suffix}",
+            payload_factory(person),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json(),
+            {
+                "success": False,
+                "detail": "Unable to update property",
+            },
+        )
+
+    @parameterized.expand(
+        [
+            ("update_property", lambda person: {"key": "foo", "value": "bar"}),
+            ("", lambda person: {"properties": {"foo": "bar"}}),
+        ]
+    )
+    @mock.patch("posthog.api.person.capture_internal")
+    def test_update_person_property_propagates_capture_http_status(
+        self, path_suffix: str, payload_factory, mock_capture
+    ) -> None:
+        person = _create_person(
+            team=self.team,
+            distinct_ids=["some_distinct_id"],
+            properties={"$browser": "whatever", "$os": "Mac OS X"},
+            immediate=True,
+        )
+        error_response = mock.MagicMock()
+        error_response.status_code = 503
+        mock_capture.return_value.raise_for_status.side_effect = requests.HTTPError(response=error_response)
+
+        response = self.client.post(
+            f"/api/person/{person.uuid}/{path_suffix}",
+            payload_factory(person),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.json(),
+            {
+                "success": False,
+                "detail": "Unable to update property",
+            },
         )
 
     @mock.patch("posthog.api.person.capture_internal")
