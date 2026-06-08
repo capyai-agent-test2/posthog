@@ -880,7 +880,8 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
         non_writable = self._get_non_writable_person_properties(request)
         if key in non_writable:
             raise ValidationError(f'You do not have write access to the property "{key}".')
-        self._set_properties({key: request.data["value"]}, request.user)
+        if error_response := self._set_properties({key: request.data["value"]}, request.user):
+            return error_response
         return Response(status=202)
 
     @extend_schema(request=PersonDeletePropertyRequestSerializer, parameters=[_PERSON_ID_PARAMETER])
@@ -1045,7 +1046,8 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
                 raise ValidationError(
                     f"You do not have write access to the following properties: {', '.join(sorted(blocked_keys))}."
                 )
-        self._set_properties(request.data["properties"], request.user)
+        if error_response := self._set_properties(request.data["properties"], request.user):
+            return error_response
         return Response(status=202)
 
     @extend_schema(exclude=True)
@@ -1067,12 +1069,13 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
             property_type=PropertyDefinition.Type.PERSON,
         )
 
-    def _set_properties(self, properties, user):
+    def _set_properties(self, properties: dict[str, Any], user: User | None) -> Response | None:
         instance = self.get_object()
         distinct_id = instance.distinct_ids[0]
         event_name = "$set"
         timestamp = datetime.now(UTC)
-        properties = {
+        property_keys = sorted(properties.keys()) if isinstance(properties, dict) else []
+        capture_properties = {
             "$set": properties,
         }
 
@@ -1083,14 +1086,41 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
                 event_source="person_viewset",
                 distinct_id=distinct_id,
                 timestamp=timestamp,
-                properties=properties,
+                properties=capture_properties,
                 process_person_profile=True,
             )
             resp.raise_for_status()
 
-        # Failures in this codepath (old and new) are ignored here
+        except HTTPError as he:
+            logger.warning(
+                "update_person_property.capture_http_error",
+                team_id=self.team_id,
+                person_uuid=str(instance.uuid),
+                property_keys=property_keys,
+                status_code=he.response.status_code,
+            )
+            return response.Response(
+                {
+                    "success": False,
+                    "detail": "Unable to update property",
+                },
+                status=he.response.status_code,
+            )
+
         except Exception:
-            pass
+            logger.exception(
+                "update_person_property.capture_error",
+                team_id=self.team_id,
+                person_uuid=str(instance.uuid),
+                property_keys=property_keys,
+            )
+            return response.Response(
+                {
+                    "success": False,
+                    "detail": "Unable to update property",
+                },
+                status=400,
+            )
 
         if self.organization.id:  # should always be true, but mypy...
             log_activity(
@@ -1103,6 +1133,7 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
                 activity="updated",
                 detail=Detail(changes=[Change(type="Person", action="changed", field="properties")]),
             )
+        return None
 
     # PRAGMA: Methods for getting Persons via clickhouse queries
     def _respond_with_cached_results(
