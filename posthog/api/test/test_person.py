@@ -1025,13 +1025,13 @@ class TestPerson(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
 
     @parameterized.expand(
         [
-            ("update_property", lambda person: {"key": "foo", "value": "bar"}),
-            ("", lambda person: {"properties": {"foo": "bar"}}),
+            ("post", "update_property", lambda person: {"key": "foo", "value": "bar"}),
+            ("patch", "", lambda person: {"properties": {"foo": "bar"}}),
         ]
     )
     @mock.patch("posthog.api.person.capture_internal")
     def test_update_person_property_returns_error_when_capture_fails(
-        self, path_suffix: str, payload_factory, mock_capture
+        self, method: str, path_suffix: str, payload_factory, mock_capture
     ) -> None:
         person = _create_person(
             team=self.team,
@@ -1041,7 +1041,7 @@ class TestPerson(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
         )
         mock_capture.return_value.raise_for_status.side_effect = Exception("capture failed")
 
-        response = self.client.post(
+        response = getattr(self.client, method)(
             f"/api/person/{person.uuid}/{path_suffix}",
             payload_factory(person),
             format="json",
@@ -1058,13 +1058,13 @@ class TestPerson(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
 
     @parameterized.expand(
         [
-            ("update_property", lambda person: {"key": "foo", "value": "bar"}),
-            ("", lambda person: {"properties": {"foo": "bar"}}),
+            ("post", "update_property", lambda person: {"key": "foo", "value": "bar"}),
+            ("patch", "", lambda person: {"properties": {"foo": "bar"}}),
         ]
     )
     @mock.patch("posthog.api.person.capture_internal")
     def test_update_person_property_propagates_capture_http_status(
-        self, path_suffix: str, payload_factory, mock_capture
+        self, method: str, path_suffix: str, payload_factory, mock_capture
     ) -> None:
         person = _create_person(
             team=self.team,
@@ -1076,7 +1076,7 @@ class TestPerson(ClickhouseTestMixin, APIBaseTest, QueryMatchingTest):
         error_response.status_code = 503
         mock_capture.return_value.raise_for_status.side_effect = requests.HTTPError(response=error_response)
 
-        response = self.client.post(
+        response = getattr(self.client, method)(
             f"/api/person/{person.uuid}/{path_suffix}",
             payload_factory(person),
             format="json",

@@ -1074,6 +1074,7 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
         distinct_id = instance.distinct_ids[0]
         event_name = "$set"
         timestamp = datetime.now(UTC)
+        property_keys = sorted(properties.keys()) if isinstance(properties, dict) else []
         capture_properties = {
             "$set": properties,
         }
@@ -1095,7 +1096,7 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
                 "update_person_property.capture_http_error",
                 team_id=self.team_id,
                 person_uuid=str(instance.uuid),
-                property_keys=sorted(properties.keys()),
+                property_keys=property_keys,
                 status_code=he.response.status_code,
             )
             return response.Response(
@@ -1111,7 +1112,7 @@ class PersonViewSet(TeamAndOrgViewSetMixin, viewsets.ModelViewSet):
                 "update_person_property.capture_error",
                 team_id=self.team_id,
                 person_uuid=str(instance.uuid),
-                property_keys=sorted(properties.keys()),
+                property_keys=property_keys,
             )
             return response.Response(
                 {
