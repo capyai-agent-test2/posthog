@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 use std::path::Path;
-use tracing::info;
+use tracing::{info, warn};
 use walkdir::DirEntry;
 
 use crate::{
@@ -113,7 +113,7 @@ pub fn get_release_for_maps<'a>(
     if needs_release {
         let mut builder: ReleaseBuilder = release.into();
 
-        get_git_info(Some(directory.to_path_buf()))?.map(|info| builder.with_git(info));
+        apply_git_info_if_needed(directory, &mut builder)?;
 
         if builder.can_create() {
             created_release = Some(builder.fetch_or_create()?);
@@ -121,4 +121,63 @@ pub fn get_release_for_maps<'a>(
     }
 
     Ok(created_release)
+}
+
+fn apply_git_info_if_needed(directory: &Path, builder: &mut ReleaseBuilder) -> Result<()> {
+    apply_git_info_result(builder, get_git_info(Some(directory.to_path_buf())))
+}
+
+fn apply_git_info_result(
+    builder: &mut ReleaseBuilder,
+    git_info_result: Result<Option<crate::utils::git::GitInfo>>,
+) -> Result<()> {
+    match git_info_result {
+        Ok(Some(info)) => {
+            builder.with_git(info);
+            Ok(())
+        }
+        Ok(None) => Ok(()),
+        Err(err) if builder.can_create() => {
+            warn!("Failed to determine git metadata: {err:#}");
+            Ok(())
+        }
+        Err(err) => Err(err),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::apply_git_info_result;
+    use crate::api::releases::ReleaseBuilder;
+
+    #[test]
+    fn ignores_git_errors_when_release_is_already_complete() {
+        let mut builder = ReleaseBuilder::default();
+        builder.with_name("my-app");
+        builder.with_version("1.0.0");
+
+        let result = apply_git_info_result(
+            &mut builder,
+            Err(anyhow::anyhow!("Failed to determine commit sha")),
+        );
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn keeps_git_errors_when_release_still_needs_git_metadata() {
+        let mut builder = ReleaseBuilder::default();
+        builder.with_name("my-app");
+
+        let result = apply_git_info_result(
+            &mut builder,
+            Err(anyhow::anyhow!("Failed to determine commit sha")),
+        );
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to determine commit sha"));
+    }
 }
