@@ -4,6 +4,7 @@ import itertools
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from itertools import groupby
+from types import SimpleNamespace
 from typing import Any, Optional
 
 import pytest
@@ -77,6 +78,54 @@ from posthog.test.test_utils import create_group_type_mapping_without_created_at
 from products.actions.backend.models.action import Action
 from products.cohorts.backend.models.cohort import Cohort
 from products.event_definitions.backend.models.property_definition import PropertyDefinition
+
+
+class TestFilterWeekendBuckets:
+    @parameterized.expand(
+        [
+            (
+                "mid_week_range",
+                ["2020-01-13", "2020-01-14", "2020-01-15", "2020-01-16"],
+                [3, 3, 3, 12],
+                ["2020-01-13", "2020-01-14", "2020-01-15", "2020-01-16"],
+                [3, 3, 3, 12],
+            ),
+            (
+                "range_with_weekend",
+                ["2020-01-17", "2020-01-18", "2020-01-19", "2020-01-20"],
+                [1, 2, 4, 3],
+                ["2020-01-17", "2020-01-20"],
+                [1, 3],
+            ),
+        ]
+    )
+    def test_filter_weekend_buckets_keeps_action_days_aligned(
+        self,
+        _name: str,
+        days: list[str],
+        data: list[int],
+        expected_days: list[str],
+        expected_data: list[int],
+    ) -> None:
+        runner = object.__new__(TrendsQueryRunner)
+        runner.query = SimpleNamespace(trendsFilter=None)
+
+        result = runner._filter_weekend_buckets(
+            [
+                {
+                    "days": days,
+                    "data": data,
+                    "labels": days,
+                    "count": float(sum(data)),
+                    "action": {"days": days},
+                }
+            ]
+        )[0]
+
+        assert result["days"] == expected_days
+        assert result["data"] == expected_data
+        assert result["count"] == float(sum(expected_data))
+        assert result["action"]["days"] == expected_days
 
 
 @dataclass

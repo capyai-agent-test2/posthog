@@ -705,6 +705,14 @@ class TrendsQueryRunner(AnalyticsQueryRunner[TrendsQueryResponse]):
         return res
 
     def _filter_weekend_buckets(self, results: list[dict]) -> list[dict]:
+        def is_weekday_bucket(day_value: Any) -> bool:
+            try:
+                if hasattr(day_value, "weekday"):
+                    return day_value.weekday() < 5
+                return datetime.strptime(str(day_value)[:10], "%Y-%m-%d").weekday() < 5
+            except (ValueError, TypeError):
+                return True
+
         filtered = []
         for series_result in results:
             days = series_result.get("days")
@@ -715,11 +723,7 @@ class TrendsQueryRunner(AnalyticsQueryRunner[TrendsQueryResponse]):
             # Build weekday mask — parse date string and check day of week
             weekday_indices = []
             for i, day_str in enumerate(days):
-                try:
-                    dt = datetime.strptime(day_str[:10], "%Y-%m-%d")
-                    if dt.weekday() < 5:  # Mon=0..Fri=4
-                        weekday_indices.append(i)
-                except (ValueError, TypeError):
+                if is_weekday_bucket(day_str):
                     weekday_indices.append(i)  # Keep unparseable entries
 
             if len(weekday_indices) == len(days):
@@ -750,7 +754,7 @@ class TrendsQueryRunner(AnalyticsQueryRunner[TrendsQueryResponse]):
             if new_result.get("action") is not None and "days" in new_result["action"]:
                 action_days = new_result["action"]["days"]
                 new_result["action"] = {**new_result["action"]}
-                new_result["action"]["days"] = [d for d in action_days if d.weekday() < 5]
+                new_result["action"]["days"] = [day for day in action_days if is_weekday_bucket(day)]
 
             filtered.append(new_result)
         return filtered
