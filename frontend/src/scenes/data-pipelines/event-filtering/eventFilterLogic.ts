@@ -127,6 +127,26 @@ const DEFAULT_FORM: EventFilterFormValues = {
     test_cases: [],
 }
 
+export function normalizeFilterFormForSubmit(
+    formValues: EventFilterFormValues,
+    allTestsPass: boolean
+): EventFilterFormValues {
+    if (!treeHasConditions(formValues.filter_tree)) {
+        return {
+            ...formValues,
+            mode: 'disabled',
+            filter_tree: { type: 'or', children: [] },
+            test_cases: [],
+        }
+    }
+
+    if (formValues.mode === 'live' && !allTestsPass && formValues.test_cases.length > 0) {
+        return { ...formValues, mode: 'dry_run' }
+    }
+
+    return formValues
+}
+
 // --- Pure functions (shared across 3 implementations) ---
 
 /**
@@ -256,9 +276,6 @@ export const eventFilterLogic = kea<eventFilterLogicType>([
                 // Validation errors go on `mode` (a string field) rather than `filter_tree`
                 // because kea-forms expects errors on object fields to be DeepPartialMap, not strings.
                 mode: (() => {
-                    if (mode !== 'disabled' && !treeHasConditions(filter_tree)) {
-                        return 'Filter must have at least one condition to be activated'
-                    }
                     if (treeHasConditions(filter_tree) && treeHasEmptyValues(filter_tree)) {
                         return 'All conditions must have a value'
                     }
@@ -271,18 +288,16 @@ export const eventFilterLogic = kea<eventFilterLogicType>([
             submit: async (formValues) => {
                 const { currentTeamId } = values
 
-                // Safety: downgrade to dry_run if tests are failing
-                if (formValues.mode === 'live' && !values.allTestsPass && formValues.test_cases.length > 0) {
-                    formValues = { ...formValues, mode: 'dry_run' }
-                }
+                formValues = normalizeFilterFormForSubmit(formValues, values.allTestsPass)
 
                 // Strip _key from test cases before sending to the API
                 const payload = {
                     ...formValues,
+                    filter_tree: treeHasConditions(formValues.filter_tree) ? formValues.filter_tree : null,
                     test_cases: formValues.test_cases.map(({ _key, ...tc }) => tc),
                 }
                 await api.create(`api/environments/${currentTeamId}/event_filter/`, payload)
-                lemonToast.success('Event filter saved')
+                lemonToast.success(payload.filter_tree ? 'Event filter saved' : 'Event filter cleared')
             },
         },
     })),

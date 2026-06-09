@@ -193,7 +193,7 @@ export function EventFilterScene(): JSX.Element {
                     <EventFilterMetrics filterId={filterForm.id} />
 
                     <div className="space-y-2">
-                        <div className="flex items-start justify-between">
+                        <div className="flex items-start justify-between gap-2">
                             <div>
                                 <LemonLabel>Drop events matching</LemonLabel>
                                 <p className="text-muted text-sm mb-0">
@@ -203,14 +203,26 @@ export function EventFilterScene(): JSX.Element {
                                     on save.
                                 </p>
                             </div>
-                            <LemonButton
-                                size="small"
-                                type="secondary"
-                                className="ml-2 shrink-0"
-                                onClick={() => setShowExpression(true)}
-                            >
-                                Show as ASCII
-                            </LemonButton>
+                            <div className="ml-2 flex shrink-0 gap-2">
+                                <LemonButton size="small" type="secondary" onClick={() => setShowExpression(true)}>
+                                    Show as ASCII
+                                </LemonButton>
+                                <LemonButton
+                                    size="small"
+                                    status="danger"
+                                    type="secondary"
+                                    disabledReason={
+                                        isTreeEmpty(filterForm.filter_tree) ? 'No filter to clear' : undefined
+                                    }
+                                    onClick={() => {
+                                        setFilterFormValue('filter_tree', { type: 'or', children: [] })
+                                        setFilterFormValue('mode', 'disabled')
+                                        setFilterFormValue('test_cases', [])
+                                    }}
+                                >
+                                    Clear filter
+                                </LemonButton>
+                            </div>
                         </div>
                         <DndContext
                             sensors={sensors}

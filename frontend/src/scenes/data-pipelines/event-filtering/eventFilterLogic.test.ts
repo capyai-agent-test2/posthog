@@ -2,6 +2,7 @@ import {
     countConditions,
     evaluateFilterTree,
     FilterNode,
+    normalizeFilterFormForSubmit,
     treeHasConditions,
     treeHasEmptyValues,
     updateAtPath,
@@ -312,5 +313,66 @@ describe('treeHasEmptyValues', () => {
         ['deeply nested empty value', and(or(cond(), not(cond('event_name', 'exact', '')))), true],
     ])('%s', (_name, tree, expected) => {
         expect(treeHasEmptyValues(tree)).toBe(expected)
+    })
+})
+
+describe('normalizeFilterFormForSubmit', () => {
+    it('clears empty trees before submit', () => {
+        expect(
+            normalizeFilterFormForSubmit(
+                {
+                    id: 'filter-id',
+                    mode: 'live',
+                    filter_tree: or(),
+                    test_cases: [
+                        {
+                            _key: 'tc1',
+                            event_name: '$pageview',
+                            distinct_id: 'user-1',
+                            expected_result: 'drop',
+                        },
+                    ],
+                },
+                true
+            )
+        ).toEqual({
+            id: 'filter-id',
+            mode: 'disabled',
+            filter_tree: or(),
+            test_cases: [],
+        })
+    })
+
+    it('downgrades live filters with failing tests to dry run', () => {
+        expect(
+            normalizeFilterFormForSubmit(
+                {
+                    id: 'filter-id',
+                    mode: 'live',
+                    filter_tree: cond('event_name', 'exact', '$pageview'),
+                    test_cases: [
+                        {
+                            _key: 'tc1',
+                            event_name: '$pageview',
+                            distinct_id: 'user-1',
+                            expected_result: 'ingest',
+                        },
+                    ],
+                },
+                false
+            )
+        ).toEqual({
+            id: 'filter-id',
+            mode: 'dry_run',
+            filter_tree: cond('event_name', 'exact', '$pageview'),
+            test_cases: [
+                {
+                    _key: 'tc1',
+                    event_name: '$pageview',
+                    distinct_id: 'user-1',
+                    expected_result: 'ingest',
+                },
+            ],
+        })
     })
 })
