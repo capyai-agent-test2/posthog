@@ -28,6 +28,7 @@ export function SharedMetricModal({
         isModalOpen,
         context,
         compatibleSharedMetrics,
+        allCompatibleSharedMetrics,
         searchTerm,
         canLoadMore,
         sharedMetricsResponseLoading,
@@ -59,12 +60,13 @@ export function SharedMetricModal({
 
     // Already-added metrics stay visible but are not selectable.
     const selectableMetrics = compatibleSharedMetrics.filter((metric: SharedMetric) => !alreadyAddedIds.has(metric.id))
+    const allSelectableMetrics = allCompatibleSharedMetrics.filter((metric: SharedMetric) => !alreadyAddedIds.has(metric.id))
 
     /**
      * we need to get the tags from the metrics that can be added to the experiment
      */
     const availableTags = Array.from(
-        new Set(selectableMetrics.flatMap((metric: SharedMetric) => metric.tags ?? []).filter(Boolean))
+        new Set(allSelectableMetrics.flatMap((metric: SharedMetric) => metric.tags ?? []).filter(Boolean))
     ).sort()
 
     return (
@@ -84,7 +86,7 @@ export function SharedMetricModal({
                         <LemonButton
                             onClick={() => {
                                 const metrics = selectedMetricIds
-                                    .map((metricId) => compatibleSharedMetrics.find((m) => m.id === metricId))
+                                    .map((metricId) => allCompatibleSharedMetrics.find((m) => m.id === metricId))
                                     .filter((metric): metric is SharedMetric => metric !== undefined)
 
                                 onSave(metrics, context)
@@ -122,7 +124,7 @@ export function SharedMetricModal({
                                 size="xsmall"
                                 type="secondary"
                                 onClick={() => {
-                                    setSelectedMetricIds(selectableMetrics.map((metric: SharedMetric) => metric.id))
+                                    setSelectedMetricIds(allSelectableMetrics.map((metric: SharedMetric) => metric.id))
                                 }}
                             >
                                 All
@@ -145,7 +147,7 @@ export function SharedMetricModal({
                                     type="secondary"
                                     onClick={() => {
                                         setSelectedMetricIds(
-                                            selectableMetrics
+                                            allSelectableMetrics
                                                 .filter((metric: SharedMetric) => metric.tags?.includes(tag))
                                                 .map((metric: SharedMetric) => metric.id)
                                         )

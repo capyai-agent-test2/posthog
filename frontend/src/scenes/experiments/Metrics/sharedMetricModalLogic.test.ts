@@ -56,8 +56,8 @@ describe('sharedMetricModalLogic', () => {
             logic.actions.openSharedMetricModal(METRIC_CONTEXTS.primary)
         }).toFinishAllListeners()
         await expectLogic(logic).toMatchValues({ searchTerm: '' })
-        expect(api.get).toHaveBeenLastCalledWith(expect.stringContaining(`limit=${MODAL_PAGE_SIZE}`))
-        expect(api.get).toHaveBeenLastCalledWith(expect.stringContaining('offset=0'))
+        expect(api.get).toHaveBeenCalledWith(expect.stringContaining(`limit=${MODAL_PAGE_SIZE}`))
+        expect(api.get).toHaveBeenCalledWith(expect.stringContaining('offset=0'))
     })
 
     it('compatibleSharedMetrics filters out non-ExperimentMetric kinds', async () => {
@@ -83,6 +83,15 @@ describe('sharedMetricModalLogic', () => {
         })
     })
 
+    it('loadAllSharedMetrics includes compatible metrics across all pages', async () => {
+        await expectLogic(logic, () => {
+            logic.actions.loadAllSharedMetrics()
+        }).toFinishAllListeners()
+        await expectLogic(logic).toMatchValues({
+            allCompatibleSharedMetrics: [expect.objectContaining({ id: 1 }), expect.objectContaining({ id: 3 })],
+        })
+    })
+
     it('setSearchTerm triggers a debounced reload with search and replaces results', async () => {
         await expectLogic(logic, () => {
             logic.actions.loadSharedMetrics()
@@ -101,7 +110,7 @@ describe('sharedMetricModalLogic', () => {
     it('tracks hasAnyCompatibleSharedMetrics from the unfiltered baseline, not the current search', async () => {
         // initial unfiltered load establishes that compatible metrics exist
         await expectLogic(logic, () => {
-            logic.actions.loadSharedMetrics()
+            logic.actions.loadAllSharedMetrics()
         }).toFinishAllListeners()
         await expectLogic(logic).toMatchValues({ hasAnyCompatibleSharedMetrics: true })
 
@@ -126,7 +135,7 @@ describe('sharedMetricModalLogic', () => {
             },
         })
         await expectLogic(logic, () => {
-            logic.actions.loadSharedMetrics()
+            logic.actions.loadAllSharedMetrics()
         }).toFinishAllListeners()
         await expectLogic(logic).toMatchValues({ hasAnyCompatibleSharedMetrics: false })
     })
