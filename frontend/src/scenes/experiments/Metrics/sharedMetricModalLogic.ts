@@ -13,6 +13,32 @@ import { METRIC_CONTEXTS, type MetricContext } from './experimentMetricModalLogi
 import type { sharedMetricModalLogicType } from './sharedMetricModalLogicType'
 
 export const MODAL_PAGE_SIZE = 20
+export const QUICK_SELECT_PAGE_SIZE = 100
+
+const getSharedMetricsUrl = (projectId: number, searchTerm: string, limit: number, offset: number = 0): string =>
+    `api/projects/${projectId}/experiment_saved_metrics?${toParams({
+        limit,
+        offset,
+        search: searchTerm || undefined,
+    })}`
+
+const loadAllSharedMetrics = async (
+    currentProjectId: number,
+    searchTerm: string,
+    breakpoint: () => void
+): Promise<SharedMetric[]> => {
+    let next: string | null = getSharedMetricsUrl(currentProjectId, searchTerm, QUICK_SELECT_PAGE_SIZE)
+    const results: SharedMetric[] = []
+
+    while (next) {
+        const response = (await api.get(next)) as CountedPaginatedResponse<SharedMetric>
+        breakpoint()
+        results.push(...response.results)
+        next = response.next
+    }
+
+    return results
+}
 
 export const sharedMetricModalLogic = kea<sharedMetricModalLogicType>([
     path(['scenes', 'experiments', 'Metrics', 'sharedMetricModalLogic']),
@@ -86,13 +112,8 @@ export const sharedMetricModalLogic = kea<sharedMetricModalLogicType>([
             null as CountedPaginatedResponse<SharedMetric> | null,
             {
                 loadSharedMetrics: async () => {
-                    const params = toParams({
-                        limit: MODAL_PAGE_SIZE,
-                        offset: 0,
-                        search: values.searchTerm || undefined,
-                    })
                     return (await api.get(
-                        `api/projects/${values.currentProjectId}/experiment_saved_metrics?${params}`
+                        getSharedMetricsUrl(values.currentProjectId, values.searchTerm, MODAL_PAGE_SIZE)
                     )) as CountedPaginatedResponse<SharedMetric>
                 },
                 loadNextSharedMetrics: async (_, breakpoint) => {
@@ -111,10 +132,22 @@ export const sharedMetricModalLogic = kea<sharedMetricModalLogicType>([
                 },
             },
         ],
+        allSharedMetrics: [
+            [] as SharedMetric[],
+            {
+                loadAllSharedMetrics: async (_, breakpoint) =>
+                    await loadAllSharedMetrics(values.currentProjectId, values.searchTerm, breakpoint),
+            },
+        ],
     })),
 
     selectors({
         loadedSharedMetrics: [(s) => [s.sharedMetricsResponse], (response): SharedMetric[] => response?.results ?? []],
+        allCompatibleSharedMetrics: [
+            (s) => [s.allSharedMetrics],
+            (allSharedMetrics: SharedMetric[]): SharedMetric[] =>
+                allSharedMetrics.filter((metric) => metric.query.kind === NodeKind.ExperimentMetric),
+        ],
         compatibleSharedMetrics: [
             (s) => [s.loadedSharedMetrics],
             (loadedSharedMetrics: SharedMetric[]): SharedMetric[] =>
@@ -127,15 +160,17 @@ export const sharedMetricModalLogic = kea<sharedMetricModalLogicType>([
     listeners(({ actions, values }) => ({
         openSharedMetricModal: () => {
             actions.loadSharedMetrics()
+            actions.loadAllSharedMetrics()
         },
         setSearchTerm: async (_, breakpoint) => {
             await breakpoint(300)
             actions.loadSharedMetrics()
+            actions.loadAllSharedMetrics()
         },
-        loadSharedMetricsSuccess: () => {
+        loadAllSharedMetricsSuccess: () => {
             // Only the unfiltered load establishes the baseline "are there any compatible metrics" answer.
             if (!values.searchTerm) {
-                actions.setHasAnyCompatibleSharedMetrics(values.compatibleSharedMetrics.length > 0)
+                actions.setHasAnyCompatibleSharedMetrics(values.allCompatibleSharedMetrics.length > 0)
             }
         },
     })),
