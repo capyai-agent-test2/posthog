@@ -29,6 +29,7 @@ export function SharedMetricModal({
         context,
         compatibleSharedMetrics,
         allCompatibleSharedMetrics,
+        allSharedMetricsLoading,
         searchTerm,
         canLoadMore,
         sharedMetricsResponseLoading,
@@ -66,8 +67,13 @@ export function SharedMetricModal({
      * we need to get the tags from the metrics that can be added to the experiment
      */
     const availableTags = Array.from(
-        new Set(allSelectableMetrics.flatMap((metric: SharedMetric) => metric.tags ?? []).filter(Boolean))
+        new Set(
+            (allSharedMetricsLoading ? [] : allSelectableMetrics)
+                .flatMap((metric: SharedMetric) => metric.tags ?? [])
+                .filter(Boolean)
+        )
     ).sort()
+    const quickSelectDisabledReason = allSharedMetricsLoading ? 'Loading all shared metrics…' : undefined
 
     return (
         <LemonModal
@@ -123,6 +129,7 @@ export function SharedMetricModal({
                             <LemonButton
                                 size="xsmall"
                                 type="secondary"
+                                disabledReason={quickSelectDisabledReason}
                                 onClick={() => {
                                     setSelectedMetricIds(allSelectableMetrics.map((metric: SharedMetric) => metric.id))
                                 }}
@@ -145,6 +152,7 @@ export function SharedMetricModal({
                                     key={index}
                                     size="xsmall"
                                     type="secondary"
+                                    disabledReason={quickSelectDisabledReason}
                                     onClick={() => {
                                         setSelectedMetricIds(
                                             allSelectableMetrics
