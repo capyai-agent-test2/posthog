@@ -1,7 +1,10 @@
+import { MOCK_DEFAULT_ORGANIZATION, MOCK_DEFAULT_PROJECT, MOCK_DEFAULT_TEAM } from 'lib/api.mock'
+
 import { expectLogic } from 'kea-test-utils'
 
 import { useMocks } from '~/mocks/jest'
 import { initKeaTests } from '~/test/init'
+import { OrganizationType, ProjectType, TeamType } from '~/types'
 
 import { projectsGridLogic } from './projectsGridLogic'
 
@@ -21,6 +24,28 @@ function buildFlag(i: number): MockFlag {
         filters: { groups: [] },
         active: true,
     }
+}
+
+const OTHER_PROJECT_ID = 2001
+const OTHER_TEAM_ID = 2002
+
+const OTHER_TEAM: TeamType = {
+    ...MOCK_DEFAULT_TEAM,
+    id: OTHER_TEAM_ID,
+    project_id: OTHER_PROJECT_ID,
+    name: 'Other project',
+}
+
+const OTHER_PROJECT: ProjectType = {
+    ...MOCK_DEFAULT_PROJECT,
+    id: OTHER_PROJECT_ID,
+    name: OTHER_TEAM.name,
+}
+
+const MULTI_PROJECT_ORG: OrganizationType = {
+    ...MOCK_DEFAULT_ORGANIZATION,
+    teams: [MOCK_DEFAULT_TEAM, OTHER_TEAM],
+    projects: [MOCK_DEFAULT_PROJECT, OTHER_PROJECT],
 }
 
 describe('projectsGridLogic', () => {
@@ -176,6 +201,64 @@ describe('projectsGridLogic', () => {
             const teamId = logic.values.currentTeamId
             expect(logic.values.pickedTeamIds).toEqual([])
             expect(localStorage.getItem(`ff-projects-grid.picked-teams.${teamId}`)).toBeNull()
+        })
+    })
+
+    describe('selected projects', () => {
+        beforeEach(() => {
+            useMocks({
+                get: {
+                    '/api/projects/:team/feature_flags/': (req) => {
+                        const projectId = Number(req.params.team)
+                        if (projectId === MOCK_DEFAULT_PROJECT.id) {
+                            return [
+                                200,
+                                {
+                                    count: 2,
+                                    next: null,
+                                    results: [
+                                        { ...buildFlag(1), key: 'shared', name: 'Shared flag' },
+                                        { ...buildFlag(2), key: 'current-only', name: 'Current only' },
+                                    ],
+                                },
+                            ]
+                        }
+
+                        if (projectId === OTHER_PROJECT_ID) {
+                            return [
+                                200,
+                                {
+                                    count: 2,
+                                    next: null,
+                                    results: [
+                                        { ...buildFlag(3), key: 'shared', name: 'Shared flag' },
+                                        { ...buildFlag(4), key: 'other-only', name: 'Other only' },
+                                    ],
+                                },
+                            ]
+                        }
+
+                        return [200, { count: 0, next: null, results: [] }]
+                    },
+                    '/api/organizations/:org/feature_flags/:key/': [],
+                },
+            })
+            initKeaTests(true, MOCK_DEFAULT_TEAM, MOCK_DEFAULT_PROJECT, MULTI_PROJECT_ORG)
+            logic = projectsGridLogic()
+            logic.mount()
+        })
+
+        afterEach(() => logic.unmount())
+
+        it('reloads rows with flags from selected projects', async () => {
+            await expectLogic(logic).toFinishAllListeners()
+            expect(logic.values.flags.map((flag) => flag.key)).toEqual(['shared', 'current-only'])
+
+            logic.actions.setPickedTeamIds([OTHER_TEAM_ID])
+            await expectLogic(logic).toFinishAllListeners()
+
+            expect(logic.values.flags.map((flag) => flag.key)).toEqual(['shared', 'current-only', 'other-only'])
+            expect(logic.values.flags.find((flag) => flag.key === 'other-only')?.source_team_id).toBe(OTHER_TEAM_ID)
         })
     })
 })

@@ -10,16 +10,15 @@ import { teamLogic } from 'scenes/teamLogic'
 import { urls } from 'scenes/urls'
 
 import { SceneSection } from '~/layout/scenes/components/SceneSection'
-import { FeatureFlagType, OrganizationFeatureFlag } from '~/types'
+import { OrganizationFeatureFlag } from '~/types'
 
 import { CellState, ProjectsGridCell } from './ProjectsGridCell'
-import { projectsGridLogic } from './projectsGridLogic'
+import { ProjectsGridFlagRow, projectsGridLogic } from './projectsGridLogic'
 import { ProjectsGridToolbar } from './ProjectsGridToolbar'
 
 function cellStateFor(
-    flag: FeatureFlagType,
+    flag: ProjectsGridFlagRow,
     teamId: number,
-    currentTeamId: number,
     accessibleTeamIds: Set<number>,
     siblings: OrganizationFeatureFlag[] | undefined,
     siblingsLoading: boolean
@@ -29,9 +28,9 @@ function cellStateFor(
         return { kind: 'present', sibling: siblingForTeam }
     }
 
-    // Before siblings load, render the current team's cell from the flag directly
+    // Before siblings load, render the source project's cell from the flag directly
     // (eval count unavailable until siblings arrive).
-    if (teamId === currentTeamId) {
+    if (teamId === flag.source_team_id) {
         return {
             kind: 'present',
             sibling: {
@@ -98,14 +97,14 @@ export function ProjectsGrid(): JSX.Element {
 
     const columnWidth = `${100 / (visibleColumns.length + 1)}%`
 
-    const columns: LemonTableColumns<FeatureFlagType> = [
+    const columns: LemonTableColumns<ProjectsGridFlagRow> = [
         {
             title: 'Flag',
             key: 'flag',
             width: columnWidth,
             render: (_, flag) => (
                 <LemonTableLink
-                    to={urls.featureFlag(flag.id as number)}
+                    to={urls.project(flag.source_team_id, urls.featureFlag(flag.id as number))}
                     title={flag.name || flag.key}
                     description={flag.key}
                 />
@@ -122,12 +121,11 @@ export function ProjectsGrid(): JSX.Element {
             ),
             key: `project-${teamId}`,
             width: columnWidth,
-            render: (_: unknown, flag: FeatureFlagType) => (
+            render: (_: unknown, flag: ProjectsGridFlagRow) => (
                 <ProjectsGridCell
                     state={cellStateFor(
                         flag,
                         teamId,
-                        currentTeamId,
                         accessibleTeamIds,
                         siblingsByFlagKey[flag.key],
                         siblingsLoadingKeys.includes(flag.key)
