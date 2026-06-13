@@ -326,6 +326,32 @@ class TestQueryRunner(BaseTest):
         cache_key = runner.get_cache_key()
         assert cache_key == "cache_42_473689ec17cc982383519776503e498bd0e44f16e6b6f0073412599254a69aba"
 
+    def test_cache_key_changes_with_test_account_filters(self):
+        team = Team.objects.create(pk=42, organization=self.organization)
+        query = TrendsQuery(series=[EventsNode(event="$pageview")], filterTestAccounts=True)
+
+        cache_key_without_filters = TrendsQueryRunner(query=query, team=team).get_cache_key()
+
+        team.test_account_filters = [{"key": "$host", "type": "event", "value": "localhost", "operator": "is_not"}]
+        team.save()
+
+        cache_key_with_filters = TrendsQueryRunner(query=query, team=team).get_cache_key()
+
+        assert cache_key_with_filters != cache_key_without_filters
+
+    def test_cache_key_ignores_test_account_filters_when_filter_disabled(self):
+        team = Team.objects.create(pk=42, organization=self.organization)
+        query = TrendsQuery(series=[EventsNode(event="$pageview")], filterTestAccounts=False)
+
+        cache_key_without_filters = TrendsQueryRunner(query=query, team=team).get_cache_key()
+
+        team.test_account_filters = [{"key": "$host", "type": "event", "value": "localhost", "operator": "is_not"}]
+        team.save()
+
+        cache_key_with_filters = TrendsQueryRunner(query=query, team=team).get_cache_key()
+
+        assert cache_key_with_filters == cache_key_without_filters
+
     @mock.patch("django.db.transaction.on_commit")
     def test_cache_response(self, mock_on_commit):
         TestQueryRunner = self.setup_test_query_runner_class()
