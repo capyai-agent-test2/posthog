@@ -124,9 +124,13 @@ class ConversationCompactionManager(ABC):
         summary_message: ContextMessage,
         agent_mode: AgentMode,
         start_id: str | None = None,
+        max_messages: int = 16,
+        max_tokens: int = 2048,
     ) -> InsertionResult:
         """Finds the optimal position to insert the summary message in the conversation window."""
-        window_start_id_candidate = self.find_window_boundary(messages, max_messages=16, max_tokens=2048)
+        window_start_id_candidate = self.find_window_boundary(
+            messages, max_messages=max_messages, max_tokens=max_tokens
+        )
         start_message = find_start_message(messages, start_id)
         if not start_message:
             raise ValueError("Start message not found")
