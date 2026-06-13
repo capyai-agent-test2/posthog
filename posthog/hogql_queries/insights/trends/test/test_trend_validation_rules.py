@@ -1,4 +1,8 @@
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from posthog.test.base import BaseTest
+from unittest import TestCase
 from unittest.mock import MagicMock
 
 from parameterized import parameterized
@@ -9,12 +13,18 @@ from posthog.schema import (
     BreakdownFilter,
     BreakdownType,
     DataWarehouseNode,
+    DateRange,
     EventsNode,
+    IntervalType,
     MultipleBreakdownType,
     TrendsQuery,
 )
 
-from posthog.hogql_queries.insights.trends.trend_validation_rules import ValidateDataWarehouseBreakdown
+from posthog.hogql_queries.insights.trends.trend_validation_rules import (
+    ValidateDataWarehouseBreakdown,
+    ValidateTrendsTimeBuckets,
+)
+from posthog.hogql_queries.utils.query_date_range import QueryDateRange
 from posthog.hogql_queries.validation.validation import QueryValidationContext
 
 
@@ -251,3 +261,41 @@ class TestValidateDataWarehouseBreakdown(BaseTest):
             context.exception.get_codes(),
             ["data_warehouse_series_unsupported_breakdown"],
         )
+
+
+class TestValidateTrendsTimeBuckets(TestCase):
+    def _context(self, query: TrendsQuery) -> QueryValidationContext[TrendsQuery]:
+        team = MagicMock()
+        team.timezone_info = ZoneInfo("UTC")
+        team.week_start_day = 0
+        runner = MagicMock(query=query, team=team, user=None)
+        runner.query_date_range = QueryDateRange(
+            date_range=query.dateRange,
+            team=team,
+            interval=query.interval,
+            now=datetime(2024, 1, 10, 12, 0, 0),
+            exact_timerange=query.dateRange.explicitDate if query.dateRange else False,
+        )
+        return QueryValidationContext(query=query, team=team, user=None, runner=runner)
+
+    def test_allows_reasonable_number_of_time_buckets(self) -> None:
+        query = TrendsQuery(
+            series=[EventsNode(event="$pageview")],
+            interval=IntervalType.HOUR,
+            dateRange=DateRange(date_from="2024-01-01", date_to="2024-01-08", explicitDate=True),
+        )
+
+        ValidateTrendsTimeBuckets().validate(self._context(query))
+
+    def test_disallows_too_many_time_buckets(self) -> None:
+        query = TrendsQuery(
+            series=[EventsNode(event="$pageview")],
+            interval=IntervalType.MINUTE,
+            dateRange=DateRange(date_from="2024-01-01", date_to="2024-01-08", explicitDate=True),
+        )
+
+        with self.assertRaises(ValidationError) as context:
+            ValidateTrendsTimeBuckets().validate(self._context(query))
+
+        self.assertIn("too many time buckets", str(context.exception))
+        self.assertEqual(context.exception.get_codes(), ["trends_too_many_time_buckets"])

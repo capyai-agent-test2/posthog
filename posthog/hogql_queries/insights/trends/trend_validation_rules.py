@@ -8,8 +8,11 @@ from posthog.hogql_queries.insights.utils.breakdowns import (
     has_single_breakdown,
 )
 from posthog.hogql_queries.insights.utils.entities import has_data_warehouse_node
+from posthog.hogql_queries.utils.query_date_range import QueryDateRange
 from posthog.hogql_queries.validation.utils import get_query_insight_name
 from posthog.hogql_queries.validation.validation import QueryValidationContext
+
+MAX_TRENDS_TIME_BUCKETS = 10_000
 
 
 class ValidateDataWarehouseBreakdown:
@@ -47,3 +50,26 @@ class ValidateDataWarehouseBreakdown:
                 f"Event based breakdowns are not supported for {insight_name} with a data warehouse series.",
                 code=self.code,
             )
+
+
+class ValidateTrendsTimeBuckets:
+    code = "trends_too_many_time_buckets"
+
+    def validate(self, context: QueryValidationContext[TrendsQuery]) -> None:
+        query_date_range = getattr(context.runner, "query_date_range", None)
+        if not isinstance(query_date_range, QueryDateRange):
+            return
+
+        start = query_date_range.align_with_interval(query_date_range.date_from())
+        end = query_date_range.date_to()
+        delta = query_date_range.interval_relativedelta()
+
+        bucket_count = 0
+        while start <= end:
+            bucket_count += 1
+            if bucket_count > MAX_TRENDS_TIME_BUCKETS:
+                raise ValidationError(
+                    "This insight has too many time buckets to render. Increase the interval or reduce the date range.",
+                    code=self.code,
+                )
+            start += delta

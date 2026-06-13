@@ -56,7 +56,10 @@ from posthog.clickhouse import query_tagging
 from posthog.clickhouse.query_tagging import QueryTags
 from posthog.hogql_queries.insights.trends.display import TrendsDisplay
 from posthog.hogql_queries.insights.trends.series_with_extras import SeriesWithExtras
-from posthog.hogql_queries.insights.trends.trend_validation_rules import ValidateDataWarehouseBreakdown
+from posthog.hogql_queries.insights.trends.trend_validation_rules import (
+    ValidateDataWarehouseBreakdown,
+    ValidateTrendsTimeBuckets,
+)
 from posthog.hogql_queries.insights.trends.trends_actors_query_builder import TrendsActorsQueryBuilder
 from posthog.hogql_queries.insights.trends.trends_query_builder import TrendsQueryBuilder
 from posthog.hogql_queries.insights.utils.breakdowns import (
@@ -135,6 +138,7 @@ class TrendsQueryRunner(AnalyticsQueryRunner[TrendsQueryResponse]):
             RequireAtLeastOneSeries(),
             DisallowUnsupportedDataWarehouseSettings(),
             ValidateDataWarehouseBreakdown(),
+            ValidateTrendsTimeBuckets(),
         )
 
     def _refresh_frequency(self):
