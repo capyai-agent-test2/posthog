@@ -39,6 +39,7 @@ type ViewRecordingProps = {
     openPlayerIn?: RecordingPlayerType
     matchingEvents?: MatchedRecording[]
     hasRecording?: boolean
+    checkingRecordingExistence?: boolean
     /** If true, automatically check if a recording exists for this session via batched API call */
     checkRecordingExists?: boolean
     /** Opt in to fetching the AI summary outcome and surfacing it as a tooltip. Also gated on REPLAY_VIDEO_BASED_SUMMARIZATION. */
@@ -85,7 +86,7 @@ export default function ViewRecordingButton({
 
     const { summaryBySessionId } = useValues(sessionSummaryProgressLogic)
     const { checkRecordingInfo } = useActions(sessionRecordingInfoLogic)
-    const { getRecordingExists, getSummaryOutcome } = useValues(sessionRecordingInfoLogic)
+    const { getRecordingExists, getSummaryOutcome, isRecordingExistsLoading } = useValues(sessionRecordingInfoLogic)
 
     useEffect(() => {
         if (!sessionId) {
@@ -96,8 +97,12 @@ export default function ViewRecordingButton({
         }
     }, [checkRecordingExists, shouldFetchSummaryOutcome, sessionId, checkRecordingInfo])
 
-    if (hasRecording === undefined && checkRecordingExists && sessionId) {
-        hasRecording = getRecordingExists(sessionId)
+    const fetchedHasRecording = checkRecordingExists && sessionId ? getRecordingExists(sessionId) : undefined
+    const checkingRecordingExistence =
+        !!sessionId && checkRecordingExists && hasRecording === undefined && isRecordingExistsLoading(sessionId)
+
+    if (hasRecording === undefined && fetchedHasRecording !== undefined) {
+        hasRecording = fetchedHasRecording
     }
 
     const { onClick, disabledReason, warningReason } = useRecordingButton({
@@ -109,13 +114,14 @@ export default function ViewRecordingButton({
         matchingEvents,
         openPlayerIn,
         hasRecording,
+        checkingRecordingExistence,
     })
 
     // Outcome precedence: live progress beats parent-supplied prop beats persisted fetch.
     // Live is freshest mid-summarisation; the prop is a parent-list short-circuit; persisted is the kea-cached fallback.
     const liveOutcome = summaryOutcomeEnabled && sessionId ? summaryBySessionId[sessionId]?.session_outcome : null
     const persistedOutcome = shouldFetchSummaryOutcome && sessionId ? getSummaryOutcome(sessionId) : null
-    const isInteractive = !disabledReason && !props.loading
+    const isInteractive = !disabledReason && !props.loading && !checkingRecordingExistence
     const outcomeTooltip =
         summaryOutcomeEnabled && isInteractive
             ? (selectOutcome([liveOutcome, summaryOutcome, persistedOutcome])?.description ?? undefined)
@@ -158,17 +164,19 @@ export default function ViewRecordingButton({
                         ? disabledReason
                         : disabledReason
                           ? 'Recording unavailable'
-                          : null
+                          : checkingRecordingExistence
+                            ? 'Checking for recording'
+                            : null
                 }
                 className={clsx(
                     props.className,
-                    props.loading && 'opacity-50',
+                    (props.loading || checkingRecordingExistence) && 'opacity-50',
                     props.fullWidth && 'w-full',
                     disabledReason && 'opacity-50'
                 )}
                 data-attr={props['data-attr']}
             >
-                {props.loading ? <Spinner className="text-sm" /> : null}
+                {props.loading || checkingRecordingExistence ? <Spinner className="text-sm" /> : null}
                 {label ?? 'View recording'}
                 {sideIcon}
                 {maybeUnwatchedIndicator}
@@ -202,9 +210,10 @@ export default function ViewRecordingButton({
                 disabledReasonInteractive={isValidElement(disabledReason)}
                 onClick={onClick}
                 icon={sideIcon}
-                tooltip={outcomeTooltip ?? 'View recording'}
+                tooltip={checkingRecordingExistence ? 'Checking for recording' : (outcomeTooltip ?? 'View recording')}
                 aria-label="View recording"
                 noPadding={noPadding}
+                loading={checkingRecordingExistence || props.loading}
                 {...captureAttrs}
                 {...props}
             />
@@ -218,6 +227,7 @@ export default function ViewRecordingButton({
             onClick={onClick}
             sideIcon={sideIcon}
             tooltip={outcomeTooltip}
+            loading={checkingRecordingExistence || props.loading}
             {...captureAttrs}
             {...props}
         >
@@ -232,7 +242,8 @@ export default function ViewRecordingButton({
 export const recordingDisabledReason = (
     sessionId: string | undefined,
     recordingStatus: string | undefined,
-    hasRecording?: boolean
+    hasRecording?: boolean,
+    checkingRecordingExistence?: boolean
 ): JSX.Element | string | null => {
     if (!sessionId && hasRecording === false) {
         return 'No recording for this event'
@@ -254,6 +265,8 @@ export const recordingDisabledReason = (
                 not all recordings are captured.
             </>
         )
+    } else if (checkingRecordingExistence) {
+        return 'Checking for recording'
     } else if (hasRecording === false) {
         return 'No recording for this event'
     }
@@ -284,6 +297,7 @@ export function useRecordingButton({
     matchingEvents,
     openPlayerIn,
     hasRecording,
+    checkingRecordingExistence,
 }: ViewRecordingProps): {
     onClick: () => void
     disabledReason: JSX.Element | string | null
@@ -308,7 +322,7 @@ export function useRecordingButton({
         }
     }
 
-    const disabledReason = recordingDisabledReason(sessionId, recordingStatus, hasRecording)
+    const disabledReason = recordingDisabledReason(sessionId, recordingStatus, hasRecording, checkingRecordingExistence)
     const warningReason = recordingWarningReason(recordingDuration, minimumDuration, recordingStatus)
 
     return { onClick, disabledReason, warningReason }
