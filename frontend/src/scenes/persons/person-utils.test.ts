@@ -88,6 +88,23 @@ describe('the person header', () => {
         it('returns undefined for a person without a profile', () => {
             expect(asLink({ distinct_ids: ['a uuid'] })).toBeUndefined()
         })
+
+        it('prefers the canonical person UUID link when available', () => {
+            expect(
+                asLink({
+                    id: '12',
+                    uuid: '550e8400-e29b-41d4-a716-446655440000',
+                    distinct_ids: ['a uuid'],
+                    properties: {},
+                })
+            ).toEqual(urls.personByUUID('550e8400-e29b-41d4-a716-446655440000'))
+        })
+
+        it('falls back to distinct ID links when id is not a UUID', () => {
+            expect(asLink({ id: '12', distinct_id: 'profile-distinct-id', distinct_ids: [], properties: {} })).toEqual(
+                urls.personByDistinctId('profile-distinct-id')
+            )
+        })
     })
 
     const displayTestCases = [
