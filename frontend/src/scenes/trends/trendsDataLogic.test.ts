@@ -8,7 +8,7 @@ import { getTrendResultCustomizationKey } from 'scenes/insights/utils'
 import { dataNodeLogic } from '~/queries/nodes/DataNode/dataNodeLogic'
 import { DataNode, LifecycleQuery, NodeKind, ResultCustomizationBy, TrendsQuery } from '~/queries/schema/schema-general'
 import { initKeaTests } from '~/test/init'
-import { ChartDisplayType, InsightLogicProps, InsightModel } from '~/types'
+import { ChartDisplayType, InsightLogicProps, InsightModel, TrendResult } from '~/types'
 
 import { breakdownPieResult, lifecycleResult, trendPieResult, trendResult } from './__mocks__/trendsDataLogicMocks'
 import { trendsDataLogic } from './trendsDataLogic'
@@ -389,6 +389,54 @@ describe('trendsDataLogic', () => {
                 | undefined
             expect(resultCustomizations?.[key0]?.color).toBe('preset-5')
             expect(resultCustomizations?.[key0]?.hidden).toBe(true)
+        })
+
+        it('keeps an isolated breakdown series visible after result order changes', async () => {
+            const query: TrendsQuery = {
+                kind: NodeKind.TrendsQuery,
+                series: [],
+                trendsFilter: {
+                    display: ChartDisplayType.ActionsPie,
+                    resultCustomizationBy: ResultCustomizationBy.Position,
+                },
+            }
+            const makeResult = (breakdown_value: string, aggregated_value: number): TrendResult =>
+                ({
+                    action: { order: 0 },
+                    label: breakdown_value,
+                    data: [],
+                    days: [],
+                    count: 0,
+                    aggregated_value,
+                    breakdown_value,
+                }) as TrendResult
+
+            await expectLogic(logic, () => {
+                insightVizDataLogic.findMounted(insightProps)?.actions.updateQuerySource(query)
+                builtDataNodeLogic.actions.loadDataSuccess({
+                    result: [makeResult('A', 10), makeResult('B', 20), makeResult('C', 30)],
+                })
+            }).toFinishAllListeners()
+
+            const selected = logic.values.indexedResults.find((result) => result.breakdown_value === 'B')!
+
+            await expectLogic(logic, () => {
+                logic.actions.toggleOtherSeriesHidden(selected)
+            }).toFinishAllListeners()
+
+            await expectLogic(logic, () => {
+                builtDataNodeLogic.actions.loadDataSuccess({
+                    result: [makeResult('A', 50), makeResult('B', 5), makeResult('C', 40)],
+                })
+            }).toFinishAllListeners()
+
+            const hiddenByBreakdown = Object.fromEntries(
+                logic.values.indexedResults.map((result) => [
+                    result.breakdown_value,
+                    logic.values.getTrendsHidden(result),
+                ])
+            )
+            expect(hiddenByBreakdown).toEqual({ A: true, B: false, C: true })
         })
 
         it('legendSeriesIsolationMenuEligible stays true when dashboard filters override is active', async () => {
