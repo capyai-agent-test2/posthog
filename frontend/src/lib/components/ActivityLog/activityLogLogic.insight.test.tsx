@@ -188,6 +188,68 @@ describe('the activity log logic', () => {
             )
         })
 
+        it('can handle change of an InsightVizNode insight query', async () => {
+            const logic = await insightTestSetup('test insight', 'updated', [
+                {
+                    type: ActivityScope.INSIGHT,
+                    action: 'changed',
+                    field: 'query',
+                    after: {
+                        kind: 'InsightVizNode',
+                        source: {
+                            kind: 'TrendsQuery',
+                            series: [
+                                {
+                                    kind: 'EventsNode',
+                                    event: '$pageview',
+                                    name: '$pageview',
+                                },
+                            ],
+                            trendsFilter: {
+                                display: 'ActionsLineGraph',
+                            },
+                            breakdownFilter: {
+                                breakdown: '$browser',
+                                breakdown_type: 'event',
+                            },
+                        },
+                    },
+                },
+            ])
+            const actual = logic.values.humanizedActivity
+
+            const renderedDescription = render(<>{actual[0].description}</>).container
+            expect(renderedDescription).toHaveTextContent('peter changed query definition on test insight')
+
+            const renderedExtendedDescription = render(<>{actual[0].extendedDescription}</>).container
+            expect(renderedExtendedDescription).toHaveTextContent(
+                'QueryACountingPageviewby total countFiltersNoneBreakdown byBrowser'
+            )
+        })
+
+        it('keeps wrapped web analytics insight queries on the fallback summary path', async () => {
+            const logic = await insightTestSetup('test insight', 'updated', [
+                {
+                    type: ActivityScope.INSIGHT,
+                    action: 'changed',
+                    field: 'query',
+                    after: {
+                        kind: 'InsightVizNode',
+                        source: {
+                            kind: 'WebOverviewQuery',
+                        },
+                    },
+                },
+            ])
+            const actual = logic.values.humanizedActivity
+
+            const renderedDescription = render(<>{actual[0].description}</>).container
+            expect(renderedDescription).toHaveTextContent(
+                "peter cannot yet summarize changes to this insight's query: InsightVizNode on test insight"
+            )
+            expect(actual[0].extendedDescription).toBeUndefined()
+        })
+
         it('can handle change of filters on a retention graph', async () => {
             const logic = await insightTestSetup('test insight', 'updated', [
                 {
