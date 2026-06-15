@@ -21,6 +21,14 @@ jest.mock(
     { virtual: true }
 )
 
+jest.mock(
+    '@posthog/quill',
+    () => ({
+        cn: (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(' '),
+    }),
+    { virtual: true }
+)
+
 describe('QuestionInput slash command autocomplete', () => {
     let maxLogicInstance: ReturnType<typeof maxLogic.build>
     let threadLogicInstance: ReturnType<typeof maxThreadLogic.build>
@@ -75,5 +83,11 @@ describe('QuestionInput slash command autocomplete', () => {
 
         fireEvent.change(input, { target: { value: '/' } })
         await waitFor(() => expect(slashCommandItem()).toBeInTheDocument())
+    })
+
+    it('keeps the composer textarea viewport-constrained for long messages', () => {
+        const input = screen.getByRole('textbox')
+
+        expect(input).toHaveClass('max-h-[40vh]', 'overflow-y-auto', 'show-scrollbar-on-hover', 'sm:max-h-64')
     })
 })
