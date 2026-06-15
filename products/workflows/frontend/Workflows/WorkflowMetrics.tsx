@@ -44,6 +44,13 @@ export const WORKFLOW_METRICS_INFO: Record<string, { name: string; description: 
     },
 }
 
+const WORKFLOW_METRIC_SERIES_METADATA = Object.fromEntries(
+    Object.entries(WORKFLOW_METRICS_INFO).map(([metricName, { name, description, color }]) => [
+        metricName,
+        { label: name, description, color },
+    ])
+)
+
 function WorkflowRunMetrics(props: WorkflowLogicProps): JSX.Element {
     const logicKey = `hog-flow-metrics-${props.id}`
 
@@ -64,20 +71,6 @@ function WorkflowRunMetrics(props: WorkflowLogicProps): JSX.Element {
     const { setParams } = useActions(logic)
 
     const selectedAction = workflow.actions.find((action) => action.id === params.instanceId)
-
-    const modifiedAppMetricsTrends = useMemo(
-        () =>
-            appMetricsTrends
-                ? {
-                      ...appMetricsTrends,
-                      series: appMetricsTrends.series.map((series) => ({
-                          ...series,
-                          color: WORKFLOW_METRICS_INFO[series.name as keyof typeof WORKFLOW_METRICS_INFO]?.color,
-                      })),
-                  }
-                : null,
-        [appMetricsTrends]
-    )
 
     const workflowStepOptions = useMemo(
         () => [
@@ -140,7 +133,12 @@ function WorkflowRunMetrics(props: WorkflowLogicProps): JSX.Element {
                             />
                         ))}
                     </div>
-                    <AppMetricsTrends appMetricsTrends={modifiedAppMetricsTrends} loading={appMetricsTrendsLoading} />
+                    <AppMetricsTrends
+                        appMetricsTrends={appMetricsTrends}
+                        loading={appMetricsTrendsLoading}
+                        seriesMetadata={WORKFLOW_METRIC_SERIES_METADATA}
+                        showSeriesFilter
+                    />
                 </>
             )}
         </div>
@@ -191,20 +189,6 @@ function BatchJobMetrics({ job }: { job: HogFlowBatchJob }): JSX.Element {
     const { setParams } = useActions(logic)
 
     const selectedAction = workflow.actions.find((action) => action.id === params.instanceId)
-
-    const modifiedAppMetricsTrends = useMemo(
-        () =>
-            appMetricsTrends
-                ? {
-                      ...appMetricsTrends,
-                      series: appMetricsTrends.series.map((series) => ({
-                          ...series,
-                          color: WORKFLOW_METRICS_INFO[series.name as keyof typeof WORKFLOW_METRICS_INFO]?.color,
-                      })),
-                  }
-                : null,
-        [appMetricsTrends]
-    )
 
     const workflowStepOptions = useMemo(
         () => [
@@ -268,7 +252,12 @@ function BatchJobMetrics({ job }: { job: HogFlowBatchJob }): JSX.Element {
                             />
                         ))}
                     </div>
-                    <AppMetricsTrends appMetricsTrends={modifiedAppMetricsTrends} loading={appMetricsTrendsLoading} />
+                    <AppMetricsTrends
+                        appMetricsTrends={appMetricsTrends}
+                        loading={appMetricsTrendsLoading}
+                        seriesMetadata={WORKFLOW_METRIC_SERIES_METADATA}
+                        showSeriesFilter
+                    />
                 </>
             )}
         </div>
