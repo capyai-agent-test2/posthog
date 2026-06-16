@@ -40,14 +40,7 @@ export function getBackgroundAndTextColor({
     values: HeatMapValues
     backgroundColor: string
 }): { backgroundColor: string; color: string } {
-    let backgroundColorSaturation =
-        values.maxValue === 0 ? 0 : Math.max(Math.min(0.8, values.value / values.maxValue), 0.3)
-
-    if ((values.value <= values.minValue && values.value !== values.maxValue) || values.value === 0) {
-        backgroundColorSaturation = 0.1
-    } else if (values.value >= values.maxValue) {
-        backgroundColorSaturation = 1
-    }
+    const backgroundColorSaturation = getBackgroundColorSaturation(values)
 
     const saturatedBackgroundColor = gradateColor(backgroundColor, backgroundColorSaturation, 0.1)
 
@@ -55,4 +48,22 @@ export function getBackgroundAndTextColor({
         backgroundColor: saturatedBackgroundColor,
         color: backgroundColorSaturation > 0.4 ? '#fff' : 'var(--text-3000)',
     }
+}
+
+export function getBackgroundColorSaturation(values: HeatMapValues): number {
+    if ((values.value <= values.minValue && values.value !== values.maxValue) || values.value === 0) {
+        return 0.1
+    }
+
+    if (values.value >= values.maxValue) {
+        return 1
+    }
+
+    if (values.maxValue === 0) {
+        return 0
+    }
+
+    const scaledValue = Math.log1p(values.value) / Math.log1p(values.maxValue)
+
+    return Math.max(Math.min(0.8, scaledValue), 0.3)
 }
