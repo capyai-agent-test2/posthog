@@ -64,6 +64,7 @@ import {
 } from '../../../queries/nodes/DataTable/clipboardUtils'
 import { FixErrorButton } from './components/FixErrorButton'
 import { OutputTab, outputPaneLogic } from './outputPaneLogic'
+import { getResultColumnWidth } from './outputPaneUtils'
 import { sqlEditorLogic } from './sqlEditorLogic'
 import TabScroller from './TabScroller'
 
@@ -618,8 +619,7 @@ export function OutputPane({ tabId, showToolbar = true, onShareTab }: OutputPane
                               : content.toString().length
                     })
                 )
-                const isLongContent = maxContentLength > 100
-                const finalWidth = isLongContent ? 600 : undefined
+                const finalWidth = getResultColumnWidth(maxContentLength)
 
                 const baseColumn: DataGridProps<Record<string, any>>['columns'][0] = {
                     key: `${column}_${index}`,
