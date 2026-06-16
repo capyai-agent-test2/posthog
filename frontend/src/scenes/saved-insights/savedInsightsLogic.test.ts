@@ -50,17 +50,22 @@ const createSavedInsights = (string = 'hello', offset: number): InsightsResult =
 
 describe('savedInsightsLogic', () => {
     let logic: ReturnType<typeof savedInsightsLogic.build>
+    let insightListRequests: URLSearchParams[]
 
     beforeEach(() => {
+        insightListRequests = []
         useMocks({
             get: {
-                '/api/environments/:team_id/insights/': (req) => [
-                    200,
-                    createSavedInsights(
-                        req.url.searchParams.get('search') ?? '',
-                        parseInt(req.url.searchParams.get('offset') ?? '0')
-                    ),
-                ],
+                '/api/environments/:team_id/insights/': (req) => {
+                    insightListRequests.push(req.url.searchParams)
+                    return [
+                        200,
+                        createSavedInsights(
+                            req.url.searchParams.get('search') ?? '',
+                            parseInt(req.url.searchParams.get('offset') ?? '0')
+                        ),
+                    ]
+                },
                 '/api/environments/:team_id/insights/42': createInsight(42),
                 '/api/environments/:team_id/insights/123': createInsight(123),
             },
@@ -135,6 +140,11 @@ describe('savedInsightsLogic', () => {
                     filters: partial({ search: 'hello again' }),
                 },
             })
+    })
+
+    it('loads saved insights without the basic serializer', async () => {
+        expect(insightListRequests).toHaveLength(1)
+        expect(insightListRequests[0].get('basic')).toBeNull()
     })
 
     it('resets the page on filter change', async () => {
