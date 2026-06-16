@@ -145,7 +145,7 @@ class TestSessionRecordingSnapshotsAPI(APIBaseTest, ClickhouseTestMixin, QueryMa
 
     @parameterized.expand(
         [
-            ("0", "", ""),
+            ("0", "", "Must provide either a blob key or start and end blob keys"),
             ("", "1", "Must provide either a blob key or start and end blob keys"),
         ]
     )
@@ -181,7 +181,44 @@ class TestSessionRecordingSnapshotsAPI(APIBaseTest, ClickhouseTestMixin, QueryMa
 
         response = self.client.get(url)
         assert response.status_code == status.HTTP_400_BAD_REQUEST, response.json()
-        assert "Must provide both start blob key and end blob key" in response.json()["detail"]
+        assert expected_error_message in response.json()["detail"]
+
+    @patch(
+        "posthog.session_recordings.queries.session_replay_events.SessionReplayEvents.exists",
+        return_value=True,
+    )
+    @patch("posthog.session_recordings.session_recording_api.SessionRecording.get_or_build")
+    @patch("posthog.session_recordings.session_recording_api.list_blocks_async", new_callable=AsyncMock)
+    @patch("posthog.session_recordings.session_recording_api.recording_api_client")
+    def test_blob_v2_with_blob_key_works(
+        self,
+        mock_recording_api_client,
+        mock_list_blocks,
+        mock_get_session_recording,
+        _mock_exists,
+    ) -> None:
+        session_id = str(uuid7())
+        mock_get_session_recording.return_value = SessionRecording(session_id=session_id, team=self.team, deleted=False)
+        mock_list_blocks.return_value = [
+            RecordingBlock(
+                key="key0",
+                start_byte=0,
+                end_byte=100,
+                start_timestamp="2024-01-01T00:00:00Z",
+                end_timestamp="2024-01-01T00:01:00Z",
+            )
+        ]
+        mock_storage = MagicMock()
+        mock_storage.fetch_block = AsyncMock(return_value=b'{"timestamp": 1000, "type": "snapshot1"}')
+        mock_recording_api_client.return_value.__aenter__.return_value = mock_storage
+
+        response = self.client.get(
+            f"/api/projects/{self.team.pk}/session_recordings/{session_id}/snapshots/?source=blob_v2&blob_key=0"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.headers.get("content-type") == "application/jsonl"
+        mock_storage.fetch_block.assert_awaited_once_with("key0", 0, 100, session_id, self.team.id, decompress=True)
 
     @parameterized.expand(
         [(0, "a"), ("a", 1)],
@@ -276,7 +313,7 @@ class TestSessionRecordingSnapshotsAPI(APIBaseTest, ClickhouseTestMixin, QueryMa
         # Attempting to provide both blob_key and start_blob_key
         response = self.client.get(url)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "Must provide both start blob key and end blob key" in response.json()["detail"]
+        assert "Must provide either a blob key or start and end blob keys" in response.json()["detail"]
 
     @patch(
         "posthog.session_recordings.queries.session_replay_events.SessionReplayEvents.exists",
