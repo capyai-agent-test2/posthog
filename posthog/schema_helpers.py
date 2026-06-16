@@ -116,6 +116,7 @@ def to_dict(query: BaseModel) -> dict:
                         "showAnnotations",
                         "showFullUrls",
                         "selectedInterval",
+                        "retentionReference",
                         "funnelStepReference",
                         "breakdownSorting",
                     ]
