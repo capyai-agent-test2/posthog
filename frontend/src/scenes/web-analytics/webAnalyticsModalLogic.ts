@@ -68,7 +68,7 @@ export const webAnalyticsModalLogic = kea<webAnalyticsModalLogicType>([
             ): WebAnalyticsTile[] => {
                 const flattenedPageReportsTiles = pageReportsTiles.flatMap((tile) => {
                     if (tile.kind === 'section' && tile.tiles) {
-                        return [tile, ...tile.tiles]
+                        return tile.tiles
                     }
                     return tile
                 })
