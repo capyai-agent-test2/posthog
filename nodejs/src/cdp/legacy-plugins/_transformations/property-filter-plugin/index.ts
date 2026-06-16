@@ -3,7 +3,7 @@ import { PluginEvent } from '~/plugin-scaffold'
 import { LegacyTransformationPluginMeta } from '../../types'
 
 export function setupPlugin({ config, global }: LegacyTransformationPluginMeta) {
-    global.propertiesToFilter = config.properties.split(',')
+    global.propertiesToFilter = config.properties.split(',').map((property: string) => property.trim())
 }
 
 function recursiveRemoveFilterObject(properties: Record<string, any>, propertyToFilterParts: string[]) {
