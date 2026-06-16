@@ -205,6 +205,28 @@ describe('taxonomicBreakdownFilterLogic', () => {
         })
     })
 
+    describe('initialization', () => {
+        it.each([
+            ['normalizeBreakdownUrl', { breakdown_normalize_url: false }, false],
+            ['normalizeBreakdownUrl', { breakdown_normalize_url: true }, true],
+            ['pathCleaningEnabled', { breakdown_path_cleaning: false }, false],
+            ['pathCleaningEnabled', { breakdown_path_cleaning: true }, true],
+        ] as const)('initializes %s from the persisted breakdown filter', (selector, breakdownFilter, expected) => {
+            logic = taxonomicBreakdownFilterLogic(
+                makeProps({
+                    breakdownFilter: {
+                        breakdown: '$pathname',
+                        breakdown_type: 'event',
+                        ...breakdownFilter,
+                    },
+                })
+            )
+            logic.mount()
+
+            expect(logic.values[selector]).toBe(expected)
+        })
+    })
+
     describe('addBreakdownDisabledReason', () => {
         it('no breakdowns', async () => {
             logic = taxonomicBreakdownFilterLogic(makeProps({ breakdownFilter: {} }))
