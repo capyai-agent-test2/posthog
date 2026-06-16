@@ -86,6 +86,19 @@ function normalizeEventDefinitionEndpointUrl({
     return api.eventDefinitions.determineListEndpoint(params)
 }
 
+function filtersFromSearchParams(searchParams: Record<string, any>): Filters {
+    const { event, event_type, ordering, tags, verified } = searchParams
+
+    return {
+        ...DEFAULT_FILTERS,
+        ...(event !== undefined && { event }),
+        ...(event_type !== undefined && { event_type }),
+        ...(ordering !== undefined && { ordering }),
+        ...(parseTagsFilter(tags) !== undefined && { tags: parseTagsFilter(tags) }),
+        ...(verified !== undefined && { verified: verified === 'true' || verified === true }),
+    }
+}
+
 export interface EventDefinitionsTableLogicProps {
     key: string
 }
@@ -360,15 +373,10 @@ export const eventDefinitionsTableLogic = kea<eventDefinitionsTableLogicType>([
     })),
     urlToAction(({ actions, values }) => ({
         '/data-management/events': (_, searchParams) => {
-            const { event, event_type, ordering, tags, verified } = searchParams
+            const filtersFromUrl = filtersFromSearchParams(searchParams)
 
-            const filtersFromUrl: Filters = {
-                ...DEFAULT_FILTERS,
-                ...(event !== undefined && { event }),
-                ...(event_type !== undefined && { event_type }),
-                ...(ordering !== undefined && { ordering }),
-                ...(parseTagsFilter(tags) !== undefined && { tags: parseTagsFilter(tags) }),
-                ...(verified !== undefined && { verified: verified === 'true' || verified === true }),
+            if (values.eventDefinitionsLoading && objectsEqual(values.filters, filtersFromUrl)) {
+                return
             }
 
             if (!objectsEqual(values.filters, filtersFromUrl)) {
