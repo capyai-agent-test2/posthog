@@ -660,6 +660,34 @@ describe('SnappySessionRecorder', () => {
             expect(result.keypressCount).toBe(2)
         })
 
+        it('should not recount unchanged input states across messages', async () => {
+            const message1 = createMessage('window1', [
+                {
+                    type: RRWebEventType.IncrementalSnapshot,
+                    timestamp: DateTime.fromISO('2025-01-01T01:00:00Z').toMillis(),
+                    data: { source: 5, id: 1, text: 'hello' },
+                },
+            ])
+            const message2 = createMessage('window1', [
+                {
+                    type: RRWebEventType.IncrementalSnapshot,
+                    timestamp: DateTime.fromISO('2025-01-01T01:00:01Z').toMillis(),
+                    data: { source: 5, id: 1, text: 'hello' },
+                },
+                {
+                    type: RRWebEventType.IncrementalSnapshot,
+                    timestamp: DateTime.fromISO('2025-01-01T01:00:02Z').toMillis(),
+                    data: { source: 5, id: 1, text: 'hello!' },
+                },
+            ])
+
+            recorder.recordMessage(message1)
+            recorder.recordMessage(message2)
+            const result = await recorder.end()
+
+            expect(result.keypressCount).toBe(2)
+        })
+
         it('should not count non-keypress events', async () => {
             const events = [
                 {

@@ -84,6 +84,7 @@ export class SnappySessionRecorder {
     private snapshotLibrary: string | null = null
     private segmentationEvents: SegmentationEvent[] = []
     private droppedUrlsCount: number = 0
+    private inputEventSignatures: Map<string, string> = new Map()
 
     constructor(
         public readonly sessionId: string,
@@ -148,7 +149,7 @@ export class SnappySessionRecorder {
                     this.clickCount += 1
                 }
 
-                if (isKeypress(event)) {
+                if (this.shouldCountKeypress(windowId, event)) {
                     this.keypressCount += 1
                 }
 
@@ -164,6 +165,36 @@ export class SnappySessionRecorder {
 
         this.messageCount += 1
         return rawBytesWritten
+    }
+
+    private shouldCountKeypress(
+        windowId: string,
+        inputEvent: ParsedMessageData['eventsByWindowId'][string][number]
+    ): boolean {
+        if (!isKeypress(inputEvent)) {
+            return false
+        }
+
+        const event = inputEvent as { data?: { id?: number; text?: string; isChecked?: boolean } }
+        const targetId = event.data?.id
+        if (targetId === undefined) {
+            return true
+        }
+
+        const text = event.data?.text
+        const isChecked = event.data?.isChecked
+        if (text === undefined && isChecked === undefined) {
+            return true
+        }
+
+        const signature = JSON.stringify([text, isChecked])
+        const stateKey = `${windowId}:${targetId}`
+        if (this.inputEventSignatures.get(stateKey) === signature) {
+            return false
+        }
+
+        this.inputEventSignatures.set(stateKey, signature)
+        return true
     }
 
     private addUrl(url: string): void {
