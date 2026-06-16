@@ -1,3 +1,4 @@
+import datetime
 import dataclasses
 from typing import Optional, TypeVar, cast
 
@@ -21,7 +22,7 @@ from posthog.hogql.property import property_to_expr
 from posthog.hogql.visitor import CloningVisitor
 
 from posthog.models import Team
-from posthog.utils import relative_date_parse
+from posthog.utils import relative_date_parse, relative_date_parse_with_delta_mapping
 
 T = TypeVar("T", bound=ast.Expr)
 DEFAULT_TEAM = cast(Team, None)
@@ -61,6 +62,28 @@ class ReplaceFilters(CloningVisitor):
             return self.database.get_table([str(c) for c in chain])
         except Exception:
             return None
+
+    def _parse_date_from(self, date_from: str) -> datetime.datetime:
+        try:
+            parsed_date = isoparse(date_from)
+            if parsed_date.tzinfo is None:
+                parsed_date = parsed_date.replace(tzinfo=self.team.timezone_info)
+            return parsed_date
+        except ValueError:
+            parsed_date, delta_mapping, _position = relative_date_parse_with_delta_mapping(
+                date_from, self.team.timezone_info
+            )
+
+        if (
+            self.filters
+            and self.filters.dateRange
+            and not self.filters.dateRange.explicitDate
+            and delta_mapping is not None
+            and all(unit not in date_from for unit in ("h", "H", "M", "s"))
+        ):
+            return parsed_date.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        return parsed_date
 
     def visit_select_query(self, node):
         self.selects.append(node)
@@ -161,12 +184,7 @@ class ReplaceFilters(CloningVisitor):
             # limit to the last 30d by default
             dateFrom = self.filters.dateRange.date_from if self.filters.dateRange else None
             if dateFrom is not None and dateFrom != "all":
-                try:
-                    parsed_date = isoparse(dateFrom)
-                    if parsed_date.tzinfo is None:
-                        parsed_date = parsed_date.replace(tzinfo=self.team.timezone_info)
-                except ValueError:
-                    parsed_date = relative_date_parse(dateFrom, self.team.timezone_info)
+                parsed_date = self._parse_date_from(dateFrom)
                 exprs.append(
                     ast.CompareOperation(
                         op=ast.CompareOperationOp.GtEq,
@@ -195,12 +213,7 @@ class ReplaceFilters(CloningVisitor):
 
             dateFrom = self.filters.dateRange.date_from if self.filters.dateRange else None
             if dateFrom is not None and dateFrom != "all":
-                try:
-                    parsed_date = isoparse(dateFrom)
-                    if parsed_date.tzinfo is None:
-                        parsed_date = parsed_date.replace(tzinfo=self.team.timezone_info)
-                except ValueError:
-                    parsed_date = relative_date_parse(dateFrom, self.team.timezone_info)
+                parsed_date = self._parse_date_from(dateFrom)
 
                 return ast.Constant(value=parsed_date)
             else:

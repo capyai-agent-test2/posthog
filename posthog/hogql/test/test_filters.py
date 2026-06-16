@@ -1,6 +1,9 @@
 from typing import Any, Optional
 
+from freezegun import freeze_time
 from posthog.test.base import BaseTest
+
+from parameterized import parameterized
 
 from posthog.schema import DateRange, EventPropertyFilter, GroupPropertyFilter, HogQLFilters, PersonPropertyFilter
 
@@ -123,6 +126,43 @@ class TestFilters(BaseTest):
             "SELECT event FROM events WHERE "
             "and(less(timestamp, toDateTime('2020-02-03 23:59:59.000000')), "
             f"greaterOrEquals(timestamp, toDateTime('2020-02-02 00:00:00.000000'))) LIMIT {MAX_SELECT_RETURNED_ROWS}",
+        )
+
+    @parameterized.expand(
+        [
+            ("last_7_days", "-7d", "2024-06-17 00:00:00.000000"),
+            ("last_14_days", "-14d", "2024-06-10 00:00:00.000000"),
+            ("last_30_days", "-30d", "2024-05-25 00:00:00.000000"),
+            ("last_90_days", "-90d", "2024-03-26 00:00:00.000000"),
+            ("last_180_days", "-180d", "2023-12-27 00:00:00.000000"),
+            ("this_month", "mStart", "2024-06-01 00:00:00.000000"),
+            ("year_to_date", "yStart", "2024-01-01 00:00:00.000000"),
+        ]
+    )
+    @freeze_time("2024-06-24T11:49:01.564980Z")
+    def test_replace_filters_preset_date_range_starts_at_day_boundary(
+        self, _name: str, date_from: str, expected_date_from: str
+    ):
+        select = replace_filters(
+            self._parse_select("SELECT event FROM events where {filters}"),
+            HogQLFilters(dateRange=DateRange(date_from=date_from)),
+            self.team,
+        )
+        self.assertEqual(
+            self._print_ast(select),
+            f"SELECT event FROM events WHERE greaterOrEquals(timestamp, toDateTime('{expected_date_from}')) LIMIT {MAX_SELECT_RETURNED_ROWS}",
+        )
+
+    @freeze_time("2024-06-24T11:49:01.564980Z")
+    def test_replace_filters_explicit_date_range_preserves_relative_time(self):
+        select = replace_filters(
+            self._parse_select("SELECT event FROM events where {filters}"),
+            HogQLFilters(dateRange=DateRange(date_from="-7d", explicitDate=True)),
+            self.team,
+        )
+        self.assertEqual(
+            self._print_ast(select),
+            f"SELECT event FROM events WHERE greaterOrEquals(timestamp, toDateTime('2024-06-17 11:49:01.564980')) LIMIT {MAX_SELECT_RETURNED_ROWS}",
         )
 
     def test_replace_filters_date_range_with_timezone(self):
