@@ -1,5 +1,5 @@
 import { BindLogic, useActions, useValues } from 'kea'
-import { MutableRefObject, memo, useEffect, useRef, useState } from 'react'
+import { MutableRefObject, memo, useEffect, useState } from 'react'
 import { useDebouncedCallback } from 'use-debounce'
 
 import { Dayjs } from 'lib/dayjs'
@@ -14,6 +14,7 @@ import {
     SessionRecordingPlayerMode,
     sessionRecordingPlayerLogic,
 } from '../sessionRecordingPlayerLogic'
+import { getSeekbarPreviewPercentage } from './PlayerSeekbarPreviewUtils'
 
 const TWENTY_MINUTES_IN_MS = 20 * 60 * 1000
 
@@ -24,6 +25,8 @@ export type PlayerSeekbarPreviewProps = {
     activeMs: number | null
     timestampFormat: TimestampFormat
     startTime: Dayjs | null
+    thumbRef: MutableRefObject<HTMLDivElement | null>
+    thumbLeftPos: number
     showPreviewFrame?: boolean
 }
 
@@ -34,7 +37,7 @@ const PlayerSeekbarPreviewFrame = ({
     isVisible,
 }: { percentage: number; isVisible: boolean } & Omit<
     PlayerSeekbarPreviewProps,
-    'seekBarRef' | 'activeMs' | 'timestampFormat' | 'startTime'
+    'seekBarRef' | 'activeMs' | 'timestampFormat' | 'startTime' | 'thumbRef' | 'thumbLeftPos'
 >): JSX.Element | null => {
     const { sessionRecordingId, logicProps } = useValues(sessionRecordingPlayerLogic)
 
@@ -80,10 +83,11 @@ export const PlayerSeekbarPreview = memo(function PlayerSeekbarPreview({
     activeMs,
     timestampFormat,
     startTime,
+    thumbRef,
+    thumbLeftPos,
     showPreviewFrame = false,
 }: PlayerSeekbarPreviewProps): JSX.Element {
     const [percentage, setPercentage] = useState<number>(0)
-    const ref = useRef<HTMLDivElement>(null)
     const fixedUnits = maxMs / 1000 > 3600 ? 3 : 2
 
     const progressionSeconds = ((maxMs - minMs) / 1000) * percentage
@@ -107,23 +111,16 @@ export const PlayerSeekbarPreview = memo(function PlayerSeekbarPreview({
         }
 
         const handleMouseMove = (e: MouseEvent): void => {
-            const rect = ref.current?.getBoundingClientRect()
-            if (!rect) {
-                return
-            }
-
-            const relativeX = e.clientX - rect.x
-            const newPercentage = Math.max(Math.min(relativeX / rect.width, 1), 0)
-            setPercentage(newPercentage)
+            setPercentage(getSeekbarPreviewPercentage(e, seekBar, thumbRef.current, thumbLeftPos))
         }
 
         const seekBar = seekBarRef.current
         seekBar.addEventListener('mousemove', handleMouseMove)
         return () => seekBar.removeEventListener('mousemove', handleMouseMove)
-    }, [seekBarRef])
+    }, [seekBarRef, thumbLeftPos, thumbRef])
 
     return (
-        <div className="PlayerSeekBarPreview" ref={ref}>
+        <div className="PlayerSeekBarPreview">
             <div
                 className="PlayerSeekBarPreview__tooltip"
                 // eslint-disable-next-line react/forbid-dom-props
