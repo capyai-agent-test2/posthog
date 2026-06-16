@@ -163,7 +163,9 @@ export function formatPropertyLabel(
     if (resolvedType === PropertyFilterType.Cohort) {
         return (
             `${capitalizeFirstLetter(cohortOperatorMap[resolvedOperator] || 'user in')} ` +
-            (cohortName || (typeof value === 'number' ? cohortsById[value]?.name : undefined) || `ID ${value}`)
+            (cohortName ||
+                (typeof value === 'number' || typeof value === 'string' ? cohortsById[value]?.name : undefined) ||
+                `ID ${value}`)
         )
     }
 
