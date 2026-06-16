@@ -99,6 +99,36 @@ describe('actionsTabLogic form submission', () => {
             .toDispatchActions(['submitActionForm', 'submitActionFormFailure'])
     })
 
+    it('shows a field error for duplicate action names', async () => {
+        global.fetch = jest.fn(() =>
+            Promise.resolve({
+                ok: false,
+                status: 400,
+                json: () =>
+                    Promise.resolve({
+                        type: 'validation_error',
+                        code: 'unique',
+                        detail: 'This project already has an action with this name, ID 43',
+                        attr: 'name',
+                    }),
+            } as any as Response)
+        )
+
+        logic.actions.newAction()
+        logic.actions.setActionFormValue('name', 'Test Action')
+
+        await expectLogic(logic, () => {
+            logic.actions.submitActionForm()
+        })
+            .delay(0)
+            .toDispatchActions(['submitActionForm', 'setActionFormManualErrors', 'submitActionFormFailure'])
+            .toMatchValues({
+                actionFormManualErrors: {
+                    name: 'Action with this name already exists.',
+                },
+            })
+    })
+
     it('handles error response when json parsing fails', async () => {
         global.fetch = jest.fn(() =>
             Promise.resolve({
