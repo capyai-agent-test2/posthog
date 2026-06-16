@@ -7,7 +7,7 @@ import pytest
 from freezegun import freeze_time
 from posthog.test.base import BaseTest, ClickhouseTestMixin, _create_event, get_index_from_explain
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from parameterized import parameterized
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -21,6 +21,7 @@ from posthog.models.property import PropertyName, TableColumn
 from posthog.settings import CLICKHOUSE_DATABASE
 
 from ee.clickhouse.materialized_columns.columns import (
+    BackfillColumnTask,
     MaterializedColumn,
     MaterializedColumnDetails,
     backfill_materialized_columns,
@@ -79,6 +80,31 @@ class TestMaterializedColumnDetails(TestCase):
 
         with pytest.raises(ValueError):
             MaterializedColumnDetails.from_column_comment("column_materializer::column::property::enabled")
+
+
+class TestBackfillColumnTask(TestCase):
+    def test_execute_filters_to_analyzed_teams(self) -> None:
+        client = Mock()
+        column = MaterializedColumn(
+            name="mat_prop",
+            details=MaterializedColumnDetails("properties", "prop", is_disabled=False),
+            is_nullable=False,
+        )
+
+        with freeze_time("2021-05-10T14:00:01Z"):
+            BackfillColumnTask(
+                table="sharded_events",
+                columns=[column],
+                backfill_period=timedelta(days=50),
+                team_ids=[2, 4],
+                test_settings={"mutations_sync": "0"},
+            ).execute(client)
+
+        client.execute.assert_called_once_with(
+            "ALTER TABLE sharded_events UPDATE mat_prop = mat_prop WHERE timestamp > %(cutoff)s AND team_id IN %(team_ids)s",
+            {"cutoff": "2021-03-21", "team_ids": (2, 4)},
+            settings={"mutations_sync": "0"},
+        )
 
 
 class TestMaterializedColumns(ClickhouseTestMixin, BaseTest):

@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import random
 import logging
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, replace
 from datetime import timedelta
 from typing import Any, Literal, TypeVar, cast
@@ -630,18 +630,25 @@ class BackfillColumnTask:
     table: str
     columns: list[MaterializedColumn]
     backfill_period: timedelta | None
+    team_ids: Sequence[int] | None
     test_settings: dict[str, Any] | None
 
     def execute(self, client: Client) -> None:
         # Kick off mutations which will update clickhouse partitions in the background. This will return immediately
         assignments = ", ".join(f"{column.name} = {column.name}" for column in self.columns)
 
+        where_clauses: list[str] = []
+        parameters: dict[str, Any] = {}
+
         if self.backfill_period is not None:
-            where_clause = "timestamp > %(cutoff)s"
-            parameters = {"cutoff": (now() - self.backfill_period).strftime("%Y-%m-%d")}
-        else:
-            where_clause = "1 = 1"
-            parameters = {}
+            where_clauses.append("timestamp > %(cutoff)s")
+            parameters["cutoff"] = (now() - self.backfill_period).strftime("%Y-%m-%d")
+
+        if self.team_ids:
+            where_clauses.append("team_id IN %(team_ids)s")
+            parameters["team_ids"] = tuple(self.team_ids)
+
+        where_clause = " AND ".join(where_clauses) if where_clauses else "1 = 1"
 
         client.execute(
             f"ALTER TABLE {self.table} UPDATE {assignments} WHERE {where_clause}",
@@ -654,6 +661,7 @@ def backfill_materialized_columns(
     table: TableWithProperties,
     columns: Iterable[MaterializedColumn],
     backfill_period: timedelta,
+    team_ids: Sequence[int] | None = None,
     test_settings=None,
 ) -> None:
     """
@@ -670,6 +678,7 @@ def backfill_materialized_columns(
             table_info.data_table,
             [*columns],
             backfill_period if table == "events" else None,  # XXX
+            team_ids,
             test_settings,
         ).execute,
     ).result()
