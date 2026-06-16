@@ -485,6 +485,18 @@ describe('insightLogic', () => {
 
             await verifyItLoadsFromTheAPI(logic)
         })
+
+        it('loads from the api when overrides are present even with cached insight', async () => {
+            logic = insightLogic({
+                dashboardItemId: Insight42,
+                cachedInsight: { ...partialInsight42, query: API_QUERY },
+                filtersOverride: { date_from: '-7d' },
+            })
+            logic.mount()
+            expect(logic.values.hasOverrides).toBe(true)
+
+            await verifyItLoadsFromTheAPI(logic)
+        })
     })
 
     test('keeps saved name, description, tags', async () => {

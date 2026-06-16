@@ -838,13 +838,13 @@ export const insightLogic: LogicWrapper<insightLogicType> = kea<insightLogicType
             lemonToast.success(`Insight ${feedback}`)
         },
     })),
-    events(({ props, actions }) => ({
+    events(({ props, actions, values }) => ({
         afterMount: () => {
             if (!props.dashboardItemId || props.dashboardItemId === 'new' || props.dashboardItemId.startsWith('new-')) {
                 return
             }
 
-            if (!props.doNotLoad && !props.cachedInsight) {
+            if (!props.doNotLoad && (!props.cachedInsight || values.hasOverrides)) {
                 actions.loadInsight(
                     props.dashboardItemId as InsightShortId,
                     props.filtersOverride,
