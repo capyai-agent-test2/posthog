@@ -1,10 +1,17 @@
 import { expectLogic } from 'kea-test-utils'
 
+import { dayjs } from 'lib/dayjs'
+
 import { useMocks } from '~/mocks/jest'
 import { initKeaTests } from '~/test/init'
 import { InAppNotification } from '~/types'
 
-import { groupKey, NotificationGroup, sidePanelNotificationsLogic } from './sidePanelNotificationsLogic'
+import {
+    groupKey,
+    markLegacyNotificationsRead,
+    NotificationGroup,
+    sidePanelNotificationsLogic,
+} from './sidePanelNotificationsLogic'
 
 function makeNotification(overrides: Partial<InAppNotification> = {}): InAppNotification {
     return {
@@ -109,6 +116,24 @@ describe('sidePanelNotificationsLogic.groups selector', () => {
         const b = makeNotification({ id: 'b', read: true })
         logic.actions.setInAppNotifications([a, b], false)
         expect(logic.values.groups[0].has_unread).toBe(false)
+    })
+})
+
+describe('markLegacyNotificationsRead', () => {
+    it('creates a bookmark state for changelog-only notifications', () => {
+        const result = markLegacyNotificationsRead(null, [
+            {
+                description: 'DeskHog update',
+                created_at: dayjs('2026-05-07T12:00:00Z'),
+                unread: true,
+            },
+        ])
+
+        expect(result).toEqual({
+            last_read: '2026-05-07T12:00:00.000Z',
+            next: null,
+            results: [],
+        })
     })
 })
 
