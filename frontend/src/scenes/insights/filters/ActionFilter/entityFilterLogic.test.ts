@@ -118,6 +118,17 @@ describe('entityFilterLogic', () => {
             expect(logic.values.localFilters.map((f) => f.uuid)).toEqual(originalUuids)
         })
 
+        it('does not replace local filters when only unrelated filter options change', () => {
+            const originalFilters = logic.values.localFilters
+
+            logic.actions.setLocalFilters({
+                ...filtersJson,
+                filter_test_accounts: !filtersJson.filter_test_accounts,
+            } as FilterType)
+
+            expect(logic.values.localFilters).toBe(originalFilters)
+        })
+
         it('preserves existing UUIDs when a filter is added', () => {
             const originalUuids = logic.values.localFilters.map((f) => f.uuid)
 
