@@ -1,14 +1,21 @@
 import { router } from 'kea-router'
 import { expectLogic } from 'kea-test-utils'
 
+import { copyToClipboard } from 'lib/utils/copyToClipboard'
+
 import { initKeaTests } from '~/test/init'
 
+import { settingsLogic } from './settingsLogic'
 import { settingsSceneLogic } from './settingsSceneLogic'
 
 // Mock the survey preview functions
 jest.mock('posthog-js/dist/surveys-preview', () => ({
     renderFeedbackWidgetPreview: jest.fn(),
     renderSurveysPreview: jest.fn(),
+}))
+
+jest.mock('lib/utils/copyToClipboard', () => ({
+    copyToClipboard: jest.fn(),
 }))
 
 describe('settingsSceneLogic', () => {
@@ -93,6 +100,13 @@ describe('settingsSceneLogic', () => {
         expect(router.values.location.hash).toBe('#ai-observability-byok')
         expect(router.values.hashParams).toHaveProperty('ai-observability-byok')
         expect(router.values.hashParams).not.toHaveProperty('llm-analytics-byok')
+    })
+
+    it('does not copy setting links when selecting settings', async () => {
+        settingsLogic({ logicKey: 'settingsScene' }).actions.selectSetting('replay')
+
+        await expectLogic(logic).toDispatchActions(['selectSetting'])
+        expect(copyToClipboard).not.toHaveBeenCalled()
     })
 
     it('redirects level-only URLs to first section', async () => {
