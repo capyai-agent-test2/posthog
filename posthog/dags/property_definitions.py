@@ -67,6 +67,7 @@ class DetectPropertyTypeExpression:
                     name ilike '$feature/%', 'String',
                     name ilike '$feature_flag_response', 'String',
                     name ilike '$survey_response%', 'String',
+                    name = '$el_text', 'String',
                     -- special cases: timestamp detection
                     (
                         multiSearchAnyCaseInsensitive(name, ['time', 'timestamp', 'date', '_at', '-at', 'createdat', 'updatedat'])
