@@ -269,6 +269,8 @@ async def run_post_load_operations(
     from posthog.temporal.data_imports.pipelines.pipeline_v3.load.metrics import POST_LOAD_DURATION_SECONDS
 
     if delta_table_helper is None or await delta_table_helper.get_delta_table() is None:
+        logger.debug("Updating last synced at timestamp on schema")
+        await update_last_synced_at(job_id=str(job.id), schema_id=str(schema.id), team_id=job.team_id)
         logger.debug("No deltalake table, not continuing with post-run ops")
         return
 
