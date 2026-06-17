@@ -191,6 +191,7 @@ export const paymentEntryLogic = kea<paymentEntryLogicType>([
                         actions.loadCurrentOrganization()
                         actions.loadUser()
                         actions.hidePaymentEntryModal()
+                        actions.setRedirectPath(null)
                         return
                     } else if (status === 'failed') {
                         actions.setApiError(errorMessage)
@@ -219,7 +220,6 @@ export const paymentEntryLogic = kea<paymentEntryLogicType>([
                 } finally {
                     actions.setLoading(false)
                     actions.setClientSecret(null)
-                    actions.setRedirectPath(null)
                 }
             }
 

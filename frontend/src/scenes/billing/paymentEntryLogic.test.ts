@@ -119,4 +119,56 @@ describe('paymentEntryLogic', () => {
             expect(toastErrorSpy).not.toHaveBeenCalled()
         })
     })
+
+    describe('pollAuthorizationStatus', () => {
+        it('keeps the redirect path while authorization is pending', async () => {
+            await seedBilling({ subscription_level: 'free' })
+            let authorizationStatusCalls = 0
+            let pollCallback: (() => void) | null = null
+            const originalSetTimeout = global.setTimeout.bind(global)
+            jest.spyOn(global, 'setTimeout').mockImplementation(((
+                fn: TimerHandler,
+                delay?: number,
+                ...args: unknown[]
+            ) => {
+                if (delay === 2000) {
+                    pollCallback = () => (fn as (...a: unknown[]) => unknown)(...args)
+                    return 0 as unknown as ReturnType<typeof setTimeout>
+                }
+                return originalSetTimeout(fn, delay, ...args)
+            }) as typeof setTimeout)
+            useMocks({
+                post: {
+                    '/api/billing/activate/authorize/status': () => [
+                        200,
+                        { status: authorizationStatusCalls++ === 0 ? 'pending' : 'success' },
+                    ],
+                },
+            })
+            logic = paymentEntryLogic()
+            logic.mount()
+            const pushSpy = jest.spyOn(router.actions, 'push')
+
+            await expectLogic(logic, () => {
+                logic.actions.setRedirectPath('/project/1/surveys?tab=settings')
+                logic.actions.pollAuthorizationStatus('pi_test')
+            })
+                .toDispatchActions(['setRedirectPath', 'pollAuthorizationStatus', 'setAuthorizationStatus'])
+                .toMatchValues({
+                    redirectPath: '/project/1/surveys?tab=settings',
+                    authorizationStatus: 'pending',
+                })
+
+            expect(pollCallback).not.toBe(null)
+            await expectLogic(logic, () => {
+                pollCallback?.()
+            }).toDispatchActions(['setAuthorizationStatus', 'setRedirectPath'])
+
+            expect(pushSpy).toHaveBeenCalledWith('/project/1/surveys', {
+                tab: 'settings',
+                success: true,
+            })
+            expect(logic.values.redirectPath).toBe(null)
+        })
+    })
 })
