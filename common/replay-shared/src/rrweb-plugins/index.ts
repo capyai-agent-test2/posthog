@@ -3,30 +3,49 @@ import { ReplayPlugin, playerConfig } from 'posthog-js/rrweb'
 import { PLACEHOLDER_SVG_DATA_IMAGE_URL } from '../mobile/transformer/shared'
 
 const PROXY_URL = 'https://replay.ph-proxy.com' as const
+const HTTP_URL_PATTERN = /^(https?:\/\/[^\s"'()?#]+(?:[?#][^\s"'()]*)?)$/i
+const JS_URL_PATTERN = /^(https?:\/\/[^\s"?#]+\.js(?:[?#][^\s"]*)?)$/i
 
 export const CorsPlugin: ReplayPlugin & {
-    _replaceFontCssUrls: (value: string | null) => string | null
-    _replaceFontUrl: (value: string) => string
+    _proxyUrl: (value: string) => string
+    _replaceAssetCssUrls: (value: string | null) => string | null
+    _replaceAssetUrl: (value: string) => string
+    _replaceSrcSetUrls: (value: string) => string
     _replaceJSUrl: (value: string) => string
 } = {
-    _replaceFontCssUrls: (value: string | null): string | null => {
+    _proxyUrl: (value: string): string => `${PROXY_URL}/proxy?url=${value}`,
+
+    _replaceAssetCssUrls: (value: string | null): string | null => {
         return (
             value?.replace(
-                /url\("(https:\/\/[^\s"?#]+\.(?:eot|woff2|ttf|woff)(?:[?#][^\s"]*)?)"\)/gi,
-                `url("${PROXY_URL}/proxy?url=$1")`
+                /url\((['"]?)(https?:\/\/[^\s"'()]+(?:[?#][^\s"'()]*)?)\1\)/gi,
+                (_match, quote: string, url: string) => `url(${quote}${CorsPlugin._proxyUrl(url)}${quote})`
             ) || null
         )
     },
 
-    _replaceFontUrl: (value: string): string => {
-        return value.replace(
-            /^(https:\/\/[^\s"?#]+\.(?:eot|woff2|ttf|woff)(?:[?#][^\s"]*)?)$/i,
-            `${PROXY_URL}/proxy?url=$1`
-        )
+    _replaceAssetUrl: (value: string): string => {
+        return HTTP_URL_PATTERN.test(value) ? value.replace(HTTP_URL_PATTERN, CorsPlugin._proxyUrl) : value
+    },
+
+    _replaceSrcSetUrls: (value: string): string => {
+        return value
+            .split(',')
+            .map((srcSetEntry) => {
+                const trimmedEntry = srcSetEntry.trim()
+                if (!trimmedEntry) {
+                    return trimmedEntry
+                }
+
+                const [url, descriptor] = trimmedEntry.split(/\s+/, 2)
+                const proxiedUrl = CorsPlugin._replaceAssetUrl(url)
+                return descriptor ? `${proxiedUrl} ${descriptor}` : proxiedUrl
+            })
+            .join(', ')
     },
 
     _replaceJSUrl: (value: string): string => {
-        return value.replace(/^(https:\/\/[^\s"?#]+\.js(?:[?#][^\s"]*)?)$/i, `${PROXY_URL}/proxy?url=$1`)
+        return value.replace(JS_URL_PATTERN, `${PROXY_URL}/proxy?url=$1`)
     },
 
     onBuild: (node) => {
@@ -35,7 +54,7 @@ export const CorsPlugin: ReplayPlugin & {
             const childNodes = styleElement.childNodes
             for (let i = 0; i < childNodes.length; i++) {
                 if (childNodes[i].nodeType == 3) {
-                    const updatedContent = CorsPlugin._replaceFontCssUrls(childNodes[i].textContent)
+                    const updatedContent = CorsPlugin._replaceAssetCssUrls(childNodes[i].textContent)
                     if (updatedContent !== childNodes[i].textContent) {
                         childNodes[i].textContent = updatedContent
                     }
@@ -52,13 +71,23 @@ export const CorsPlugin: ReplayPlugin & {
             if (linkElement.getAttribute('rel') == 'modulepreload') {
                 linkElement.href = CorsPlugin._replaceJSUrl(href)
             } else {
-                linkElement.href = CorsPlugin._replaceFontUrl(href)
+                linkElement.href = CorsPlugin._replaceAssetUrl(href)
             }
         }
 
         if (node.nodeName === 'SCRIPT') {
             const scriptElement = node as HTMLScriptElement
             scriptElement.src = CorsPlugin._replaceJSUrl(scriptElement.src)
+        }
+
+        if (node.nodeName === 'IMG' || node.nodeName === 'SOURCE') {
+            const assetNode = node as HTMLImageElement | HTMLSourceElement
+            if (assetNode.src) {
+                assetNode.src = CorsPlugin._replaceAssetUrl(assetNode.src)
+            }
+            if (assetNode.srcset) {
+                assetNode.srcset = CorsPlugin._replaceSrcSetUrls(assetNode.srcset)
+            }
         }
     },
 }
