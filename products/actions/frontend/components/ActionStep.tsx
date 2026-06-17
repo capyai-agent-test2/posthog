@@ -1,6 +1,7 @@
 import { useValues } from 'kea'
+import { useState } from 'react'
 
-import { IconX } from '@posthog/icons'
+import { IconPlus, IconX } from '@posthog/icons'
 import { LemonButton, LemonInput, LemonSegmentedButton, Link } from '@posthog/lemon-ui'
 
 import { AuthorizedUrlList } from 'lib/components/AuthorizedUrlList/AuthorizedUrlList'
@@ -176,6 +177,7 @@ function Option({
     caption,
     labelExtra,
     disabledReason,
+    onCleared,
 }: {
     step: ActionStepType
     sendStep: (stepToSend: ActionStepType) => void
@@ -185,8 +187,12 @@ function Option({
     placeholder?: string
     caption?: JSX.Element | string
     disabledReason?: string
+    onCleared?: () => void
 }): JSX.Element {
     const onOptionChange = (val: string): void => {
+        if (!val) {
+            onCleared?.()
+        }
         sendStep({
             ...step,
             [item]: val || null, // "" is a valid filter, we don't want it
@@ -231,6 +237,12 @@ function AutocaptureFields({
     actionId: number
     disabledReason?: string
 }): JSX.Element {
+    const [activeFields, setActiveFields] = useState<Record<AutocaptureField, boolean>>(() => ({
+        text: !!step.text,
+        href: !!step.href,
+        selector: !!step.selector,
+        url: !!step.url,
+    }))
     const onSelectElement = (): void => {
         LemonDialog.open({
             title: 'Select an element',
@@ -248,6 +260,54 @@ function AutocaptureFields({
             },
         })
     }
+    const fields: AutocaptureFieldDefinition[] = [
+        {
+            item: 'text',
+            label: 'Element text',
+            addLabel: 'element text',
+            labelExtra: (
+                <StringMatchingSelection field="text" step={step} sendStep={sendStep} disabledReason={disabledReason} />
+            ),
+        },
+        {
+            item: 'href',
+            label: 'Element link target',
+            addLabel: 'link target',
+            labelExtra: (
+                <StringMatchingSelection field="href" step={step} sendStep={sendStep} disabledReason={disabledReason} />
+            ),
+            caption: (
+                <>
+                    Filtering by the <code>href</code> attribute. Only <code>{'<a/>'}</code> elements will be matched.
+                </>
+            ),
+        },
+        {
+            item: 'selector',
+            label: 'Element matches HTML selector',
+            addLabel: 'HTML selector',
+            caption: (
+                <span>
+                    The selector can be a tag name, class, HTML attribute, or all of those combined. Example:{' '}
+                    <code>button[data-attr="signup"]</code>.{' '}
+                    <Link to={`${learnMoreLink}#matching-selectors`}>Learn more in Docs.</Link>
+                </span>
+            ),
+        },
+        {
+            item: 'url',
+            label: 'Page URL',
+            addLabel: 'page URL',
+            labelExtra: (
+                <StringMatchingSelection field="url" step={step} sendStep={sendStep} disabledReason={disabledReason} />
+            ),
+            caption: 'The page on which the interaction occurred.',
+        },
+    ]
+    const visibleFields = fields.filter(({ item }) => activeFields[item] || !!step[item])
+    const hiddenFields = fields.filter(({ item }) => !activeFields[item] && !step[item])
+    const isUrlFieldVisible = visibleFields.some(({ item }) => item === 'url')
+
     return (
         <div className="deprecated-space-y-4">
             <div className="flex items-center gap-2">
@@ -264,46 +324,23 @@ function AutocaptureFields({
                     See documentation.
                 </Link>
             </div>
-            <Option
-                step={step}
-                sendStep={sendStep}
-                item="text"
-                labelExtra={
-                    <StringMatchingSelection
-                        field="text"
+            {visibleFields.map((field, index) => (
+                <FieldWithSeparator key={field.item} showSeparator={index > 0}>
+                    <Option
                         step={step}
                         sendStep={sendStep}
+                        item={field.item}
+                        label={field.label}
+                        labelExtra={field.labelExtra}
+                        caption={field.caption}
                         disabledReason={disabledReason}
+                        onCleared={() => setActiveFields((fields) => ({ ...fields, [field.item]: false }))}
                     />
-                }
-                label="Element text"
-                disabledReason={disabledReason}
-            />
-            <AndSeparator />
-            <Option
-                step={step}
-                sendStep={sendStep}
-                item="href"
-                labelExtra={
-                    <StringMatchingSelection
-                        field="href"
-                        step={step}
-                        sendStep={sendStep}
-                        disabledReason={disabledReason}
-                    />
-                }
-                label="Element link target"
-                caption={
-                    <>
-                        Filtering by the <code>href</code> attribute. Only <code>{'<a/>'}</code> elements will be
-                        matched.
-                    </>
-                }
-                disabledReason={disabledReason}
-            />
+                </FieldWithSeparator>
+            ))}
             {step['tag_name'] ? (
                 <>
-                    <AndSeparator />
+                    {visibleFields.length > 0 && <AndSeparator />}
                     <Option
                         step={step}
                         sendStep={sendStep}
@@ -320,42 +357,51 @@ function AutocaptureFields({
                     />
                 </>
             ) : undefined}
-            <AndSeparator />
-            <Option
-                step={step}
-                sendStep={sendStep}
-                item="selector"
-                label="Element matches HTML selector"
-                caption={
-                    <span>
-                        The selector can be a tag name, class, HTML attribute, or all of those combined. Example:{' '}
-                        <code>button[data-attr="signup"]</code>.{' '}
-                        <Link to={`${learnMoreLink}#matching-selectors`}>Learn more in Docs.</Link>
-                    </span>
-                }
-                disabledReason={disabledReason}
-            />
-            <AndSeparator />
-            <Option
-                step={step}
-                sendStep={sendStep}
-                item="url"
-                labelExtra={
-                    <StringMatchingSelection
-                        field="url"
-                        step={step}
-                        sendStep={sendStep}
-                        disabledReason={disabledReason}
-                    />
-                }
-                label="Page URL"
-                caption="The page on which the interaction occurred."
-                disabledReason={disabledReason}
-            />
-            {step?.url_matching && step.url_matching in URL_MATCHING_HINTS && (
+            {isUrlFieldVisible && step?.url_matching && step.url_matching in URL_MATCHING_HINTS && (
                 <small>{URL_MATCHING_HINTS[step.url_matching]}</small>
             )}
+            {hiddenFields.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                    {hiddenFields.map((field) => (
+                        <LemonButton
+                            key={field.item}
+                            icon={<IconPlus />}
+                            size="xsmall"
+                            type="secondary"
+                            onClick={() => setActiveFields((fields) => ({ ...fields, [field.item]: true }))}
+                            disabledReason={disabledReason}
+                        >
+                            Add {field.addLabel ?? field.label}
+                        </LemonButton>
+                    ))}
+                </div>
+            )}
         </div>
+    )
+}
+
+type AutocaptureField = 'text' | 'href' | 'selector' | 'url'
+
+interface AutocaptureFieldDefinition {
+    item: AutocaptureField
+    label: string
+    addLabel?: string
+    labelExtra?: JSX.Element
+    caption?: JSX.Element | string
+}
+
+function FieldWithSeparator({
+    showSeparator,
+    children,
+}: {
+    showSeparator: boolean
+    children: JSX.Element
+}): JSX.Element {
+    return (
+        <>
+            {showSeparator && <AndSeparator />}
+            {children}
+        </>
     )
 }
 
