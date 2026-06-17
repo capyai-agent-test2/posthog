@@ -1,5 +1,6 @@
 import uuid
 from datetime import timedelta
+from types import SimpleNamespace
 from typing import Any
 from uuid import UUID
 
@@ -13,9 +14,9 @@ from posthog.test.base import (
     create_person_id_override_by_distinct_id,
     snapshot_clickhouse_queries,
 )
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, override_settings
 from django.utils import timezone
 
 from parameterized import parameterized
@@ -3755,7 +3756,7 @@ class TestClickhousePathsFunnelSource(ClickhouseTestMixin, APIBaseTest):
         self.assertEqual(self._run_paths_query(funnel_source, funnel_path_type, funnel_step), expected)
 
 
-class TestClickhousePathsEdgeValidation(TestCase):
+class TestClickhousePathsEdgeValidation(SimpleTestCase):
     BASIC_PATH = [("1_a", "2_b"), ("2_b", "3_c"), ("3_c", "4_d")]  # a->b->c->d
     BASIC_PATH_2 = [("1_x", "2_y"), ("2_y", "3_z")]  # x->y->z
 
@@ -3787,3 +3788,36 @@ class TestClickhousePathsEdgeValidation(TestCase):
         results = PathsQueryRunner(query={"pathsFilter": {}}, team=MagicMock()).validate_results(list(edges))
 
         self.assertCountEqual(results, self.BASIC_PATH_2)
+
+    def test_query_edge_limit_overfetches_by_step_limit(self):
+        runner = PathsQueryRunner(query={"pathsFilter": {"edgeLimit": 4, "stepLimit": 5}}, team=MagicMock())
+
+        self.assertEqual(runner._query_edge_limit(), 20)
+
+    def test_calculate_trims_validated_results_to_requested_limit(self):
+        runner = PathsQueryRunner(query={"pathsFilter": {"edgeLimit": 2}}, team=MagicMock(), user=MagicMock())
+        response = SimpleNamespace(
+            results=[
+                ("1_a", "2_b", 10, 1.0),
+                ("2_b", "3_c", 9, 1.0),
+                ("3_c", "4_d", 8, 1.0),
+            ],
+            timings=None,
+        )
+
+        with (
+            patch.object(PathsQueryRunner, "to_query", return_value=MagicMock()),
+            patch(
+                "products.product_analytics.backend.hogql_queries.paths.paths_query_runner.to_printed_hogql",
+                return_value="SELECT 1",
+            ),
+            patch(
+                "products.product_analytics.backend.hogql_queries.paths.paths_query_runner.execute_hogql_query",
+                return_value=response,
+            ),
+        ):
+            results = list(runner._calculate().results)
+
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].source, "1_a")
+        self.assertEqual(results[1].source, "2_b")
