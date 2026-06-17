@@ -259,6 +259,16 @@ class TestInsightContext(BaseTest):
 
         self.assertEqual(context.insight_url, f"/project/{self.team.id}/insights/abc123")
 
+    async def test_format_schema_includes_artifact_id_guidance(self):
+        query = AssistantTrendsQuery(series=[AssistantTrendsEventsNode(name="$pageview")])
+        context = InsightContext(team=self.team, query=query, artifact_id="artifact-123")
+
+        result = await context.format_schema()
+
+        self.assertIn("Conversation artifact ID: artifact-123", result)
+        self.assertIn("Do not construct a URL from it.", result)
+        self.assertNotIn("Insight ID:", result)
+
     @patch("ee.hogai.context.insight.context.execute_and_format_query")
     async def test_execute_and_format_includes_insight_url(self, mock_execute):
         mock_execute.return_value = "Test Results"

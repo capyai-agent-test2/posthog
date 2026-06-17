@@ -3,6 +3,10 @@ Name: {{{insight_name}}}
 {{#insight_id}}
 Insight ID: {{{insight_id}}}
 {{/insight_id}}
+{{#artifact_id}}
+Conversation artifact ID: {{{artifact_id}}}
+Use this artifact ID only for in-conversation tool references. Do not construct a URL from it.
+{{/artifact_id}}
 {{#insight_description}}
 Description: {{{insight_description}}}
 {{/insight_description}}

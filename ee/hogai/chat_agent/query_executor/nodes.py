@@ -33,7 +33,7 @@ class QueryExecutorNode(AssistantNode):
                 query=content.query,
                 name=content.name,
                 description=content.description,
-                insight_id=artifact.artifact_id,
+                artifact_id=artifact.artifact_id,
             )
             formatted_query_result = await context.execute_and_format()
         except MaxToolRetryableError as err:
