@@ -3504,6 +3504,7 @@ dependencies = [
  "dateparser",
  "envconfig",
  "fancy-regex 0.17.0",
+ "fernet",
  "futures",
  "governor",
  "hex",
