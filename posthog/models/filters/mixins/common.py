@@ -9,7 +9,11 @@ from django.utils import timezone
 from dateutil.relativedelta import relativedelta
 from rest_framework.exceptions import ValidationError
 
-from posthog.hogql.constants import BREAKDOWN_VALUES_LIMIT, BREAKDOWN_VALUES_LIMIT_FOR_COUNTRIES
+from posthog.hogql.constants import (
+    BREAKDOWN_VALUES_LIMIT,
+    BREAKDOWN_VALUES_LIMIT_FOR_COUNTRIES,
+    BREAKDOWN_VALUES_LIMIT_MAX,
+)
 
 from posthog.constants import (
     ACTIONS,
@@ -169,7 +173,7 @@ class BreakdownMixin(BaseParamMixin):
     def _breakdown_limit(self) -> Optional[int]:
         if BREAKDOWN_LIMIT in self._data:
             try:
-                return int(self._data[BREAKDOWN_LIMIT])
+                return min(int(self._data[BREAKDOWN_LIMIT]), BREAKDOWN_VALUES_LIMIT_MAX)
             except (ValueError, TypeError):
                 pass
         return None
