@@ -1,4 +1,5 @@
 import re
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 from functools import cached_property
 from typing import cast
@@ -53,6 +54,41 @@ SELECT_STAR_FROM_EVENTS_FIELDS = [
 
 # Wide columns that defeat presorted optimization
 WIDE_COLUMNS = {"elements_chain", "properties"}
+
+
+def event_uuid_from_result(row: list[object], select_input: list[str]) -> str | None:
+    if "*" in select_input:
+        star_idx = select_input.index("*")
+        if star_idx < len(row) and isinstance(row[star_idx], Mapping):
+            uuid = row[star_idx].get("uuid")
+            return str(uuid) if uuid else None
+
+    for index, column in enumerate(select_input):
+        if column.split("--")[0].strip() == "uuid" and index < len(row):
+            uuid = row[index]
+            return str(uuid) if uuid else None
+
+    return None
+
+
+def deduplicate_event_results(results: list[list[object]], select_input: list[str]) -> list[list[object]]:
+    deduplicated_results: list[list[object]] = []
+    seen_uuids: set[str] = set()
+
+    for row in results:
+        event_uuid = event_uuid_from_result(row, select_input)
+        if event_uuid is not None:
+            if event_uuid in seen_uuids:
+                continue
+            seen_uuids.add(event_uuid)
+        deduplicated_results.append(row)
+
+    return deduplicated_results
+
+
+def deduplicate_events_query_by_uuid(query: ast.SelectQuery) -> None:
+    if query.limit_by is None:
+        query.limit_by = ast.LimitByExpr(n=ast.Constant(value=1), exprs=[ast.Field(chain=["uuid"])])
 
 
 class EventsQueryRunner(AnalyticsQueryRunner[EventsQueryResponse]):
@@ -386,6 +422,8 @@ class EventsQueryRunner(AnalyticsQueryRunner[EventsQueryResponse]):
                             events_query.having = ast.And(exprs=[events_query.having, having])
                     events_query.group_by = group_by if has_any_aggregation else None
                     events_query.order_by = order_by
+                    if not has_any_aggregation:
+                        deduplicate_events_query_by_uuid(events_query)
                     return events_query
 
                 stmt = ast.SelectQuery(
@@ -396,6 +434,9 @@ class EventsQueryRunner(AnalyticsQueryRunner[EventsQueryResponse]):
                     group_by=group_by if has_any_aggregation else None,
                     order_by=order_by,
                 )
+
+                if not has_any_aggregation:
+                    deduplicate_events_query_by_uuid(stmt)
 
                 # Presorted optimization: sort narrow data (uuid) first, then fetch wide data for matched rows.
                 # Avoids sorting giant rows with properties and elements_chain cols - instead sorts uuids.
@@ -409,6 +450,7 @@ class EventsQueryRunner(AnalyticsQueryRunner[EventsQueryResponse]):
                     inner_query.where = where
                     inner_query.order_by = order_by
                     inner_query.limit = ast.Constant(value=self.paginator.limit + self.paginator.offset + 1)
+                    deduplicate_events_query_by_uuid(inner_query)
 
                     prefilter_sorted = parse_expr("uuid in ({inner_query})", {"inner_query": inner_query})
 
@@ -462,6 +504,8 @@ class EventsQueryRunner(AnalyticsQueryRunner[EventsQueryResponse]):
                             session_id = properties.get("$session_id")
                             if session_id:
                                 properties["$has_recording"] = session_id in session_recordings_map
+
+        self.paginator.results = deduplicate_event_results(self.paginator.results, self.select_input_raw())
 
         person_indices: list[int] = []
         for column_index, col in enumerate(self.select_input_raw()):

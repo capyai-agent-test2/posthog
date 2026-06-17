@@ -12,6 +12,8 @@ from posthog.test.base import (
     snapshot_clickhouse_queries,
 )
 
+from parameterized import parameterized
+
 from posthog.schema import (
     CachedEventsQueryResponse,
     EventMetadataPropertyFilter,
@@ -24,11 +26,67 @@ from posthog.schema import (
 from posthog.hogql import ast
 from posthog.hogql.ast import CompareOperationOp
 
-from posthog.hogql_queries.events_query_runner import EventsQueryRunner
+from posthog.hogql_queries.events_query_runner import (
+    EventsQueryRunner,
+    deduplicate_event_results,
+    deduplicate_events_query_by_uuid,
+)
 from posthog.models import Element, Organization, OrganizationMembership, Person, PropertyDefinition, Team
 
 from products.access_control.backend.models.property_access_control import PropertyAccessControl
 from products.access_control.backend.property_access_control import PropertyAccessLevel
+
+
+@parameterized.expand(
+    [
+        (
+            "star_uuid",
+            [
+                [{"uuid": "event-uuid", "created_at": "2024-06-26T15:37:22Z"}, "visit_profile"],
+                [{"uuid": "event-uuid", "created_at": "2024-06-26T15:37:31Z"}, "visit_profile"],
+                [{"uuid": "other-uuid", "created_at": "2024-06-26T15:38:00Z"}, "other_event"],
+            ],
+            ["*", "event"],
+            [
+                [{"uuid": "event-uuid", "created_at": "2024-06-26T15:37:22Z"}, "visit_profile"],
+                [{"uuid": "other-uuid", "created_at": "2024-06-26T15:38:00Z"}, "other_event"],
+            ],
+        ),
+        (
+            "explicit_uuid",
+            [["event-uuid", "visit_profile"], ["event-uuid", "visit_profile"], ["other-uuid", "visit_profile"]],
+            ["uuid", "event"],
+            [["event-uuid", "visit_profile"], ["other-uuid", "visit_profile"]],
+        ),
+        (
+            "no_uuid",
+            [["visit_profile"], ["visit_profile"]],
+            ["event"],
+            [["visit_profile"], ["visit_profile"]],
+        ),
+    ]
+)
+def test_deduplicate_event_results(_name: str, rows: list[list[object]], select_input: list[str], expected: list[list[object]]) -> None:
+    assert deduplicate_event_results(rows, select_input) == expected
+
+
+def test_deduplicate_events_query_by_uuid_adds_limit_by() -> None:
+    query = ast.SelectQuery(select=[ast.Field(chain=["event"])])
+
+    deduplicate_events_query_by_uuid(query)
+    limit_by = cast(ast.LimitByExpr, query.limit_by)
+
+    assert cast(ast.Constant, limit_by.n).value == 1
+    assert cast(ast.Field, limit_by.exprs[0]).chain == ["uuid"]
+
+
+def test_deduplicate_events_query_by_uuid_preserves_existing_limit_by() -> None:
+    existing_limit_by = ast.LimitByExpr(n=ast.Constant(value=2), exprs=[ast.Field(chain=["event"])])
+    query = ast.SelectQuery(select=[ast.Field(chain=["event"])], limit_by=existing_limit_by)
+
+    deduplicate_events_query_by_uuid(query)
+
+    assert query.limit_by is existing_limit_by
 
 
 class TestEventsQueryRunner(ClickhouseTestMixin, APIBaseTest):
