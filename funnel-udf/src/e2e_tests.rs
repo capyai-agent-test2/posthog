@@ -159,3 +159,30 @@ fn json_path_still_works_for_same_fixture() {
         "expected step 2 as first tuple element: {s}"
     );
 }
+
+#[test]
+fn json_path_keeps_optional_step_matching_events_aligned() {
+    let input = r#"{"num_steps":5,"conversion_window_limit":120,"breakdown_attribution_type":"first_touch","funnel_order_type":"ordered","prop_vals":[""],"optional_steps":[2],"value":[{"timestamp":1.0,"uuid":"00000000-0000-0000-0000-000000000001","breakdown":"","steps":[1]},{"timestamp":2.0,"uuid":"00000000-0000-0000-0000-000000000002","breakdown":"","steps":[2]},{"timestamp":83.0,"uuid":"00000000-0000-0000-0000-000000000003","breakdown":"","steps":[3]},{"timestamp":112.0,"uuid":"00000000-0000-0000-0000-000000000004","breakdown":"","steps":[4]},{"timestamp":114.0,"uuid":"00000000-0000-0000-0000-000000000005","breakdown":"","steps":[5]}]}
+"#;
+    let mut reader = std::io::BufReader::new(input.as_bytes());
+    let mut writer = Cursor::new(Vec::new());
+    run_json(&mut reader, &mut writer, Mode::Steps).unwrap();
+    let parsed: serde_json::Value = serde_json::from_slice(&writer.into_inner()).unwrap();
+
+    let uuids_per_step = parsed["result"][0][3].as_array().unwrap();
+    let aligned_first_uuids: Vec<&str> = uuids_per_step
+        .iter()
+        .map(|step| step.as_array().unwrap()[0].as_str().unwrap())
+        .collect();
+
+    assert_eq!(
+        aligned_first_uuids,
+        vec![
+            "00000000-0000-0000-0000-000000000001",
+            "00000000-0000-0000-0000-000000000002",
+            "00000000-0000-0000-0000-000000000003",
+            "00000000-0000-0000-0000-000000000004",
+            "00000000-0000-0000-0000-000000000005",
+        ]
+    );
+}
