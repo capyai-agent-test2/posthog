@@ -806,6 +806,59 @@ class TestTrendsQueryRunner(ClickhouseTestMixin, APIBaseTest):
         assert response.results[0]["label"] == "Formula (A+2*B)"
         assert response.results[0]["action"] is None  # action needs to be unset to display custom label
 
+    def test_formula_with_breakdown_uses_same_breakdown_values_across_series(self):
+        self._create_events(
+            [
+                SeriesTestData(
+                    distinct_id="p1",
+                    events=[Series(event="$pageview", timestamps=["2020-01-11T12:00:00Z"] * 5)],
+                    properties={"$browser": "Chrome"},
+                ),
+                SeriesTestData(
+                    distinct_id="p2",
+                    events=[Series(event="$pageview", timestamps=["2020-01-11T12:00:00Z"] * 4)],
+                    properties={"$browser": "Chrome"},
+                ),
+                SeriesTestData(
+                    distinct_id="p3",
+                    events=[Series(event="$pageview", timestamps=["2020-01-11T12:00:00Z"] * 3)],
+                    properties={"$browser": "Chrome"},
+                ),
+                SeriesTestData(
+                    distinct_id="p4",
+                    events=[Series(event="$pageview", timestamps=["2020-01-11T12:00:00Z"])],
+                    properties={"$browser": "Chrome"},
+                ),
+            ]
+        )
+        for _ in range(10):
+            _create_event(
+                team=self.team,
+                event="$pageview",
+                distinct_id="p4",
+                timestamp="2020-01-11T12:00:00Z",
+                properties={"$browser": "Safari"},
+            )
+        flush_persons_and_events()
+
+        response = self._run_trends_query(
+            "2020-01-09",
+            "2020-01-20",
+            IntervalType.DAY,
+            [
+                EventsNode(
+                    event="$pageview",
+                    properties=[EventPropertyFilter(key="$browser", operator=PropertyOperator.EXACT, value="Chrome")],
+                ),
+                EventsNode(event="$pageview"),
+            ],
+            TrendsFilter(formula="(B/A)*100"),
+            BreakdownFilter(breakdown_type=BreakdownType.PERSON, breakdown="name", breakdown_limit=3),
+        )
+
+        p4_result = next(result for result in response.results if result["breakdown_value"] == "p4")
+        assert p4_result["data"] == [0, 0, 1100, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
     def test_formula_with_breakdown_and_compare(self):
         self._create_test_events()
 
