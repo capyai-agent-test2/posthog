@@ -36,11 +36,23 @@ export interface HogQLQueryEditorLogicProps {
     queryResponse?: Record<string, any>
 }
 
+export function shouldSyncQueryInputFromProps(
+    queryInput: string,
+    previousQuery: string | undefined,
+    nextQuery: string | undefined,
+    editorChanged: boolean
+): boolean {
+    const propsQueryChanged = nextQuery !== previousQuery
+    const queryInputHasLocalEdits = queryInput !== previousQuery
+
+    return typeof nextQuery === 'string' && (propsQueryChanged || (editorChanged && !queryInputHasLocalEdits))
+}
+
 export const hogQLQueryEditorLogic = kea<hogQLQueryEditorLogicType>([
     path(['queries', 'nodes', 'HogQLQuery', 'hogQLQueryEditorLogic']),
     props({} as HogQLQueryEditorLogicProps),
     key((props) => props.key),
-    propsChanged(({ actions, props }, oldProps) => {
+    propsChanged(({ actions, props, values }, oldProps) => {
         const selection = props.editor?.getSelection()
         const model = props.editor?.getModel()
         const highlightedQuery = selection && model ? model.getValueInRange(selection) : null
@@ -50,8 +62,12 @@ export const hogQLQueryEditorLogic = kea<hogQLQueryEditorLogicType>([
         }
 
         if (
-            typeof props.query.query === 'string' &&
-            (props.query.query !== oldProps.query.query || props.editor !== oldProps.editor)
+            shouldSyncQueryInputFromProps(
+                values.queryInput,
+                oldProps.query.query,
+                props.query.query,
+                props.editor !== oldProps.editor
+            )
         ) {
             actions.setQueryInput(props.query.query)
         }
