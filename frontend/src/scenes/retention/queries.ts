@@ -12,7 +12,7 @@ export function retentionToActorsQuery(
     breakdownValue?: string | number | null
 ): ActorsQuery {
     const group = query.aggregation_group_type_index != null
-    const selectActor = group ? 'group' : 'person'
+    const selectActor = group ? 'actor' : 'person'
     const totalIntervals = query.retentionFilter.totalIntervals || 7
     const periodName = query.retentionFilter.period?.toLowerCase() ?? 'day'
     // For custom brackets, we need to use the number of brackets + 1 for column count
