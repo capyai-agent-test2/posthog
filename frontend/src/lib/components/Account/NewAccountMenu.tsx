@@ -62,7 +62,7 @@ export function NewAccountMenu({ isLayoutNavCollapsed }: AccountMenuProps): JSX.
     const { pendingInvites } = useValues(pendingInvitesLogic)
     const hasPendingInvites = pendingInvites.length > 0
     const { preflight } = useValues(preflightLogic)
-    const { currentOrganization } = useValues(organizationLogic)
+    const { currentOrganization, projectCreationForbiddenReason } = useValues(organizationLogic)
     const { canAccessBilling } = useValues(billingLogic)
     const { guardAvailableFeature } = useValues(upgradeModalLogic)
     const { showCreateProjectModal } = useActions(globalModalsLogic)
@@ -139,27 +139,26 @@ export function NewAccountMenu({ isLayoutNavCollapsed }: AccountMenuProps): JSX.
                             >
                                 <Label intent="menu" className="pl-2 relative">
                                     Project
-                                    {preflight?.can_create_org && (
-                                        <ButtonPrimitive
-                                            iconOnly
-                                            tooltip="Create a new project"
-                                            size="xs"
-                                            className="absolute -right-[2px] -top-[2px]"
-                                            data-attr="new-account-menu-create-project-icon-button"
-                                            onClick={() => {
-                                                guardAvailableFeature(
-                                                    AvailableFeature.ORGANIZATIONS_PROJECTS,
-                                                    () => {
-                                                        setAccountMenuOpen(false)
-                                                        showCreateProjectModal()
-                                                    },
-                                                    { currentUsage: currentOrganization?.teams?.length }
-                                                )
-                                            }}
-                                        >
-                                            <IconPlusSmall className="text-tertiary size-4" />
-                                        </ButtonPrimitive>
-                                    )}
+                                    <ButtonPrimitive
+                                        iconOnly
+                                        tooltip={projectCreationForbiddenReason || 'Create a new project'}
+                                        size="xs"
+                                        className="absolute -right-[2px] -top-[2px]"
+                                        data-attr="new-account-menu-create-project-icon-button"
+                                        disabled={!!projectCreationForbiddenReason}
+                                        onClick={() => {
+                                            guardAvailableFeature(
+                                                AvailableFeature.ORGANIZATIONS_PROJECTS,
+                                                () => {
+                                                    setAccountMenuOpen(false)
+                                                    showCreateProjectModal()
+                                                },
+                                                { currentUsage: currentOrganization?.teams?.length }
+                                            )
+                                        }}
+                                    >
+                                        <IconPlusSmall className="text-tertiary size-4" />
+                                    </ButtonPrimitive>
                                 </Label>
                                 <DropdownMenuSeparator />
 
