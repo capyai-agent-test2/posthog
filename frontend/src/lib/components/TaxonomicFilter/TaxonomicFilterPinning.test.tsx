@@ -130,6 +130,27 @@ describe('TaxonomicFilter pinning', () => {
         })
     })
 
+    it('places the definition popover to the left when the row is near the viewport edge', async () => {
+        Object.defineProperty(window, 'innerWidth', { value: 1000, configurable: true })
+
+        renderFilter({
+            taxonomicGroupTypes: [TaxonomicFilterGroupType.EventProperties],
+            popoverEnabled: true,
+        })
+
+        const row = await screen.findByTestId('prop-filter-event_properties-0')
+        jest.spyOn(row, 'getBoundingClientRect').mockReturnValue({
+            ...row.getBoundingClientRect(),
+            right: 900,
+        })
+
+        await userEvent.hover(row)
+
+        await waitFor(() => {
+            expect(document.querySelector('.Popover[data-placement="left"]')).toBeInTheDocument()
+        })
+    })
+
     it.each([
         {
             description: 'fresh person pin with full distinct_ids',
