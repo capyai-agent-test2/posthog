@@ -44,6 +44,8 @@ type LemonDialogMethods = {
     openForm: (props: LemonFormDialogProps) => void
 }
 
+let lemonFormDialogCounter = 0
+
 const LemonDialogComponent = forwardRef<LemonDialogRef, LemonDialogProps>(function LemonDialog(
     {
         onAfterClose,
@@ -169,7 +171,8 @@ export const LemonFormDialog = ({
     primaryButtonProps,
     ...props
 }: LemonFormDialogProps): JSX.Element => {
-    const logic = lemonDialogLogic({ errors })
+    const dialogLogicKey = useMemo(() => `lemon-form-dialog-${++lemonFormDialogCounter}`, [])
+    const logic = lemonDialogLogic({ logicKey: dialogLogicKey, errors })
     const { form, isFormValid, formValidationErrors } = useValues(logic)
     const { setFormValues } = useActions(logic)
     const [isLoading, setIsLoading] = useState(false)
@@ -205,7 +208,7 @@ export const LemonFormDialog = ({
 
     return (
         <Form
-            logic={lemonDialogLogic}
+            logic={logic}
             formKey="form"
             onKeyDown={
                 props.shouldAwaitSubmit
