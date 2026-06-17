@@ -34,6 +34,9 @@ describe('SessionBatchManager', () => {
             get size() {
                 return 0
             },
+            get hasPendingFlush() {
+                return false
+            },
             discardPartition: jest.fn(),
         }) as unknown as jest.Mocked<SessionBatchRecorder>
 
@@ -128,6 +131,11 @@ describe('SessionBatchManager', () => {
     describe('size-based flushing', () => {
         it('should indicate flush needed when buffer is full', () => {
             jest.spyOn(currentBatch, 'size', 'get').mockReturnValue(150)
+            expect(manager.shouldFlush()).toBe(true)
+        })
+
+        it('should indicate flush needed when current batch has a pending flush', () => {
+            jest.spyOn(currentBatch, 'hasPendingFlush', 'get').mockReturnValue(true)
             expect(manager.shouldFlush()).toBe(true)
         })
 
