@@ -19,7 +19,7 @@ import {
     isExperimentMeanMetric,
     isExperimentRatioMetric,
 } from '~/queries/schema/schema-general'
-import { ExperimentMetricGoal } from '~/types'
+import { Experiment, ExperimentMetricGoal, ExperimentStatsMethod } from '~/types'
 
 export type ExperimentVariantResult = ExperimentVariantResultFrequentist | ExperimentVariantResultBayesian
 
@@ -208,6 +208,24 @@ export function getVariantInterval(result: ExperimentVariantResult): [number, nu
 
 export function getIntervalLabel(result: ExperimentVariantResult): string {
     return isBayesianResult(result) ? 'Credible interval' : 'Confidence interval'
+}
+
+export function getExperimentConfidenceLevel(
+    experiment: Pick<Experiment, 'stats_config'> | null | undefined,
+    statsMethod?: ExperimentStatsMethod
+): number {
+    const resolvedStatsMethod = experiment?.stats_config?.method ?? statsMethod ?? ExperimentStatsMethod.Bayesian
+
+    return resolvedStatsMethod === ExperimentStatsMethod.Bayesian
+        ? (experiment?.stats_config?.bayesian?.ci_level ?? 0.95)
+        : 1 - (experiment?.stats_config?.frequentist?.alpha ?? 0.05)
+}
+
+export function formatExperimentConfidenceLevel(
+    experiment: Pick<Experiment, 'stats_config'> | null | undefined,
+    statsMethod?: ExperimentStatsMethod
+): string {
+    return `${(getExperimentConfidenceLevel(experiment, statsMethod) * 100).toFixed(0)}%`
 }
 
 export function getIntervalBounds(result: ExperimentVariantResult): [number, number] {

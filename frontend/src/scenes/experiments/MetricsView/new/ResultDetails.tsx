@@ -34,6 +34,7 @@ import {
 import {
     ExperimentVariantResult,
     formatChanceToWinForGoal,
+    formatExperimentConfidenceLevel,
     formatMetricValue,
     formatPValue,
     getIntervalLabel,
@@ -175,6 +176,7 @@ export function ResultDetails({
     metric: ExperimentMetric
 }): JSX.Element {
     const { featureFlags } = useValues(experimentLogic)
+    const confidenceLevel = formatExperimentConfidenceLevel(experiment)
 
     const baselineKey = result.baseline?.key
 
@@ -234,8 +236,8 @@ export function ResultDetails({
         {
             key: 'interval',
             title: result.variant_results?.[0]
-                ? `${getIntervalLabel(result.variant_results[0])} (95%)`
-                : 'Confidence interval (95%)',
+                ? `${getIntervalLabel(result.variant_results[0])} (${confidenceLevel})`
+                : `Confidence interval (${confidenceLevel})`,
             render: (_, item: ExperimentVariantResult & { key: string }) => {
                 if (item.key === baselineKey) {
                     return '—'
