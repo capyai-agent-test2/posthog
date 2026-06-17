@@ -4,6 +4,7 @@ import unittest
 from posthog.test.base import APIBaseTest
 from unittest.mock import patch
 
+from django.conf import settings
 from django.core import mail
 
 from parameterized import parameterized
@@ -80,6 +81,22 @@ class TestSecretSettingsCoverage(unittest.TestCase):
             [],
             f"SECRET_SETTINGS references unknown keys {missing}; CONSTANCE_CONFIG is the source of truth.",
         )
+
+    @parameterized.expand(
+        [
+            ("EMAIL_HOST", "EMAIL_HOST"),
+            ("EMAIL_PORT", "EMAIL_PORT"),
+            ("EMAIL_HOST_USER", "EMAIL_HOST_USER"),
+            ("EMAIL_HOST_PASSWORD", "EMAIL_HOST_PASSWORD"),
+            ("EMAIL_USE_TLS", "EMAIL_USE_TLS"),
+            ("EMAIL_USE_SSL", "EMAIL_USE_SSL"),
+            ("DEFAULT_FROM_EMAIL", "EMAIL_DEFAULT_FROM"),
+        ]
+    )
+    def test_django_email_settings_use_instance_config_defaults(
+        self, django_setting_name: str, constance_setting_name: str
+    ) -> None:
+        self.assertEqual(getattr(settings, django_setting_name), CONSTANCE_CONFIG[constance_setting_name][0])
 
     @parameterized.expand(
         [
