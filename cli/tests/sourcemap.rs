@@ -1,12 +1,15 @@
 use posthog_cli::{
     sourcemaps::{
-        content::SourceMapContent, inject::inject_pairs, plain::inject::is_javascript_file,
+        content::SourceMapContent, inject::inject_pairs,
+        integrity::update_html_integrity_for_sources, plain::inject::is_javascript_file,
         source_pairs::SourcePair,
     },
     utils::files::FileSelection,
 };
 
 use anyhow::Result;
+use base64::{engine::general_purpose::STANDARD, Engine as _};
+use sha2::{Digest, Sha512};
 
 use std::{
     fs,
@@ -316,4 +319,100 @@ fn test_file_selection() {
         &None,
     );
     assert!(res.is_ok());
+}
+
+#[test]
+fn test_updates_html_integrity_after_js_changes() {
+    let tempdir = tempfile::tempdir().expect("Failed to create tempdir");
+    let dist = tempdir.path();
+    let asset_path = dist.join("assets").join("app.js");
+    fs::create_dir_all(asset_path.parent().unwrap()).expect("Failed to create asset directory");
+
+    let original_js = "console.log('before');";
+    let updated_js = "console.log('after');";
+    fs::write(&asset_path, updated_js).expect("Failed to write JS asset");
+
+    let original_hash = format!(
+        "sha512-{}",
+        STANDARD.encode(Sha512::digest(original_js.as_bytes()))
+    );
+    let updated_hash = format!(
+        "sha512-{}",
+        STANDARD.encode(Sha512::digest(updated_js.as_bytes()))
+    );
+    let html_path = dist.join("index.html");
+    fs::write(
+        &html_path,
+        format!(
+            r#"<script type="module" src="/assets/app.js" integrity="{original_hash}" crossorigin></script>"#
+        ),
+    )
+    .expect("Failed to write HTML");
+
+    let updated_files = update_html_integrity_for_sources(
+        &[dist.to_path_buf()],
+        std::slice::from_ref(&asset_path),
+        None,
+    )
+    .expect("Failed to rewrite integrity");
+    assert_eq!(updated_files, 1);
+
+    let html = fs::read_to_string(html_path).expect("Failed to read HTML");
+    assert!(html.contains(&updated_hash));
+    assert!(!html.contains(&original_hash));
+}
+
+#[test]
+fn test_updates_html_integrity_per_root_without_collisions() {
+    let tempdir = tempfile::tempdir().expect("Failed to create tempdir");
+    let root_a = tempdir.path().join("a");
+    let root_b = tempdir.path().join("b");
+
+    let asset_a = root_a.join("assets").join("app.js");
+    let asset_b = root_b.join("assets").join("app.js");
+    fs::create_dir_all(asset_a.parent().unwrap()).expect("Failed to create root A assets");
+    fs::create_dir_all(asset_b.parent().unwrap()).expect("Failed to create root B assets");
+
+    let js_a = "console.log('root-a');";
+    let js_b = "console.log('root-b');";
+    fs::write(&asset_a, js_a).expect("Failed to write root A asset");
+    fs::write(&asset_b, js_b).expect("Failed to write root B asset");
+
+    let stale_hash = format!("sha512-{}", STANDARD.encode(Sha512::digest(b"stale")));
+    let hash_a = format!(
+        "sha512-{}",
+        STANDARD.encode(Sha512::digest(js_a.as_bytes()))
+    );
+    let hash_b = format!(
+        "sha512-{}",
+        STANDARD.encode(Sha512::digest(js_b.as_bytes()))
+    );
+
+    let html_a = root_a.join("index.html");
+    let html_b = root_b.join("index.html");
+    fs::write(
+        &html_a,
+        format!(r#"<script src="/assets/app.js" integrity="{stale_hash}"></script>"#),
+    )
+    .expect("Failed to write root A HTML");
+    fs::write(
+        &html_b,
+        format!(r#"<script src="/assets/app.js" integrity="{stale_hash}"></script>"#),
+    )
+    .expect("Failed to write root B HTML");
+
+    let updated_files = update_html_integrity_for_sources(
+        &[root_a.clone(), root_b.clone()],
+        &[asset_a.clone(), asset_b.clone()],
+        None,
+    )
+    .expect("Failed to rewrite integrity");
+    assert_eq!(updated_files, 2);
+
+    let rewritten_a = fs::read_to_string(html_a).expect("Failed to read root A HTML");
+    let rewritten_b = fs::read_to_string(html_b).expect("Failed to read root B HTML");
+    assert!(rewritten_a.contains(&hash_a));
+    assert!(!rewritten_a.contains(&hash_b));
+    assert!(rewritten_b.contains(&hash_b));
+    assert!(!rewritten_b.contains(&hash_a));
 }
