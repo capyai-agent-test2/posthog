@@ -487,9 +487,6 @@ export const cohortEditLogic = kea<cohortEditLogicType>([
                             derivedPrompt: cohort.name ? `Build a cohort called ${cohort.name}` : undefined,
                         })
                     }
-                    if (cohort.id !== 'new') {
-                        actions.refreshPersonsData()
-                    }
                     if (existingCohort.id === 'new') {
                         router.actions.push(urls.cohort(cohort.id))
                         if (existingCohort.is_static) {
