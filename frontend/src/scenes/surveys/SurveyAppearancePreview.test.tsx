@@ -53,7 +53,7 @@ describe('SurveyAppearancePreview', () => {
         const { container } = render(<SurveyAppearancePreview survey={survey} previewPageIndex={0} />)
         const previewRoot = container.firstChild as HTMLDivElement
 
-        expect(previewRoot).toHaveClass('flex', 'w-full', 'min-w-0', 'justify-center')
+        expect(previewRoot).toHaveClass('flex', 'w-full', 'min-w-0', 'justify-center', '[&_iframe]:max-w-full')
 
         expect(mockRenderSurveysPreview).toHaveBeenCalledWith(
             expect.objectContaining({
