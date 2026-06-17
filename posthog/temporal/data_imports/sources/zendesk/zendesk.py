@@ -185,7 +185,7 @@ def get_resource(name: str, should_use_incremental_field: bool) -> EndpointResou
                 # share a `generated_timestamp`: the page never advances past
                 # that timestamp, so pagination loops forever re-fetching the
                 # same boundary page. Cursor pagination is immune to this.
-                "path": "/api/v2/incremental/tickets/cursor",
+                "path": "/api/v2/incremental/tickets/cursor.json",
                 "paginator": ZendeskTicketsCursorIncrementalPaginator(),
                 "params": {
                     "per_page": 1000,
