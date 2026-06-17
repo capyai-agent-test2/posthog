@@ -1,4 +1,5 @@
 from posthog.test.base import BaseTest
+from unittest.mock import patch
 
 from django.test.client import Client
 
@@ -84,3 +85,33 @@ class TestSiteApp(BaseTest):
         config = {"in_site": "123", "not_in_site": "12345"}
         self.assertEqual(get_site_config_from_schema(schema, config), {"in_site": "123"})
         self.assertEqual(get_site_config_from_schema(None, None), {})
+
+    @patch("posthog.tasks.remote_config.update_team_remote_config.delay")
+    @patch("posthog.models.remote_config.transaction.on_commit", side_effect=lambda func: func())
+    def test_site_app_source_file_change_updates_remote_config(self, _mock_on_commit, mock_update_remote_config):
+        plugin = Plugin.objects.create(organization=self.team.organization, name="My Plugin", plugin_type="source")
+        PluginConfig.objects.create(
+            plugin=plugin,
+            enabled=True,
+            order=1,
+            team=self.team,
+            config={},
+            web_token="tokentoken",
+        )
+        mock_update_remote_config.reset_mock()
+
+        source_file = PluginSourceFile.objects.create(
+            plugin=plugin,
+            filename="site.ts",
+            source="export function inject (){}",
+            transpiled="function inject(){}",
+            status=PluginSourceFile.Status.TRANSPILED,
+        )
+
+        mock_update_remote_config.assert_called_once_with(self.team.id)
+        mock_update_remote_config.reset_mock()
+
+        source_file.status = PluginSourceFile.Status.ERROR
+        source_file.save()
+
+        mock_update_remote_config.assert_called_once_with(self.team.id)
