@@ -1,6 +1,38 @@
+import type { ReactNode } from 'react'
+
 import { LifecycleToggle } from '~/types'
 
 import { getLifecycleTooltip } from './LifecycleToggles'
+
+jest.mock(
+    '@posthog/quill',
+    () => {
+        const Component = ({ children }: { children?: unknown }): ReactNode => (children as ReactNode) ?? null
+        return {
+            __esModule: true,
+            Button: Component,
+            ButtonGroup: Component,
+            DropdownMenu: Component,
+            DropdownMenuContent: Component,
+            DropdownMenuGroup: Component,
+            DropdownMenuItem: Component,
+            DropdownMenuLabel: Component,
+            DropdownMenuSeparator: Component,
+            DropdownMenuTrigger: Component,
+            InputGroup: Component,
+            InputGroupInput: Component,
+            Popover: Component,
+            PopoverContent: Component,
+            PopoverTrigger: Component,
+            ScrollArea: Component,
+            Tooltip: Component,
+            TooltipContent: Component,
+            TooltipTrigger: Component,
+            cn: (...classes: (string | false | null | undefined)[]) => classes.filter(Boolean).join(' '),
+        }
+    },
+    { virtual: true }
+)
 
 describe('getLifecycleTooltip', () => {
     const cases: [LifecycleToggle, { singular: string; plural: string }, 'that' | 'who', string][] = [
