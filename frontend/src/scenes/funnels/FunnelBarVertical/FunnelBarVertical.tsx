@@ -31,7 +31,7 @@ export function FunnelBarVertical({
     const showPersonsModal = canOpenPersonModal && showPersonsModalProp
     const vizRef = useFunnelTooltip(showPersonsModal)
 
-    const { height: availableHeight } = useResizeObserver({ ref: vizRef })
+    const { height: availableHeight, width: availableWidth } = useResizeObserver({ ref: vizRef })
     const [scrollbarHeightPx, setScrollbarHeightPx] = useState(0)
     const [stepLegendRowHeightPx, setStepLegendRowHeightPx] = useState(0)
 
@@ -66,12 +66,12 @@ export function FunnelBarVertical({
         if (scrollRef.current) {
             setScrollbarHeightPx(scrollRef.current.offsetHeight - scrollRef.current.clientHeight)
         }
-    }, [availableHeight])
+    }, [availableHeight, availableWidth])
     useLayoutEffect(() => {
         if (stepLegendRowRef.current) {
             setStepLegendRowHeightPx(stepLegendRowRef.current.clientHeight)
         }
-    }, [availableHeight])
+    }, [availableHeight, availableWidth])
 
     /** Average conversion time is only shown if it's known for at least one step. */
     // != is intentional to catch undefined too
