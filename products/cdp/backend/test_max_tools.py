@@ -2,7 +2,7 @@ import pytest
 
 from parameterized import parameterized
 
-from products.cdp.backend.max_tools import CreateHogTransformationFunctionTool
+from products.cdp.backend.max_tools import CreateHogFunctionFiltersTool, CreateHogTransformationFunctionTool
 
 from ee.hogai.chat_agent.schema_generator.parsers import PydanticOutputParserException
 
@@ -43,3 +43,44 @@ class TestParseOutput:
         tool = CreateHogTransformationFunctionTool.__new__(CreateHogTransformationFunctionTool)
         result = tool._parse_output(f"<hog_code>{hog_code}</hog_code>")
         assert result.hog_code == hog_code
+
+    def test_filters_parse_output_rejects_ui_metadata_keys(self):
+        tool = CreateHogFunctionFiltersTool.__new__(CreateHogFunctionFiltersTool)
+
+        with pytest.raises(PydanticOutputParserException) as exc_info:
+            tool._parse_output(
+                """
+                <filters>
+                {
+                    "properties": [
+                        {
+                            "key": "utm_source",
+                            "value": "newsletter",
+                            "operator": "exact",
+                            "type": "event",
+                            "label": "Property value"
+                        }
+                    ]
+                }
+                </filters>
+                """
+            )
+
+        assert "Do not write UI metadata" in str(exc_info.value)
+
+    def test_filters_parse_output_accepts_valid_filter_values(self):
+        tool = CreateHogFunctionFiltersTool.__new__(CreateHogFunctionFiltersTool)
+
+        result = tool._parse_output(
+            """
+            <filters>
+            {
+                "events": [{"id": "$pageview", "name": "$pageview", "type": "events", "order": 0, "properties": []}],
+                "properties": [{"key": "utm_source", "value": "newsletter", "operator": "exact", "type": "event"}],
+                "filter_test_accounts": false
+            }
+            </filters>
+            """
+        )
+
+        assert result.filters["properties"][0]["value"] == "newsletter"
