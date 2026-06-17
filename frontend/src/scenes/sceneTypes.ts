@@ -275,6 +275,8 @@ export interface SceneConfig {
     onlyUnauthenticated?: boolean
     /** Route **can** be accessed when logged out (i.e. can be accessed when logged in too; should be added to posthog/urls.py too) */
     allowUnauthenticated?: boolean
+    /** Route supports dark mode while logged out */
+    supportsUnauthenticatedDarkMode?: boolean
     /**
      * If `app`, navigation is shown, and the scene has default padding.
      * If `app-full-scene-height`, navigation is shown, and the scene has default padding and wrapper takes full screen height.

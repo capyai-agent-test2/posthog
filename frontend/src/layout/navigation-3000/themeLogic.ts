@@ -12,7 +12,7 @@ export const themeLogic = kea<themeLogicType>([
     path(['layout', 'navigation-3000', 'themeLogic']),
     connect(() => ({
         logic: [sceneLogic],
-        values: [userLogic, ['themeMode'], featureFlagLogic, ['featureFlags']],
+        values: [userLogic, ['themeMode', 'user'], featureFlagLogic, ['featureFlags']],
         actions: [userLogic, ['updateUser']],
     })),
 
@@ -74,8 +74,8 @@ export const themeLogic = kea<themeLogicType>([
             (persistedCustomCss, previewingCustomCss): string | null => previewingCustomCss || persistedCustomCss,
         ],
         isDarkModeOn: [
-            (s) => [s.themeMode, s.darkModeSystemPreference, sceneLogic.selectors.sceneConfig, s.theme],
-            (themeMode, darkModeSystemPreference, sceneConfig, theme) => {
+            (s) => [s.user, s.themeMode, s.darkModeSystemPreference, sceneLogic.selectors.sceneConfig, s.theme],
+            (user, themeMode, darkModeSystemPreference, sceneConfig, theme) => {
                 if (
                     typeof window !== 'undefined' &&
                     window.document &&
@@ -87,8 +87,14 @@ export const themeLogic = kea<themeLogicType>([
                 if (theme) {
                     return !!theme?.dark
                 }
+                if (!user && sceneConfig?.supportsUnauthenticatedDarkMode) {
+                    return darkModeSystemPreference
+                }
                 // NOTE: Unauthenticated users always get the light mode until we have full support for dark mode there
-                if (sceneConfig?.allowUnauthenticated || sceneConfig?.onlyUnauthenticated) {
+                if (
+                    (sceneConfig?.allowUnauthenticated || sceneConfig?.onlyUnauthenticated) &&
+                    !sceneConfig.supportsUnauthenticatedDarkMode
+                ) {
                     return false
                 }
 

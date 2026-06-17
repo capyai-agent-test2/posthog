@@ -579,7 +579,7 @@ export const sceneConfigurations: Record<Scene | string, SceneConfig> = {
         iconType: 'data_pipeline',
     },
     [Scene.Unsubscribe]: { allowUnauthenticated: true, layout: 'app-raw' },
-    [Scene.VerifyEmail]: { allowUnauthenticated: true, layout: 'plain' },
+    [Scene.VerifyEmail]: { allowUnauthenticated: true, layout: 'plain', supportsUnauthenticatedDarkMode: true },
     [Scene.WebAnalyticsPageReports]: {
         projectBased: true,
         name: 'Page reports',
