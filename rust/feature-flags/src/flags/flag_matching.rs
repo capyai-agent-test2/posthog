@@ -1479,6 +1479,16 @@ impl FeatureFlagMatcher {
                     payload,
                 });
             }
+
+            if reason == FeatureFlagMatchReason::OutOfRolloutBound {
+                return Ok(FeatureFlagMatch {
+                    matches: false,
+                    variant: None,
+                    reason,
+                    condition_index: Some(index),
+                    payload: None,
+                });
+            }
         }
 
         condition_timer.label("outcome", "success").fin();
