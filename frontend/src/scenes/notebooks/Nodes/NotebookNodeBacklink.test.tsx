@@ -1,4 +1,6 @@
-import { BACKLINK_MAP } from './NotebookNodeBacklink'
+import { NodeKind } from '~/queries/schema/schema-general'
+
+import { BACKLINK_MAP, parseBacklinkToQueryContent } from './NotebookNodeBacklink.utils'
 
 const stripQueryAndHash = (path: string): string => path.split(/[?#]/)[0]
 
@@ -85,5 +87,42 @@ describe('NotebookNodeBacklink BACKLINK_MAP', () => {
             expect(replay.regex.test(stripped)).toBe(true)
             expect(replay.regex.exec(stripped)?.[1]).toBe(expectedId)
         })
+    })
+})
+
+describe('parseBacklinkToQueryContent', () => {
+    it('restores saved insight backlinks to query nodes', () => {
+        expect(parseBacklinkToQueryContent('/insights/abc123')).toEqual({
+            type: 'ph-query',
+            attrs: {
+                query: {
+                    kind: NodeKind.SavedInsightNode,
+                    shortId: 'abc123',
+                },
+                showSettings: true,
+            },
+        })
+    })
+
+    it('restores draft insight backlinks to query nodes', () => {
+        const query = {
+            kind: NodeKind.InsightVizNode,
+            source: {
+                kind: NodeKind.TrendsQuery,
+                series: [],
+            },
+        }
+
+        expect(parseBacklinkToQueryContent(`/insights/new?q=${encodeURIComponent(JSON.stringify(query))}`)).toEqual({
+            type: 'ph-query',
+            attrs: {
+                query,
+                showSettings: true,
+            },
+        })
+    })
+
+    it('returns null for non-chart backlinks', () => {
+        expect(parseBacklinkToQueryContent('/feature_flags/7')).toBeNull()
     })
 })

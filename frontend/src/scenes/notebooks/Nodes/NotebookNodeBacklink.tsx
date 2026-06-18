@@ -5,146 +5,23 @@ import { useValues } from 'kea'
 import { router } from 'kea-router'
 import { useEffect } from 'react'
 
-import {
-    IconChat,
-    IconDashboard,
-    IconFlag,
-    IconFlask,
-    IconGraph,
-    IconLive,
-    IconLogomark,
-    IconNotebook,
-    IconPeople,
-    IconPerson,
-    IconPlaylist,
-    IconRewindPlay,
-} from '@posthog/icons'
-import { Link } from '@posthog/lemon-ui'
-
-import api from 'lib/api'
-import { urls } from 'scenes/urls'
+import { IconLogomark, IconUndo } from '@posthog/icons'
+import { LemonButton, Link } from '@posthog/lemon-ui'
 
 import { openNotebook } from '~/models/notebooksModel'
-import { QueryBasedInsightModel } from '~/types'
 
 import { notebookLogic } from '../Notebook/notebookLogic'
 import { NotebookNodeType, NotebookTarget } from '../types'
+import { BACKLINK_MAP, parseBacklinkToQueryContent } from './NotebookNodeBacklink.utils'
 import { posthogNodePasteRule } from './utils'
 
-type BackLinkMapper = {
-    regex: RegExp
-    type: string
-    icon: JSX.Element
-    getTitle: (id: string) => Promise<string>
-}
-
-export const BACKLINK_MAP: BackLinkMapper[] = [
-    {
-        type: 'dashboards',
-        regex: new RegExp(urls.dashboard('([^/]+)')),
-        icon: <IconDashboard />,
-        getTitle: async (id: string) => {
-            const dashboard = await api.dashboards.get(Number(id))
-            return dashboard.name || id
-        },
-    },
-    {
-        type: 'insights',
-        regex: new RegExp(urls.insightView('([^/]+)' as QueryBasedInsightModel['short_id'])),
-        icon: <IconGraph />,
-        getTitle: async (id: string) => {
-            const insight = await api.insights.loadInsight(id as QueryBasedInsightModel['short_id'])
-            return insight.results[0]?.name || id
-        },
-    },
-    {
-        type: 'feature_flags',
-        regex: new RegExp(urls.featureFlag('([^/]+)')),
-        icon: <IconFlag />,
-        getTitle: async (id: string) => {
-            const flag = await api.featureFlags.get(Number(id))
-            return flag.name || flag.key || id
-        },
-    },
-    {
-        type: 'experiments',
-        regex: new RegExp(urls.experiment('([^/]+)')),
-        icon: <IconFlask />,
-        getTitle: async (id: string) => {
-            const experiment = await api.experiments.get(Number(id))
-            return experiment.name || id
-        },
-    },
-    {
-        type: 'surveys',
-        regex: new RegExp(urls.survey('([^/]+)')),
-        icon: <IconChat />,
-        getTitle: async (id: string) => {
-            const survey = await api.surveys.get(id)
-            return survey.name || id
-        },
-    },
-    {
-        type: 'events',
-        regex: new RegExp(urls.eventDefinition('([^/]+)')),
-        icon: <IconLive width="1em" height="1em" />,
-        getTitle: async (id: string) => {
-            const event = await api.eventDefinitions.get({ eventDefinitionId: id })
-            return event.name || id
-        },
-    },
-    {
-        type: 'persons',
-        regex: new RegExp(urls.personByDistinctId('([^/]+)', false)),
-        icon: <IconPerson />,
-        getTitle: async (id: string) => {
-            const response = await api.persons.list({ distinct_id: id })
-            return response.results[0]?.name || id
-        },
-    },
-    {
-        type: 'cohorts',
-        regex: new RegExp(urls.cohort('([^/]+)')),
-        icon: <IconPeople />,
-        getTitle: async (id: string) => {
-            const cohort = await api.cohorts.get(Number(id))
-            return cohort.name || id
-        },
-    },
-    {
-        type: 'playlist',
-        regex: new RegExp(urls.replayPlaylist('([^/]+)')),
-        icon: <IconPlaylist />,
-        getTitle: async (id: string) => {
-            const playlist = await api.recordings.getPlaylist(id)
-            return playlist.name || id
-        },
-    },
-    {
-        type: 'replay',
-        regex: new RegExp(urls.replaySingle('([^/]+)')),
-        icon: <IconRewindPlay />,
-        getTitle: async (id: string) => {
-            return id
-        },
-    },
-    {
-        type: 'notebooks',
-        regex: new RegExp(urls.notebook('([^/]+)')),
-        icon: <IconNotebook />,
-        getTitle: async (id: string) => {
-            const notebook = await api.notebooks.get(id)
-            return notebook.title || 'Untitled'
-        },
-    },
-]
-
 const Component = (props: NodeViewProps): JSX.Element => {
-    const { shortId } = useValues(notebookLogic)
+    const { shortId, isEditable } = useValues(notebookLogic)
     const { location } = useValues(router)
 
     const href: string = props.node.attrs.href ?? ''
     const hrefWithoutQuery: string = href.split(/[?#]/)[0]
+    const queryContent = parseBacklinkToQueryContent(href)
 
     const backLinkConfig = BACKLINK_MAP.find((config) => config.regex.test(hrefWithoutQuery))
     const matchedId = backLinkConfig?.regex.exec(hrefWithoutQuery)?.[1]
@@ -169,10 +46,28 @@ const Component = (props: NodeViewProps): JSX.Element => {
         // oxlint-disable-next-line exhaustive-deps
     }, [props.node.attrs.title])
 
+    const convertBackToChart = (): void => {
+        const pos = props.getPos?.()
+
+        if (typeof pos !== 'number' || !queryContent) {
+            return
+        }
+
+        props.editor
+            .chain()
+            .focus()
+            .insertContentAt({ from: pos, to: pos + props.node.nodeSize }, queryContent)
+            .run()
+    }
+
     return (
         <NodeViewWrapper
             as="span"
-            className={clsx('Backlink', isViewing && 'Backlink--active', props.selected && 'Backlink--selected')}
+            className={clsx(
+                'Backlink inline-flex items-center gap-1',
+                isViewing && 'Backlink--active',
+                props.selected && 'Backlink--selected'
+            )}
         >
             <Link
                 to={href}
@@ -182,6 +77,18 @@ const Component = (props: NodeViewProps): JSX.Element => {
                 <span>{backLinkConfig?.icon || <IconLogomark />}</span>
                 <span className="Backlink__label">{derivedText}</span>
             </Link>
+            {isEditable && queryContent ? (
+                <LemonButton
+                    size="xsmall"
+                    icon={<IconUndo />}
+                    tooltip="Convert back to chart"
+                    onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        convertBackToChart()
+                    }}
+                />
+            ) : null}
         </NodeViewWrapper>
     )
 }
