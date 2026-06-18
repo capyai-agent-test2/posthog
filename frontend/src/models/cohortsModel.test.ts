@@ -247,5 +247,36 @@ describe('cohortsModel', () => {
                 key: expectedCriteriaKey,
             })
         })
+
+        it('adds sort keys to criteria without a type', () => {
+            const result = processCohort({
+                id: 5,
+                name: 'Partial criteria cohort',
+                count: 0,
+                groups: [],
+                is_calculating: false,
+                is_static: false,
+                filters: {
+                    properties: {
+                        type: FilterLogicalOperator.And,
+                        values: [
+                            {
+                                type: FilterLogicalOperator.And,
+                                values: [
+                                    {
+                                        key: 'email',
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                },
+            } as CohortType)
+
+            const group = result.filters.properties.values[0]
+
+            expect((group as any).sort_key).toEqual(expect.any(String))
+            expect((group as any).values[0].sort_key).toEqual(expect.any(String))
+        })
     })
 })
