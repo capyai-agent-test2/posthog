@@ -71,10 +71,6 @@ trap cleanup EXIT
 # causing Prometheus to see ~1/N of actual task events.
 export PROMETHEUS_MULTIPROC_DIR="/tmp/posthog_celery_prometheus"
 
-if [ "$with_scheduler" == "true" ]; then
-  ./bin/docker-worker-beat &
-fi
-
 FLAGS=()
 FLAGS+=("-Ofair")
 FLAGS+=("-n node@%h")
@@ -102,9 +98,12 @@ echo
 
 ./bin/migrate-check
 
+if [ "$with_scheduler" == "true" ]; then
+  ./bin/docker-worker-beat &
+fi
+
 SKIP_ASYNC_MIGRATIONS_SETUP=0 CELERY_WORKER_QUEUES=$CELERY_WORKER_QUEUES celery -A posthog worker ${FLAGS[*]} &
 
 # Exit if any processes exit, and exit with it's exit code
 wait -n
 exit $?
-
