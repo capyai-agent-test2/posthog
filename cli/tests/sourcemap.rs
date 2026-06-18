@@ -12,6 +12,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+use tempfile::tempdir;
 use test_log::test;
 
 macro_rules! case {
@@ -316,4 +317,26 @@ fn test_file_selection() {
         &None,
     );
     assert!(res.is_ok());
+}
+
+#[test]
+fn test_source_mapping_url_directory_falls_back_to_guessed_map() {
+    let temp_dir = tempdir().expect("Failed to create temp dir");
+    let js_path = temp_dir.path().join("index.js");
+    let map_path = temp_dir.path().join("index.js.map");
+    let misleading_dir = temp_dir.path().join("_worker.js");
+
+    fs::create_dir(&misleading_dir).expect("Failed to create misleading directory");
+    fs::write(
+        &js_path,
+        "console.log('hello');\n//# sourceMappingURL=_worker.js\n",
+    )
+    .expect("Failed to write JS file");
+    fs::write(&map_path, "{\"version\":3}").expect("Failed to write sourcemap");
+
+    let pairs = read_pairs(vec![temp_dir.path().to_path_buf()], vec![], vec![], &None)
+        .expect("Failed to read pairs");
+
+    assert_eq!(pairs.len(), 1);
+    assert_eq!(pairs[0].sourcemap.inner.path, map_path);
 }
