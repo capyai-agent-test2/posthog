@@ -197,10 +197,8 @@ describe('survey utils', () => {
                                 operator: PropertyOperator.Exact,
                             },
                             {
-                                key: SurveyEventProperties.SURVEY_COMPLETED,
-                                type: PropertyFilterType.Event,
-                                value: true,
-                                operator: PropertyOperator.Exact,
+                                type: PropertyFilterType.HogQL,
+                                key: `coalesce(JSONExtractString(properties, '${SurveyEventProperties.SURVEY_COMPLETED}'), '') != 'false'`,
                             },
                         ],
                     },

@@ -1,11 +1,18 @@
 import { NEW_SURVEY } from 'scenes/surveys/constants'
 
 import { NodeKind } from '~/queries/schema/schema-general'
-import { PropertyFilterType, PropertyOperator, SurveyEventProperties, SurveyQuestionType } from '~/types'
+import {
+    PropertyFilterType,
+    PropertyOperator,
+    SurveyEventName,
+    SurveyEventProperties,
+    SurveyQuestionType,
+} from '~/types'
 
 import {
     buildLastSurveyResponseQuery,
     getDefaultSurveyMessage,
+    mergeResponseFiltersIntoExistingFilters,
     remapSurveyResponseProperties,
 } from './surveyNotificationModalLogic'
 
@@ -119,6 +126,62 @@ describe('surveyNotificationModalLogic', () => {
                     '$survey_response_target-a': "{event.properties['$survey_response_target-a']}",
                 },
             },
+        })
+    })
+
+    it('preserves the completion HogQL filter when editing notifications', () => {
+        const merged = mergeResponseFiltersIntoExistingFilters(
+            {
+                events: [
+                    {
+                        id: SurveyEventName.SENT,
+                        type: 'events',
+                        properties: [
+                            {
+                                key: SurveyEventProperties.SURVEY_ID,
+                                type: PropertyFilterType.Event,
+                                value: 'survey-123',
+                                operator: PropertyOperator.Exact,
+                            },
+                            {
+                                type: PropertyFilterType.HogQL,
+                                key: `coalesce(JSONExtractString(properties, '${SurveyEventProperties.SURVEY_COMPLETED}'), '') != 'false'`,
+                            },
+                            {
+                                key: '$survey_response_question-1',
+                                type: PropertyFilterType.Event,
+                                value: 'great',
+                                operator: PropertyOperator.Exact,
+                            },
+                        ],
+                    },
+                ],
+            },
+            {
+                events: [],
+            },
+            []
+        )
+
+        expect(merged).toEqual({
+            events: [
+                {
+                    id: SurveyEventName.SENT,
+                    type: 'events',
+                    properties: [
+                        {
+                            key: SurveyEventProperties.SURVEY_ID,
+                            type: PropertyFilterType.Event,
+                            value: 'survey-123',
+                            operator: PropertyOperator.Exact,
+                        },
+                        {
+                            type: PropertyFilterType.HogQL,
+                            key: `coalesce(JSONExtractString(properties, '${SurveyEventProperties.SURVEY_COMPLETED}'), '') != 'false'`,
+                        },
+                    ],
+                },
+            ],
         })
     })
 })
