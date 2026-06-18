@@ -14,6 +14,7 @@ import {
     DataVisualizationNode,
     HogQLFilters,
     HogQLQuery,
+    HogQLVariable,
     NodeKind,
 } from '~/queries/schema/schema-general'
 import { initKeaTests } from '~/test/init'
@@ -122,6 +123,23 @@ const MOCK_VIEW = {
     latest_error: null,
 } as any
 
+const MOCK_VIEW_WITH_VARIABLES = {
+    ...MOCK_VIEW,
+    id: 'test-view-with-variables',
+    name: 'Test view with variables',
+    query: {
+        kind: NodeKind.HogQLQuery,
+        query: 'SELECT * FROM events WHERE timestamp > {variables.date}',
+        variables: {
+            variable_1: {
+                variableId: 'variable_1',
+                code_name: 'date',
+                value: '-7d',
+            },
+        },
+    },
+} as any
+
 const MOCK_DRAFT = {
     id: 'test-draft',
     name: 'Test draft',
@@ -180,10 +198,15 @@ describe('sqlEditorLogic', () => {
                     }
                     return [200, { results: [] }]
                 },
-                '/api/environments/:team_id/warehouse_saved_queries/': { results: [MOCK_VIEW] },
+                '/api/environments/:team_id/warehouse_saved_queries/': {
+                    results: [MOCK_VIEW, MOCK_VIEW_WITH_VARIABLES],
+                },
                 '/api/environments/:team_id/warehouse_saved_queries/:id/': (req) => {
                     if (req.params.id === MOCK_VIEW.id) {
                         return [200, MOCK_VIEW]
+                    }
+                    if (req.params.id === MOCK_VIEW_WITH_VARIABLES.id) {
+                        return [200, MOCK_VIEW_WITH_VARIABLES]
                     }
                     return [404]
                 },
@@ -366,6 +389,122 @@ describe('sqlEditorLogic', () => {
         await new Promise((resolve) => setTimeout(resolve, 0))
 
         expect(router.values.hashParams.filters).toEqual(filters)
+    })
+
+    it('restores variables from the URL hash', async () => {
+        const variables: Record<string, HogQLVariable> = {
+            variable_1: {
+                variableId: 'variable_1',
+                code_name: 'date',
+                value: '-7d',
+            },
+        }
+
+        logic = sqlEditorLogic({
+            tabId: TAB_ID,
+            monaco: createMockMonaco(),
+            editor: createMockEditor(),
+        })
+        logic.mount()
+
+        router.actions.push(urls.sqlEditor(), undefined, {
+            q: 'SELECT * FROM events WHERE timestamp > {variables.date}',
+            variables,
+        })
+
+        await expectLogic(logic)
+            .toDispatchActions(['setSourceQuery', 'createTab', 'updateTab'])
+            .toMatchValues({
+                sourceQuery: partial({
+                    source: partial({
+                        variables,
+                    }),
+                }),
+            })
+    })
+
+    it('syncs variables to the URL hash and removes them after reset', async () => {
+        const variables: Record<string, HogQLVariable> = {
+            variable_1: {
+                variableId: 'variable_1',
+                code_name: 'date',
+                value: '-7d',
+            },
+        }
+
+        logic = sqlEditorLogic({
+            tabId: TAB_ID,
+            monaco: createMockMonaco(),
+            editor: createMockEditor(),
+        })
+        logic.mount()
+
+        logic.actions.createTab('SELECT * FROM events WHERE timestamp > {variables.date}')
+        await expectLogic(logic).toDispatchActions(['createTab', 'updateTab'])
+
+        logic.actions.setSourceQuery({
+            ...logic.values.sourceQuery,
+            source: {
+                ...logic.values.sourceQuery.source,
+                variables,
+            },
+        })
+        await new Promise((resolve) => setTimeout(resolve, 0))
+
+        expect(router.values.hashParams.variables).toEqual(variables)
+
+        logic.actions.setSourceQuery({
+            ...logic.values.sourceQuery,
+            source: {
+                ...logic.values.sourceQuery.source,
+                variables: {},
+            },
+        })
+        await new Promise((resolve) => setTimeout(resolve, 0))
+
+        expect(router.values.hashParams.variables).toBeUndefined()
+    })
+
+    it('opens a view with saved variables as the active source query', async () => {
+        logic = sqlEditorLogic({
+            tabId: TAB_ID,
+            monaco: createMockMonaco(),
+            editor: createMockEditor(),
+        })
+        logic.mount()
+
+        logic.actions.createTab(MOCK_VIEW_WITH_VARIABLES.query.query, MOCK_VIEW_WITH_VARIABLES)
+        await expectLogic(logic).toDispatchActions(['createTab', 'setSourceQuery', 'updateTab'])
+
+        expect(logic.values.sourceQuery.source.variables).toEqual(MOCK_VIEW_WITH_VARIABLES.query.variables)
+        expect(logic.values.activeTab?.sourceQuery?.source.variables).toEqual(MOCK_VIEW_WITH_VARIABLES.query.variables)
+    })
+
+    it('keeps URL variable state when opening a saved view', async () => {
+        const variables: Record<string, HogQLVariable> = {
+            variable_1: {
+                variableId: 'variable_1',
+                code_name: 'date',
+                value: '-30d',
+            },
+        }
+
+        logic = sqlEditorLogic({
+            tabId: TAB_ID,
+            monaco: createMockMonaco(),
+            editor: createMockEditor(),
+        })
+        logic.mount()
+
+        router.actions.push(urls.sqlEditor(), undefined, {
+            view: MOCK_VIEW_WITH_VARIABLES.id,
+            variables,
+        })
+
+        await expectLogic(logic).toDispatchActions(['editView', 'createTab', 'setSourceQuery', 'updateTab'])
+
+        expect(logic.values.sourceQuery.source.variables).toEqual(variables)
+        expect(logic.values.activeTab?.view?.query?.variables).toEqual(variables)
     })
 
     describe('title section', () => {
