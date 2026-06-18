@@ -50,6 +50,7 @@ export type CustomerProfileAttrs = {
     distinctIds?: string[]
     groupKey?: string
     groupTypeIndex?: GroupTypeIndex
+    tabId?: string
 }
 
 export interface PersonProfileLogicProps {
@@ -276,6 +277,7 @@ export interface AddAttrsToNodeProps {
 export function addPersonAttrsToNode({ attrs, node, children = [] }: AddAttrsToNodeProps): JSONContent {
     const personId = attrs?.personId
     const distinctId = attrs?.distinctIds?.[0]
+    const tabId = attrs?.tabId
     const nodeId = `${node.type}-${personId}`
 
     switch (node.type) {
@@ -286,12 +288,12 @@ export function addPersonAttrsToNode({ attrs, node, children = [] }: AddAttrsToN
         case NotebookNodeType.Issues:
             return {
                 ...node,
-                attrs: { ...node.attrs, nodeId, personId, children },
+                attrs: { ...node.attrs, nodeId, personId, tabId, children },
             }
         case NotebookNodeType.SupportTickets:
             return {
                 ...node,
-                attrs: { ...node.attrs, nodeId, personId, distinctIds: attrs?.distinctIds, children },
+                attrs: { ...node.attrs, nodeId, personId, distinctIds: attrs?.distinctIds, tabId, children },
             }
         case NotebookNodeType.PersonFeed:
             return {
@@ -302,6 +304,7 @@ export function addPersonAttrsToNode({ attrs, node, children = [] }: AddAttrsToN
                     height: null,
                     id: personId,
                     distinctId,
+                    tabId,
                     __init: null,
                     children,
                 },
@@ -310,7 +313,7 @@ export function addPersonAttrsToNode({ attrs, node, children = [] }: AddAttrsToN
         case NotebookNodeType.PersonProperties:
             return {
                 ...node,
-                attrs: { ...node.attrs, nodeId, id: personId, distinctId, children },
+                attrs: { ...node.attrs, nodeId, id: personId, distinctId, tabId, children },
             }
         case NotebookNodeType.RelatedGroups:
             return {
@@ -320,6 +323,7 @@ export function addPersonAttrsToNode({ attrs, node, children = [] }: AddAttrsToN
                     nodeId,
                     id: personId,
                     type: 'group',
+                    tabId,
                     children,
                 },
             }
@@ -331,6 +335,7 @@ export function addPersonAttrsToNode({ attrs, node, children = [] }: AddAttrsToN
 export function addGroupAttrsToNode({ attrs, node, children = [] }: AddAttrsToNodeProps): JSONContent {
     const groupKey = attrs?.groupKey
     const groupTypeIndex = attrs?.groupTypeIndex
+    const tabId = attrs?.tabId
     const nodeId = `${node.type}-${groupKey}-${groupTypeIndex}`
 
     switch (node.type) {
@@ -345,13 +350,14 @@ export function addGroupAttrsToNode({ attrs, node, children = [] }: AddAttrsToNo
                     nodeId,
                     groupKey,
                     groupTypeIndex,
+                    tabId,
                     children,
                 },
             }
         case NotebookNodeType.ZendeskTickets:
             return {
                 ...node,
-                attrs: { ...node.attrs, nodeId, groupKey, children },
+                attrs: { ...node.attrs, nodeId, groupKey, tabId, children },
             }
         case NotebookNodeType.Group:
         case NotebookNodeType.RelatedGroups:
@@ -363,6 +369,7 @@ export function addGroupAttrsToNode({ attrs, node, children = [] }: AddAttrsToNo
                     id: groupKey,
                     type: 'person',
                     groupTypeIndex,
+                    tabId,
                     children,
                 },
             }
@@ -372,6 +379,7 @@ export function addGroupAttrsToNode({ attrs, node, children = [] }: AddAttrsToNo
                 attrs: {
                     ...node.attrs,
                     nodeId,
+                    tabId,
                 },
             }
         case NotebookNodeType.Query:
@@ -385,6 +393,7 @@ export function addGroupAttrsToNode({ attrs, node, children = [] }: AddAttrsToNo
                         showTableViews: true,
                         embedded: true,
                     },
+                    tabId,
                 },
                 nodeId,
                 children,
@@ -396,6 +405,7 @@ export function addGroupAttrsToNode({ attrs, node, children = [] }: AddAttrsToNo
                 attrs: {
                     ...node.attrs,
                     nodeId,
+                    tabId,
                     children,
                 },
             }

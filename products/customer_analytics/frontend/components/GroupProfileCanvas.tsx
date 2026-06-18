@@ -31,8 +31,9 @@ export const GroupProfileCanvas = ({ group, attachTo }: GroupProfileCanvasProps)
         () => ({
             groupKey,
             groupTypeIndex,
+            tabId,
         }),
-        [groupKey, groupTypeIndex]
+        [groupKey, groupTypeIndex, tabId]
     )
     const customerProfileLogicProps = {
         attrs,
