@@ -546,6 +546,10 @@ export const SurveysCreateBody = /* @__PURE__ */ zod.object({
                         .boolean()
                         .optional()
                         .describe("Whether the final option should be an open-text choice (for example, 'Other')."),
+                    choiceAliases: zod
+                        .record(zod.string(), zod.array(zod.string()))
+                        .optional()
+                        .describe('Previous labels for renamed choices, keyed by the current choice label.'),
                     branching: zod
                         .union([
                             zod.union([
@@ -629,6 +633,10 @@ export const SurveysCreateBody = /* @__PURE__ */ zod.object({
                         .boolean()
                         .optional()
                         .describe("Whether the final option should be an open-text choice (for example, 'Other')."),
+                    choiceAliases: zod
+                        .record(zod.string(), zod.array(zod.string()))
+                        .optional()
+                        .describe('Previous labels for renamed choices, keyed by the current choice label.'),
                 }),
             ])
         )
@@ -1353,6 +1361,10 @@ export const SurveysPartialUpdateBody = /* @__PURE__ */ zod.object({
                         .boolean()
                         .optional()
                         .describe("Whether the final option should be an open-text choice (for example, 'Other')."),
+                    choiceAliases: zod
+                        .record(zod.string(), zod.array(zod.string()))
+                        .optional()
+                        .describe('Previous labels for renamed choices, keyed by the current choice label.'),
                     branching: zod
                         .union([
                             zod.union([
@@ -1436,6 +1448,10 @@ export const SurveysPartialUpdateBody = /* @__PURE__ */ zod.object({
                         .boolean()
                         .optional()
                         .describe("Whether the final option should be an open-text choice (for example, 'Other')."),
+                    choiceAliases: zod
+                        .record(zod.string(), zod.array(zod.string()))
+                        .optional()
+                        .describe('Previous labels for renamed choices, keyed by the current choice label.'),
                 }),
             ])
         )

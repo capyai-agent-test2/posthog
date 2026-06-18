@@ -769,6 +769,45 @@ interface SanitizeSurveyOptions {
     keepEmptyConditions?: boolean
 }
 
+export function cleanChoiceAliasesForChoices(
+    currentAliases: Record<string, string[]> | undefined,
+    currentChoices: string[]
+): Record<string, string[]> | undefined {
+    const currentChoiceSet = new Set(currentChoices)
+    const cleanedAliases = Object.fromEntries(
+        Object.entries(currentAliases ?? {}).filter(
+            ([choice, aliases]) => currentChoiceSet.has(choice) && aliases.length > 0
+        )
+    )
+    return Object.keys(cleanedAliases).length > 0 ? cleanedAliases : undefined
+}
+
+export function getChoiceAliasesForRename(
+    currentAliases: Record<string, string[]> | undefined,
+    previousChoice: string,
+    renamedChoice: string,
+    currentChoices: string[],
+    additionalPreviousAliases: string[] = []
+): Record<string, string[]> | undefined {
+    if (previousChoice === renamedChoice || !renamedChoice) {
+        return cleanChoiceAliasesForChoices(currentAliases, currentChoices)
+    }
+
+    const updatedAliases = { ...currentAliases }
+    const previousAliases = [...(updatedAliases[previousChoice] ?? []), ...additionalPreviousAliases]
+    delete updatedAliases[previousChoice]
+
+    updatedAliases[renamedChoice] = Array.from(
+        new Set([
+            ...(updatedAliases[renamedChoice] ?? []),
+            ...previousAliases,
+            ...(previousChoice ? [previousChoice] : []),
+        ])
+    ).filter((alias) => alias !== renamedChoice)
+
+    return cleanChoiceAliasesForChoices(updatedAliases, currentChoices)
+}
+
 export function sanitizeSurvey(survey: Partial<Survey>, options?: SanitizeSurveyOptions): Partial<Survey> {
     const sanitizedQuestions =
         survey.questions?.map((question) => {
@@ -783,6 +822,16 @@ export function sanitizeSurvey(survey: Partial<Survey>, options?: SanitizeSurvey
                 sanitized.choices
             ) {
                 sanitized.choices = sanitized.choices.map((choice) => choice.trim())
+                if (sanitized.choiceAliases) {
+                    sanitized.choiceAliases = Object.fromEntries(
+                        Object.entries(sanitized.choiceAliases)
+                            .map(([choice, aliases]) => [
+                                choice.trim(),
+                                aliases.map((alias) => alias.trim()).filter(Boolean),
+                            ])
+                            .filter(([choice, aliases]) => !!choice && aliases.length > 0)
+                    )
+                }
             }
             return sanitized
         }) || []

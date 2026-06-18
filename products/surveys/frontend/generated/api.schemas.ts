@@ -1017,6 +1017,11 @@ export const SurveySingleChoiceQuestionSchemaTypeEnumApi = {
     SingleChoice: 'single_choice',
 } as const
 
+/**
+ * Previous labels for renamed choices, keyed by the current choice label.
+ */
+export type SurveySingleChoiceQuestionSchemaApiChoiceAliases = { [key: string]: string[] }
+
 export interface SurveySingleChoiceQuestionSchemaApi {
     type: SurveySingleChoiceQuestionSchemaTypeEnumApi
     /** Question text shown to respondents. */
@@ -1042,6 +1047,8 @@ export interface SurveySingleChoiceQuestionSchemaApi {
     shuffleOptions?: boolean
     /** Whether the final option should be an open-text choice (for example, 'Other'). */
     hasOpenChoice?: boolean
+    /** Previous labels for renamed choices, keyed by the current choice label. */
+    choiceAliases?: SurveySingleChoiceQuestionSchemaApiChoiceAliases
     branching?: SurveyBranchingSchemaApi | null
 }
 
@@ -1054,6 +1061,11 @@ export type SurveyMultipleChoiceQuestionSchemaTypeEnumApi =
 export const SurveyMultipleChoiceQuestionSchemaTypeEnumApi = {
     MultipleChoice: 'multiple_choice',
 } as const
+
+/**
+ * Previous labels for renamed choices, keyed by the current choice label.
+ */
+export type SurveyMultipleChoiceQuestionSchemaApiChoiceAliases = { [key: string]: string[] }
 
 export interface SurveyMultipleChoiceQuestionSchemaApi {
     type: SurveyMultipleChoiceQuestionSchemaTypeEnumApi
@@ -1080,6 +1092,8 @@ export interface SurveyMultipleChoiceQuestionSchemaApi {
     shuffleOptions?: boolean
     /** Whether the final option should be an open-text choice (for example, 'Other'). */
     hasOpenChoice?: boolean
+    /** Previous labels for renamed choices, keyed by the current choice label. */
+    choiceAliases?: SurveyMultipleChoiceQuestionSchemaApiChoiceAliases
 }
 
 export type SurveyQuestionInputSchemaApi =

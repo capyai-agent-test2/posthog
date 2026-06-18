@@ -33999,6 +33999,11 @@ export namespace Schemas {
       SingleChoice: 'single_choice',
     } as const;
 
+    /**
+     * Previous labels for renamed choices, keyed by the current choice label.
+     */
+    export type SurveySingleChoiceQuestionSchemaChoiceAliases = {[key: string]: string[]};
+
     export interface SurveySingleChoiceQuestionSchema {
       type: SurveySingleChoiceQuestionSchemaTypeEnum;
       /** Question text shown to respondents. */
@@ -34024,6 +34029,8 @@ export namespace Schemas {
       shuffleOptions?: boolean;
       /** Whether the final option should be an open-text choice (for example, 'Other'). */
       hasOpenChoice?: boolean;
+      /** Previous labels for renamed choices, keyed by the current choice label. */
+      choiceAliases?: SurveySingleChoiceQuestionSchemaChoiceAliases;
       branching?: SurveyBranchingSchema | null;
     }
 
@@ -34036,6 +34043,11 @@ export namespace Schemas {
     export const SurveyMultipleChoiceQuestionSchemaTypeEnum = {
       MultipleChoice: 'multiple_choice',
     } as const;
+
+    /**
+     * Previous labels for renamed choices, keyed by the current choice label.
+     */
+    export type SurveyMultipleChoiceQuestionSchemaChoiceAliases = {[key: string]: string[]};
 
     export interface SurveyMultipleChoiceQuestionSchema {
       type: SurveyMultipleChoiceQuestionSchemaTypeEnum;
@@ -34062,6 +34074,8 @@ export namespace Schemas {
       shuffleOptions?: boolean;
       /** Whether the final option should be an open-text choice (for example, 'Other'). */
       hasOpenChoice?: boolean;
+      /** Previous labels for renamed choices, keyed by the current choice label. */
+      choiceAliases?: SurveyMultipleChoiceQuestionSchemaChoiceAliases;
     }
 
     export type SurveyQuestionInputSchema = SurveyOpenQuestionSchema | SurveyLinkQuestionSchema | SurveyRatingQuestionSchema | SurveySingleChoiceQuestionSchema | SurveyMultipleChoiceQuestionSchema;

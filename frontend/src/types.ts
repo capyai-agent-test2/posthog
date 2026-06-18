@@ -4057,6 +4057,7 @@ export interface RatingSurveyQuestion extends SurveyQuestionBase {
 export interface MultipleSurveyQuestion extends SurveyQuestionBase {
     type: SurveyQuestionType.SingleChoice | SurveyQuestionType.MultipleChoice
     choices: string[]
+    choiceAliases?: Record<string, string[]>
     shuffleOptions?: boolean
     hasOpenChoice?: boolean
     skipSubmitButton?: boolean
