@@ -1,4 +1,4 @@
-import { actions, afterMount, beforeUnmount, connect, kea, listeners, path, reducers, selectors } from 'kea'
+import { actions, afterMount, connect, kea, listeners, path, reducers, selectors } from 'kea'
 import { loaders } from 'kea-loaders'
 import { subscriptions } from 'kea-subscriptions'
 import posthog from 'posthog-js'
@@ -202,15 +202,12 @@ export const hedgehogModeLogic = kea<hedgehogModeLogicType>([
             actions.loadRemoteConfig()
         }
 
-        cache.syncInterval = setInterval(() => {
-            actions.syncFromState()
-        }, 1000)
-    }),
+        cache.disposables.add(() => {
+            const syncInterval = setInterval(() => {
+                actions.syncFromState()
+            }, 1000)
 
-    beforeUnmount(({ cache }) => {
-        if (cache.syncInterval) {
-            clearInterval(cache.syncInterval)
-            cache.syncInterval = null
-        }
+            return () => clearInterval(syncInterval)
+        }, 'syncInterval')
     }),
 ])
