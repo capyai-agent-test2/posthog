@@ -6,7 +6,7 @@ use crate::{
 };
 use axum::{
     extract::{Path, State},
-    http::{HeaderMap, Method, StatusCode},
+    http::{HeaderMap, HeaderValue, Method, StatusCode},
     response::{IntoResponse, Json, Response},
 };
 use common_metrics::inc;
@@ -21,6 +21,37 @@ fn config_cache_headers() -> [(&'static str, &'static str); 2] {
         ("cache-control", "public, max-age=300"),
         ("vary", "Origin, Referer"),
     ]
+}
+
+fn apply_cors_headers(request_headers: &HeaderMap, response: &mut Response) {
+    let Some(origin) = request_headers
+        .get("origin")
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| !value.is_empty())
+    else {
+        return;
+    };
+
+    let response_headers = response.headers_mut();
+    response_headers.insert(
+        "access-control-allow-credentials",
+        HeaderValue::from_static("true"),
+    );
+    response_headers.insert(
+        "access-control-allow-methods",
+        HeaderValue::from_static("GET, POST, OPTIONS, HEAD"),
+    );
+    response_headers.insert(
+        "access-control-allow-headers",
+        request_headers
+            .get("access-control-request-headers")
+            .cloned()
+            .unwrap_or_else(|| HeaderValue::from_static("X-Requested-With,Content-Type")),
+    );
+
+    if let Ok(origin_value) = HeaderValue::from_str(origin) {
+        response_headers.insert("access-control-allow-origin", origin_value);
+    }
 }
 
 /// Parse and validate a path token, returning the appropriate HTTP error on failure.
@@ -97,16 +128,21 @@ pub async fn config_endpoint(
     method: Method,
 ) -> Response {
     if method == Method::OPTIONS {
-        return (StatusCode::NO_CONTENT, [("allow", "GET, OPTIONS, HEAD")]).into_response();
+        let mut response =
+            (StatusCode::NO_CONTENT, [("allow", "GET, OPTIONS, HEAD")]).into_response();
+        apply_cors_headers(&headers, &mut response);
+        return response;
     }
     if method == Method::HEAD {
-        return (
+        let mut response = (
             StatusCode::OK,
             config_cache_headers(),
             [("content-type", "application/json")],
             axum::body::Body::empty(),
         )
             .into_response();
+        apply_cors_headers(&headers, &mut response);
+        return response;
     }
 
     let token = match parse_token(&raw_token) {
@@ -121,7 +157,9 @@ pub async fn config_endpoint(
 
     sanitize_config_for_client(&mut config, &headers);
 
-    (StatusCode::OK, config_cache_headers(), Json(config)).into_response()
+    let mut response = (StatusCode::OK, config_cache_headers(), Json(config)).into_response();
+    apply_cors_headers(&headers, &mut response);
+    response
 }
 
 /// `GET /array/:token/config.js` — returns JS wrapper around config.
@@ -140,10 +178,13 @@ pub async fn config_js_endpoint(
     method: Method,
 ) -> Response {
     if method == Method::OPTIONS {
-        return (StatusCode::NO_CONTENT, [("allow", "GET, OPTIONS, HEAD")]).into_response();
+        let mut response =
+            (StatusCode::NO_CONTENT, [("allow", "GET, OPTIONS, HEAD")]).into_response();
+        apply_cors_headers(&headers, &mut response);
+        return response;
     }
     if method == Method::HEAD {
-        return (
+        let mut response = (
             StatusCode::OK,
             [
                 ("content-type", "application/javascript"),
@@ -153,6 +194,8 @@ pub async fn config_js_endpoint(
             axum::body::Body::empty(),
         )
             .into_response();
+        apply_cors_headers(&headers, &mut response);
+        return response;
     }
 
     let token = match parse_token(&raw_token) {
@@ -214,7 +257,7 @@ pub async fn config_js_endpoint(
          }})();"
     );
 
-    (
+    let mut response = (
         StatusCode::OK,
         [
             ("content-type", "application/javascript"),
@@ -223,15 +266,19 @@ pub async fn config_js_endpoint(
         ],
         js_content,
     )
-        .into_response()
+        .into_response();
+    apply_cors_headers(&headers, &mut response);
+    response
 }
 
 #[cfg(test)]
 mod tests {
     use crate::test_utils::helpers::*;
-    use axum::http::StatusCode;
+    use axum::http::{Method, Request, StatusCode};
     use common_redis::MockRedisClient;
+    use http_body_util::BodyExt;
     use serde_json::json;
+    use tower::ServiceExt;
 
     #[test]
     fn test_config_js_template_format() {
@@ -334,6 +381,48 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_config_echoes_origin_for_credentialed_requests() {
+        let token = "phc_cors_test";
+        let key = cache_key("array", "config.json", token);
+
+        let config_data = json!({
+            "token": token
+        });
+
+        let mut mock = MockRedisClient::new();
+        mock = mock.get_raw_bytes_ret(&key, Ok(pickle_json(&config_data)));
+
+        let surveys = mock_reader("surveys", "surveys.json", MockRedisClient::new());
+        let config = mock_reader("array", "config.json", mock);
+        let router = test_router(surveys, config);
+
+        let (status, _, headers) = get_with_headers(
+            &router,
+            &format!("/array/{token}/config"),
+            vec![("origin", "http://localhost:3000")],
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            headers
+                .get("access-control-allow-origin")
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "http://localhost:3000"
+        );
+        assert_eq!(
+            headers
+                .get("access-control-allow-credentials")
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "true"
+        );
+    }
+
+    #[tokio::test]
     async fn test_config_sanitizes_site_apps_js() {
         let token = "phc_sanitize_test";
         let key = cache_key("array", "config.json", token);
@@ -399,6 +488,47 @@ mod tests {
         assert!(!body.contains("\"siteApps\""));
         // siteAppsJS should be removed from config JSON
         assert!(!body.contains("\"siteAppsJS\""));
+    }
+
+    #[tokio::test]
+    async fn test_config_options_echoes_requested_cors_headers() {
+        let surveys = mock_reader("surveys", "surveys.json", MockRedisClient::new());
+        let config = mock_reader("array", "config.json", MockRedisClient::new());
+        let router = test_router(surveys, config);
+
+        let request = Request::builder()
+            .method(Method::OPTIONS)
+            .uri("/array/phc_options_test/config")
+            .header("origin", "http://localhost:3000")
+            .header(
+                "access-control-request-headers",
+                "x-requested-with,x-posthog-token",
+            )
+            .body(axum::body::Body::empty())
+            .unwrap();
+
+        let response = router.clone().oneshot(request).await.unwrap();
+        let status = response.status();
+        let headers = response.headers().clone();
+        drop(response.into_body().collect().await.unwrap());
+
+        assert_eq!(status, StatusCode::NO_CONTENT);
+        assert_eq!(
+            headers
+                .get("access-control-allow-origin")
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "http://localhost:3000"
+        );
+        assert_eq!(
+            headers
+                .get("access-control-allow-headers")
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "x-requested-with,x-posthog-token"
+        );
     }
 
     #[tokio::test]
