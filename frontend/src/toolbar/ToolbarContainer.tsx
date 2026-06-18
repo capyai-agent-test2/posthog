@@ -11,7 +11,7 @@ import { Elements } from './elements/Elements'
 import { HedgehogButton } from './hedgehog/HedgehogButton'
 import { toolbarConfigLogic } from './toolbarConfigLogic'
 
-export function ToolbarContainer(): JSX.Element {
+export function ToolbarContainer({ toolbarRemScale = 1 }: { toolbarRemScale?: number }): JSX.Element {
     const { buttonVisible } = useValues(toolbarConfigLogic)
     const { theme } = useValues(toolbarLogic)
 
@@ -28,7 +28,12 @@ export function ToolbarContainer(): JSX.Element {
             <FloatingContainerContext.Provider value={floatingContainer}>
                 <Elements />
                 <ToolbarFixedZones />
-                <div id="button-toolbar" {...themeProps}>
+                <div
+                    id="button-toolbar"
+                    {...themeProps}
+                    // eslint-disable-next-line react/forbid-dom-props
+                    style={toolbarRemScale === 1 ? undefined : { zoom: toolbarRemScale }}
+                >
                     <Toolbar />
                 </div>
                 <HedgehogButton />
@@ -36,6 +41,8 @@ export function ToolbarContainer(): JSX.Element {
                     ref={setFloatingContainer}
                     {...themeProps}
                     className="fixed inset-0 pointer-events-none z-[2147483647] [&>*]:pointer-events-auto"
+                    // eslint-disable-next-line react/forbid-dom-props
+                    style={toolbarRemScale === 1 ? undefined : { zoom: toolbarRemScale }}
                 />
             </FloatingContainerContext.Provider>
         </Fade>
