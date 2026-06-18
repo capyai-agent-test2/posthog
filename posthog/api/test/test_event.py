@@ -697,12 +697,12 @@ class TestEvents(ClickhouseTestMixin, APIBaseTest):
                 )
             response = self.client.get(f"/api/projects/{self.team.id}/events/?distinct_id=1").json()
             assert len(response["results"]) == 100
-            assert f"http://testserver/api/projects/{self.team.id}/events/?distinct_id=1&before=" in unquote(
+            assert f"http://testserver/api/projects/{self.team.id}/events/?distinct_id=1&offset=100" == unquote(
                 response["next"]
             )
             response = self.client.get(f"/api/projects/{self.team.id}/events/?distinct_id=1").json()
             assert len(response["results"]) == 100
-            assert f"http://testserver/api/projects/{self.team.id}/events/?distinct_id=1&before=" in unquote(
+            assert f"http://testserver/api/projects/{self.team.id}/events/?distinct_id=1&offset=100" == unquote(
                 response["next"]
             )
 
@@ -721,12 +721,32 @@ class TestEvents(ClickhouseTestMixin, APIBaseTest):
             assert len(page2["results"]) == 100
             assert (
                 unquote(page2["next"])
-                == f"http://testserver/api/projects/{self.team.id}/events/?distinct_id=1&before=2020-12-30T12:03:53.829294+00:00"
+                == f"http://testserver/api/projects/{self.team.id}/events/?distinct_id=1&offset=200"
             )
 
             page3 = self.client.get(page2["next"]).json()
             assert len(page3["results"]) == 50
             assert page3["next"] is None
+
+    def test_pagination_includes_events_with_duplicate_timestamps(self):
+        timestamp = timezone.now() - relativedelta(days=1)
+        event_ids = [
+            _create_event(
+                team=self.team,
+                event="some event",
+                distinct_id="1",
+                timestamp=timestamp,
+                event_uuid=f"00000000-0000-0000-0000-00000000000{idx}",
+            )
+            for idx in range(4)
+        ]
+
+        response = self.client.get(f"/api/projects/{self.team.id}/events/?distinct_id=1&limit=2").json()
+        page2 = self.client.get(response["next"]).json()
+
+        returned_ids = [event["id"] for event in response["results"] + page2["results"]]
+        assert sorted(returned_ids) == sorted(event_ids)
+        assert page2["next"] is None
 
     def test_pagination_bounded_date_range(self):
         with freeze_time("2021-10-10T12:03:03.829294Z"):
@@ -745,7 +765,7 @@ class TestEvents(ClickhouseTestMixin, APIBaseTest):
                 )
             response = self.client.get(f"/api/projects/{self.team.id}/events/?{params_string}").json()
             assert len(response["results"]) == 10
-            assert "before=" in unquote(response["next"])
+            assert "offset=10" in unquote(response["next"])
             assert f"after={after}" in unquote(response["next"])
 
             params = {"distinct_id": "1", "after": after, "before": before, "limit": 10}
@@ -753,7 +773,7 @@ class TestEvents(ClickhouseTestMixin, APIBaseTest):
 
             response = self.client.get(f"/api/projects/{self.team.id}/events/?{params_string}").json()
             assert len(response["results"]) == 10
-            assert "before=" in unquote(response["next"])
+            assert "offset=10" in unquote(response["next"])
             assert f"after={after}" in unquote(response["next"])
 
             page2 = self.client.get(response["next"]).json()
@@ -769,7 +789,7 @@ class TestEvents(ClickhouseTestMixin, APIBaseTest):
             )
 
             assert len(page2["results"]) == 10
-            assert "before=" in unquote(page2["next"])
+            assert "offset=20" in unquote(page2["next"])
             assert f"after={after}" in unquote(page2["next"])
 
             page3 = self.client.get(page2["next"]).json()
@@ -790,7 +810,7 @@ class TestEvents(ClickhouseTestMixin, APIBaseTest):
         ).json()
         assert len(response["results"]) == 10
         assert parser.parse(response["results"][0]["timestamp"]) < parser.parse(response["results"][-1]["timestamp"])
-        assert "after=" in response["next"]
+        assert "offset=10" in response["next"]
 
     def test_default_descending_order_timestamp(self):
         for idx in range(20):
@@ -804,7 +824,7 @@ class TestEvents(ClickhouseTestMixin, APIBaseTest):
         response = self.client.get(f"/api/projects/{self.team.id}/events/?distinct_id=1&limit=10").json()
         assert len(response["results"]) == 10
         assert parser.parse(response["results"][0]["timestamp"]) > parser.parse(response["results"][-1]["timestamp"])
-        assert "before=" in response["next"]
+        assert "offset=10" in response["next"]
 
     def test_specified_descending_order_timestamp(self):
         for idx in range(20):
@@ -820,7 +840,7 @@ class TestEvents(ClickhouseTestMixin, APIBaseTest):
         ).json()
         assert len(response["results"]) == 10
         assert parser.parse(response["results"][0]["timestamp"]) > parser.parse(response["results"][-1]["timestamp"])
-        assert "before=" in response["next"]
+        assert "offset=10" in response["next"]
 
     def test_action_no_steps(self):
         action = Action.objects.create(team=self.team)

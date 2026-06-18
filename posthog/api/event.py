@@ -5,7 +5,7 @@ import random
 import urllib
 import builtins
 import dataclasses
-from datetime import datetime
+from datetime import timedelta
 from typing import Any, Iterator, List, Optional, Union, cast  # noqa: UP035
 
 from django.conf import settings
@@ -191,16 +191,12 @@ class EventViewSet(
     def _build_next_url(
         self,
         request: request.Request,
-        last_event_timestamp: datetime,
-        order_by: list[str],
+        limit: int,
+        offset: int,
+        request_get_query_dict: dict[str, Any],
     ) -> str:
-        params = request.GET.dict()
-        reverse = "-timestamp" in order_by
-        timestamp = last_event_timestamp.astimezone().isoformat()
-        if reverse:
-            params["before"] = timestamp
-        else:
-            params["after"] = timestamp
+        params = request_get_query_dict.copy()
+        params["offset"] = str(offset + limit)
         return request.build_absolute_uri(f"{request.path}?{urllib.parse.urlencode(params)}")
 
     @extend_schema(
@@ -301,6 +297,9 @@ class EventViewSet(
             order_by: list[str] = (
                 list(json.loads(request.GET["orderBy"])) if request.GET.get("orderBy") else ["-timestamp"]
             )
+            request_get_query_dict = request.GET.dict()
+            if "before" not in request_get_query_dict:
+                request_get_query_dict["before"] = (timezone.now() + timedelta(seconds=5)).isoformat()
 
             restricted_context = self._get_restricted_properties_context(request, team)
             self._reject_restricted_property_references(filter, order_by, restricted_context)
@@ -359,7 +358,7 @@ class EventViewSet(
                         team=team,
                         limit=limit,
                         offset=offset,
-                        request_get_query_dict=request.GET.dict(),
+                        request_get_query_dict=request_get_query_dict.copy(),
                         order_by=order_by,
                         action_id=request.GET.get("action_id"),
                         time_window_seconds=window,
@@ -388,7 +387,7 @@ class EventViewSet(
                         team=team,
                         limit=limit,
                         offset=offset,
-                        request_get_query_dict=request.GET.dict(),
+                        request_get_query_dict=request_get_query_dict.copy(),
                         order_by=order_by,
                         action_id=request.GET.get("action_id"),
                     )
@@ -405,7 +404,7 @@ class EventViewSet(
 
             next_url: Optional[str] = None
             if not is_csv_request and len(query_result) > limit:
-                next_url = self._build_next_url(request, query_result[limit - 1]["timestamp"], order_by)
+                next_url = self._build_next_url(request, limit, offset, request_get_query_dict)
             headers = None
             if settings.PATCH_EVENT_LIST_MAX_OFFSET > 0:
                 headers = {"X-PostHog-Warn": "https://posthog.com/docs/api/events"}
