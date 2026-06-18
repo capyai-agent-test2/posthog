@@ -807,6 +807,10 @@ def property_to_expr(
     else:
         raise QueryError(f"property_to_expr with property of type {type(property).__name__} not implemented")
 
+    if property.type == "flag":
+        # Flag dependencies are evaluated outside HogQL. Treat them as neutral here so
+        # generic Property instances from Filter parsing don't crash downstream callers.
+        return ast.Constant(value=1)
     if property.type == "hogql":
         tag_contains_user_hogql()
         return parse_expr(property.key, cache_origin=CacheOrigin.USER)

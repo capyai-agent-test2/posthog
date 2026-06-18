@@ -8154,6 +8154,34 @@ class TestBlastRadius(ClickhouseTestMixin, APIBaseTest):
         response_json = response.json()
         self.assertLessEqual({"affected": 5, "total": 5}.items(), response_json.items())
 
+    def test_user_blast_radius_with_flag_dependency_filter(self):
+        for i in range(3):
+            _create_person(
+                team_id=self.team.pk,
+                distinct_ids=[f"person{i}"],
+                properties={"group": f"{i}"},
+            )
+
+        response = self.client.post(
+            f"/api/projects/{self.team.id}/feature_flags/user_blast_radius",
+            {
+                "condition": {
+                    "properties": [
+                        {
+                            "key": "dependent-flag",
+                            "type": "flag",
+                            "value": False,
+                            "operator": "flag_evaluates_to",
+                        }
+                    ],
+                    "rollout_percentage": 100,
+                }
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertLessEqual({"affected": 3, "total": 3}.items(), response.json().items())
+
     def test_user_blast_radius_with_distinct_id_filter(self):
         # Regression: distinct_id is not stored in person.properties — it lives in the
         # person_distinct_id2 table and must be joined via pdi. Filtering by distinct_id
