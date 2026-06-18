@@ -23,6 +23,7 @@ import { teamLogic } from '../teamLogic'
 import { AddInsightToDashboardModal } from './addInsightToDashboardModal/AddInsightToDashboardModal'
 import { addInsightToDashboardLogic } from './addInsightToDashboardModalLogic'
 import { DashboardHeader } from './DashboardHeader'
+import { EditModeActions } from './DashboardHeaderActions'
 import { DashboardOverridesBanner } from './DashboardOverridesBanner'
 import { DashboardPublicAccessBanner } from './DashboardPublicAccessBanner'
 import { DashboardZoomControl } from './DashboardZoomControl'
@@ -127,6 +128,13 @@ function DashboardScene({ backTo }: { backTo?: { url: string; name: string } }):
                                 DashboardPlacement.Builtin,
                             ].includes(placement) && (
                                 <DashboardZoomControl layoutZoom={layoutZoom} setLayoutZoom={setLayoutZoom} />
+                            )}
+                        {dashboardMode === DashboardMode.Edit &&
+                            canEditDashboard &&
+                            placement === DashboardPlacement.ProjectHomepage && (
+                                <div className="flex gap-2 shrink-0">
+                                    <EditModeActions />
+                                </div>
                             )}
                     </SceneStickyBar>
 
