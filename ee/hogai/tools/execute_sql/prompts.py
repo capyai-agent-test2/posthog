@@ -5,6 +5,7 @@ Use this tool to generate a HogQL query, which is PostHog's variant of SQL that 
 - JSON properties are accessed using `properties.foo.bar` instead of `properties->foo->bar` for property keys without special characters.
 - JSON properties can also be accessed using `properties.foo['bar']` if there's any special character (note the single quotes).
 - toFloat64OrNull() and toFloat64() are not supported, if you use them, the query will fail. Use toFloat() instead.
+- toDateTime64() is not supported in HogQL prompts, even though it exists in raw ClickHouse. Use toDateTime() for straightforward casts, or parseDateTime()/parseDateTimeBestEffort() for string parsing instead.
 - Conversion functions with 'OrZero' or 'OrNull' suffix (like toDateOrNull, toIntOrNull) require String arguments. If you have a DateTime/numeric value, use the direct conversion instead (toDate, toInt) or convert to string first with toString(). Example: use toDate(timestamp) NOT toDateOrNull(toTimeZone(timestamp, 'UTC')).
 - LAG()/LEAD() are not supported. Instead, use lagInFrame()/leadInFrame().
   Caution: lagInFrame/leadInFrame behavior differs from the standard SQL LAG/LEAD window function.

@@ -36,6 +36,14 @@ def test_keeps_standalone_if_functions() -> None:
     assert "multiIf" in result
 
 
+def test_excludes_known_invalid_aliases() -> None:
+    result = set(hogql_functions())
+    assert "toDateTime64" not in result
+    assert "lag" not in result
+    assert "lead" not in result
+    assert "cardinality" not in result
+
+
 def test_includes_common_functions() -> None:
     result = set(hogql_functions())
     assert "count" in result
