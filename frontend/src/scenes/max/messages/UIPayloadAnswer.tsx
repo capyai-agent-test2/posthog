@@ -20,7 +20,6 @@ import {
     MaxErrorTrackingIssuePreview,
     MaxErrorTrackingSearchResponse,
 } from '~/queries/schema/schema-assistant-error-tracking'
-import { AssistantTool } from '~/queries/schema/schema-assistant-messages'
 import { RecordingUniversalFilters } from '~/types'
 
 import { issueFiltersLogic } from 'products/error_tracking/frontend/components/IssueFilters/issueFiltersLogic'
@@ -40,20 +39,6 @@ import { ErrorTrackingIssueCard } from './ErrorTrackingIssueCard'
 import { MaxErrorTrackingWidgetLogicProps, maxErrorTrackingWidgetLogic } from './maxErrorTrackingWidgetLogic'
 import { MessageTemplate } from './MessageTemplate'
 import { RecordingsFiltersSummary } from './RecordingsFiltersSummary'
-
-export const RENDERABLE_UI_PAYLOAD_TOOLS: AssistantTool[] = [
-    'search_session_recordings',
-    'search_error_tracking_issues',
-    'summarize_sessions',
-    'create_form',
-]
-
-export function isRenderableUIPayloadTool(toolName: string, toolPayload: unknown): boolean {
-    return (
-        (RENDERABLE_UI_PAYLOAD_TOOLS as readonly string[]).includes(toolName) ||
-        isDangerousOperationResponse(toolPayload)
-    )
-}
 
 // Renders rich UI for a small set of tools that return structured payloads (recordings search,
 // error-tracking search, create_form, upsert_dashboard) and for dangerous-operation approval cards.
