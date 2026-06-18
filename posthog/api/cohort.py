@@ -488,13 +488,14 @@ class CSVConfig:
     """Configuration constants for CSV processing"""
 
     PERSON_ID_HEADERS = ["person_id", "person-id", "Person .id"]
+    GENERIC_PERSON_ID_HEADERS = ["id"]
     DISTINCT_ID_HEADERS = ["distinct_id", "distinct-id"]
     EMAIL_HEADERS = ["email", "e-mail"]
     ENCODING = "utf-8"
 
     class ErrorMessages:
         EMPTY_FILE = "CSV file is empty. Please upload a CSV file with at least one row of data."
-        MISSING_ID_COLUMN = "Multi-column CSV must contain at least one column with a supported ID header: 'person_id', 'Person .id' (PostHog export format), 'distinct_id', 'distinct-id', or 'email'. Found columns: {columns}"
+        MISSING_ID_COLUMN = "Multi-column CSV must contain at least one column with a supported ID header: 'person_id', 'id', 'Person .id' (PostHog export format), 'distinct_id', 'distinct-id', or 'email'. Found columns: {columns}"
         NO_VALID_IDS = "CSV file contains no valid person IDs, distinct IDs, or email addresses. Please ensure your file has data rows with person IDs, distinct IDs, or email addresses."
         ENCODING_ERROR = "CSV file encoding is not supported. Please save your file as UTF-8 and try again."
         FORMAT_ERROR = "CSV file format is invalid. Please check your file format and try again."
@@ -742,7 +743,10 @@ class CohortSerializer(serializers.ModelSerializer):
 
     def _is_person_id_header(self, header: str) -> bool:
         """Check if header indicates person_id column"""
-        person_id_headers_lower = [h.lower() for h in CSVConfig.PERSON_ID_HEADERS]
+        person_id_headers_lower = [
+            *[h.lower() for h in CSVConfig.PERSON_ID_HEADERS],
+            *[h.lower() for h in CSVConfig.GENERIC_PERSON_ID_HEADERS],
+        ]
         return header.strip().lower() in person_id_headers_lower
 
     def _is_email_header(self, header: str) -> bool:
@@ -766,11 +770,17 @@ class CohortSerializer(serializers.ModelSerializer):
             if header in CSVConfig.DISTINCT_ID_HEADERS:
                 return i, "distinct_id", normalized_headers[i]
 
-        # Finally, look for email columns
+        # Then, look for email columns
         email_headers_lower = [h.lower() for h in CSVConfig.EMAIL_HEADERS]
         for i, header in enumerate(normalized_lower_headers):
             if header in email_headers_lower:
                 return i, "email", normalized_headers[i]
+
+        # Finally, accept a generic `id` header as a person UUID fallback.
+        generic_person_id_headers_lower = [h.lower() for h in CSVConfig.GENERIC_PERSON_ID_HEADERS]
+        for i, header in enumerate(normalized_lower_headers):
+            if header in generic_person_id_headers_lower:
+                return i, "person_id", normalized_headers[i]
 
         return None
 
