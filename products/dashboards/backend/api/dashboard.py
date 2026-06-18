@@ -1140,8 +1140,8 @@ class DashboardSerializer(DashboardMetadataSerializer):
             except Dashboard.DoesNotExist:
                 raise serializers.ValidationError({"use_dashboard": "Invalid value provided"})
 
-        request_filters = request.data.get("filters")
-        if request_filters:
+        if "filters" in request.data:
+            request_filters = request.data.get("filters")
             if not isinstance(request_filters, dict):
                 raise serializers.ValidationError("Filters must be a dictionary")
             filters = request_filters
@@ -1377,8 +1377,8 @@ class DashboardSerializer(DashboardMetadataSerializer):
                 team_id=instance.team_id, dashboard_id=instance.id, project_id=instance.team.project_id
             )
 
-        request_filters = initial_data.get("filters")
-        if request_filters:
+        if "filters" in initial_data:
+            request_filters = initial_data.get("filters")
             if not isinstance(request_filters, dict):
                 raise serializers.ValidationError("Filters must be a dictionary")
             instance.filters = request_filters
