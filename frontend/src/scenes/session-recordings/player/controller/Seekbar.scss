@@ -189,7 +189,7 @@
 
         .PlayerSeekbarTick__emoji {
             position: absolute;
-            bottom: 5px;
+            bottom: calc(5px + var(--stack-offset, 0px));
             width: var(--emoji-width);
             height: 100%;
             margin-left: calc(var(--emoji-width) / 2 * -1);
@@ -198,7 +198,7 @@
 
         .PlayerSeekbarTick__comment {
             position: absolute;
-            bottom: 5px;
+            bottom: calc(5px + var(--stack-offset, 0px));
             width: var(--comment-width);
             height: 100%;
             margin-left: calc(var(--comment-width) / 2 * -1);
