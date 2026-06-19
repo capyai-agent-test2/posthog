@@ -151,12 +151,7 @@ class PathsQueryRunner(AnalyticsQueryRunner[PathsQueryResponse]):
         if not self.query.funnelPathsFilter:
             return [], None
 
-        funnelPathType, funnelSource, funnelStep = (
-            self.query.funnelPathsFilter.funnelPathType,
-            self.query.funnelPathsFilter.funnelSource,
-            self.query.funnelPathsFilter.funnelStep,
-        )
-        funnelSourceFilter = funnelSource.funnelsFilter or FunnelsFilter()
+        funnelPathType = self.query.funnelPathsFilter.funnelPathType
 
         if funnelPathType in (
             FunnelPathType.FUNNEL_PATH_AFTER_STEP,
@@ -165,13 +160,8 @@ class PathsQueryRunner(AnalyticsQueryRunner[PathsQueryResponse]):
             funnel_fields = [
                 ast.Alias(alias="target_timestamp", expr=ast.Field(chain=["funnel_actors", "timestamp"])),
             ]
-            interval = funnelSourceFilter.funnelWindowInterval or 14
-            unit = funnelSourceFilter.funnelWindowIntervalUnit
-            interval_unit = funnel_window_interval_unit_to_sql(unit)
             operator = ">=" if funnelPathType == FunnelPathType.FUNNEL_PATH_AFTER_STEP else "<="
             default_case = f"events.timestamp {operator} toTimeZone({{target_timestamp}}, 'UTC')"
-            if funnelPathType == FunnelPathType.FUNNEL_PATH_AFTER_STEP and funnelStep and funnelStep < 0:
-                default_case += f" + INTERVAL {interval} {interval_unit}"
             event_filter = parse_expr(
                 default_case, {"target_timestamp": ast.Field(chain=["funnel_actors", "timestamp"])}
             )

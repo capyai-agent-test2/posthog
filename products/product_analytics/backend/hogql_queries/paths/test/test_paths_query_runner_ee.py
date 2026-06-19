@@ -3609,6 +3609,46 @@ class TestClickhousePathsFunnelSource(ClickhouseTestMixin, APIBaseTest):
             properties={"$current_url": "/after", "$session_id": session_incomplete},
         )
 
+    def _create_dropoff_funnel_events(self) -> None:
+        _create_person(distinct_ids=["user_completed"], team_id=self.team.pk)
+        _create_event(
+            event="step one",
+            distinct_id="user_completed",
+            team=self.team,
+            timestamp="2021-05-01 01:00:00",
+            properties={},
+        )
+        _create_event(
+            event="step two",
+            distinct_id="user_completed",
+            team=self.team,
+            timestamp="2021-05-01 01:01:00",
+            properties={},
+        )
+        _create_event(
+            event="$pageview",
+            distinct_id="user_completed",
+            team=self.team,
+            timestamp="2021-05-01 01:02:00",
+            properties={"$current_url": "/after-completed"},
+        )
+
+        _create_person(distinct_ids=["user_dropoff"], team_id=self.team.pk)
+        _create_event(
+            event="step one",
+            distinct_id="user_dropoff",
+            team=self.team,
+            timestamp="2021-05-01 02:00:00",
+            properties={},
+        )
+        _create_event(
+            event="$pageview",
+            distinct_id="user_dropoff",
+            team=self.team,
+            timestamp="2021-05-01 02:01:00",
+            properties={"$current_url": "/after-dropoff"},
+        )
+
     def _create_group_funnel_events(self) -> None:
         create_group_type_mapping_without_created_at(
             team=self.team, project_id=self.team.project_id, group_type="organization", group_type_index=0
@@ -3704,6 +3744,27 @@ class TestClickhousePathsFunnelSource(ClickhouseTestMixin, APIBaseTest):
             ).run()
         assert isinstance(result, CachedPathsQueryResponse)
         return [(link.source, link.target, link.value) for link in result.results]
+
+    def test_funnel_paths_after_dropoff_starts_at_dropoff_step(self):
+        self._create_dropoff_funnel_events()
+
+        funnel_source = {
+            "kind": "FunnelsQuery",
+            "series": [
+                {"kind": "EventsNode", "event": "step one"},
+                {"kind": "EventsNode", "event": "step two"},
+            ],
+            "dateRange": {"date_from": "2021-05-01", "date_to": "2021-05-07"},
+            "funnelsFilter": {
+                "funnelWindowInterval": 7,
+                "funnelWindowIntervalUnit": "day",
+            },
+        }
+
+        self.assertEqual(
+            self._run_paths_query(funnel_source, "funnel_path_after_step", -2),
+            [("1_step one", "2_/after-dropoff", 1)],
+        )
 
     @parameterized.expand(FUNNEL_PATH_CASES)
     def test_funnel_paths_session_aggregation(self, _name, funnel_path_type, funnel_step, expected):
