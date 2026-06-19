@@ -20,7 +20,7 @@ import {
     TrendsQuery,
 } from '~/queries/schema/schema-general'
 import { initKeaTests } from '~/test/init'
-import { BaseMathType, InsightShortId } from '~/types'
+import { BaseMathType, FunnelPathType, InsightShortId } from '~/types'
 
 import { EditorFilters } from './EditorFilters'
 
@@ -87,6 +87,24 @@ function makeFunnelsQuery(): FunnelsQuery {
 
 function makePathsQuery(): PathsQuery {
     return { kind: NodeKind.PathsQuery, pathsFilter: {} }
+}
+
+function makeFunnelPathsQuery(funnelStep: number): PathsQuery {
+    return {
+        kind: NodeKind.PathsQuery,
+        pathsFilter: {},
+        funnelPathsFilter: {
+            funnelPathType: FunnelPathType.before,
+            funnelStep,
+            funnelSource: {
+                kind: NodeKind.FunnelsQuery,
+                series: [
+                    { kind: NodeKind.EventsNode, name: 'Visited pricing', event: '$pageview' },
+                    { kind: NodeKind.EventsNode, name: 'Signed up', event: 'sign up' },
+                ],
+            },
+        },
+    }
 }
 
 function setupAndRender(
@@ -213,5 +231,17 @@ describe('EditorFilters', () => {
 
         await userEvent.click(settingsButton)
         expect(settingsButton).toHaveAttribute('title', 'Show less')
+    })
+
+    it('keeps paths before dropoff start point editable', () => {
+        setupAndRender(makeFunnelPathsQuery(-2))
+
+        expect(document.querySelector('[data-attr="new-prop-filter-0"]')).toHaveAttribute('aria-disabled', 'false')
+    })
+
+    it('keeps paths before step start point locked', () => {
+        setupAndRender(makeFunnelPathsQuery(2))
+
+        expect(document.querySelector('[data-attr="new-prop-filter-0"]')).toHaveAttribute('aria-disabled', 'true')
     })
 })
