@@ -261,9 +261,11 @@ DEBUG=1 ./bin/migrate
 
 > **Friendly tip 1:** The error `fe_sendauth: no password supplied` connecting to Postgres happens when the database is set up with a password and the user:pass isn't specified in `DATABASE_URL`. Try `export DATABASE_URL=postgres://posthog:posthog@localhost:5432/posthog`.
 
-> **Friendly tip 2:** You may run into `psycopg2` errors while migrating on an ARM machine. Try out the steps in this [comment](https://github.com/psycopg/psycopg2/issues/1216#issuecomment-820556849) to resolve this.
+> **Friendly tip 2:** If you see `password authentication failed for user "posthog"` while running migrations, check that the Postgres container is running and that another local Postgres process is not already listening on port 5432. Use `lsof -i :5432` to find the process and stop the local server before starting the containers.
 
-> **Friendly tip 3:** When migrating, make sure the containers are running (detached or in a separate terminal tab).
+> **Friendly tip 3:** You may run into `psycopg2` errors while migrating on an ARM machine. Try out the steps in this [comment](https://github.com/psycopg/psycopg2/issues/1216#issuecomment-820556849) to resolve this.
+
+> **Friendly tip 4:** When migrating, make sure the containers are running (detached or in a separate terminal tab).
 
 ## 6. Start PostHog
 
