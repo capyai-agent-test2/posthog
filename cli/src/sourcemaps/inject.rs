@@ -8,6 +8,7 @@ use crate::{
     sourcemaps::{
         args::{FileSelectionArgs, ReleaseArgs},
         content::SourceMapFile,
+        nitro::rewrite_asset_maps_for_pairs,
         source_pairs::{read_pairs, SourcePair},
     },
     utils::{files::FileSelection, git::get_git_info},
@@ -72,6 +73,7 @@ pub fn inject_impl(
     for pair in &pairs {
         pair.save()?;
     }
+    rewrite_asset_maps_for_pairs(&pairs)?;
     info!("injecting done");
     Ok(())
 }
