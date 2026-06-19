@@ -179,6 +179,7 @@ function PlayerWrapper({
         nextSessionRecording,
         pinnedFilters,
         sessionRecordingsResponseLoading,
+        recordings,
     } = useValues(sessionRecordingsPlaylistLogic)
     const { setFilters, resetFilters, setSelectedRecordingId, loadAllRecordings } =
         useActions(sessionRecordingsPlaylistLogic)
@@ -225,10 +226,11 @@ function PlayerWrapper({
                         setPinned={
                             props.onPinnedChange
                                 ? (pinned) => {
-                                      if (!activeSessionRecording.id) {
+                                      const recording = recordings.find((x) => x.id === activeSessionRecording.id)
+                                      if (!recording) {
                                           return
                                       }
-                                      props.onPinnedChange?.(activeSessionRecording, pinned)
+                                      props.onPinnedChange?.(recording, pinned)
                                   }
                                 : undefined
                         }
