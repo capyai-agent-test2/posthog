@@ -1227,14 +1227,16 @@ export const dataNodeLogic = kea<dataNodeLogicType>([
     })),
     afterMount(({ actions, props, cache }) => {
         cache.localResults = {}
-        if (props.cachedResults) {
+        const shouldUseCachedResults =
+            props.cachedResults && props.refresh !== 'force_async' && props.refresh !== 'force_blocking'
+        if (shouldUseCachedResults) {
             // Use cached results if available, otherwise this logic will load the data again.
             // We need to set them here, as the propsChanged listener will not trigger on mount
             // and if we never change the props, the cached results will never be used.
             actions.setResponse(props.cachedResults)
         } else if (props.autoLoad && Object.keys(props.query || {}).length > 0) {
             // Initial load should use non-force variant
-            const refreshType = isInsightQueryNode(props.query) ? 'async' : 'blocking'
+            const refreshType = props.refresh ?? (isInsightQueryNode(props.query) ? 'async' : 'blocking')
             actions.loadData(refreshType)
         }
 

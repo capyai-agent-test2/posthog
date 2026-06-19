@@ -200,6 +200,7 @@ const Component = ({
         <Query
             uniqueKey={nodeId + '-component'}
             query={modifiedQuery}
+            context={{ refresh: 'force_async' }}
             attachTo={notebookLogic}
             setQuery={(t) => {
                 updateAttributes({
@@ -344,6 +345,7 @@ export const Settings = ({
                 uniqueKey={attributes.nodeId + '-settings'}
                 attachTo={notebookLogic}
                 query={modifiedQuery}
+                context={{ refresh: 'force_async' }}
                 setQuery={(t) => {
                     updateAttributes({
                         query: {
