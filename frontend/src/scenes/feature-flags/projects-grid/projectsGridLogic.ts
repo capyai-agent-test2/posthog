@@ -19,10 +19,20 @@ export interface LoadFlagsResult {
     search: string
     count: number
     next: string | null
-    results: FeatureFlagType[]
+    results: ProjectsGridFlagRow[]
 }
 
 const storageKey = (teamId: number): string => `ff-projects-grid.picked-teams.${teamId}`
+
+interface TeamFlagsPageResponse {
+    count: number
+    next: string | null
+    results: FeatureFlagType[]
+}
+
+export interface ProjectsGridFlagRow extends FeatureFlagType {
+    source_team_id: number
+}
 
 export const projectsGridLogic = kea<projectsGridLogicType>([
     path(['scenes', 'feature-flags', 'projects-grid', 'projectsGridLogic']),
@@ -47,24 +57,31 @@ export const projectsGridLogic = kea<projectsGridLogicType>([
         }),
         siblingsFailed: (flagKey: string) => ({ flagKey }),
         setPickedTeamIds: (teamIds: number[]) => ({ teamIds }),
+        hydratePickedTeamIds: (teamIds: number[]) => ({ teamIds }),
         resetPickedTeamIds: true,
     }),
     reducers({
         search: ['', { setSearch: (_, { search }) => search }],
         flags: [
-            [] as FeatureFlagType[],
+            [] as ProjectsGridFlagRow[],
             {
                 loadFlagsPageSuccess: (state, { flagsPage }: { flagsPage: LoadFlagsResult }) =>
-                    flagsPage.offset === 0 ? flagsPage.results : [...state, ...flagsPage.results],
+                    flagsPage.offset === 0 ? flagsPage.results : mergeFlagRowsByKey(state, flagsPage.results),
                 setSearch: () => [],
+                setPickedTeamIds: () => [],
+                hydratePickedTeamIds: () => [],
+                resetPickedTeamIds: () => [],
             },
         ],
         flagsOffset: [
             0,
             {
                 loadFlagsPageSuccess: (_, { flagsPage }: { flagsPage: LoadFlagsResult }) =>
-                    flagsPage.offset + flagsPage.results.length,
+                    flagsPage.offset + PAGE_SIZE,
                 setSearch: () => 0,
+                setPickedTeamIds: () => 0,
+                hydratePickedTeamIds: () => 0,
+                resetPickedTeamIds: () => 0,
             },
         ],
         flagsHasMore: [
@@ -72,6 +89,9 @@ export const projectsGridLogic = kea<projectsGridLogicType>([
             {
                 loadFlagsPageSuccess: (_, { flagsPage }: { flagsPage: LoadFlagsResult }) => flagsPage.next !== null,
                 setSearch: () => true,
+                setPickedTeamIds: () => true,
+                hydratePickedTeamIds: () => true,
+                resetPickedTeamIds: () => true,
             },
         ],
         siblingsByFlagKey: [
@@ -87,6 +107,9 @@ export const projectsGridLogic = kea<projectsGridLogicType>([
                 siblingsLoaded: (state, { flagKey }) => state.filter((k) => k !== flagKey),
                 siblingsFailed: (state, { flagKey }) => state.filter((k) => k !== flagKey),
                 setSearch: () => [],
+                setPickedTeamIds: () => [],
+                hydratePickedTeamIds: () => [],
+                resetPickedTeamIds: () => [],
             },
         ],
         siblingQueue: [
@@ -98,12 +121,16 @@ export const projectsGridLogic = kea<projectsGridLogicType>([
                 },
                 startSiblingFetch: (state, { flagKey }) => state.filter((k) => k !== flagKey),
                 setSearch: () => [],
+                setPickedTeamIds: () => [],
+                hydratePickedTeamIds: () => [],
+                resetPickedTeamIds: () => [],
             },
         ],
         pickedTeamIds: [
             [] as number[],
             {
                 setPickedTeamIds: (_, { teamIds }) => teamIds,
+                hydratePickedTeamIds: (_, { teamIds }) => teamIds,
                 resetPickedTeamIds: () => [],
             },
         ],
@@ -113,11 +140,41 @@ export const projectsGridLogic = kea<projectsGridLogicType>([
             null as LoadFlagsResult | null,
             {
                 loadFlagsPage: async ({ offset, search }: { offset: number; search: string }) => {
+                    const visibleProjects = getVisibleProjects(values)
+                    if (visibleProjects.length === 0) {
+                        return { offset, search, count: 0, next: null, results: [] }
+                    }
+
                     const params = toParams({ limit: PAGE_SIZE, offset, search })
-                    const response = await api.get<Omit<LoadFlagsResult, 'offset' | 'search'>>(
-                        `api/projects/${values.currentProjectId}/feature_flags/?${params}`
+                    const responses = await Promise.all(
+                        visibleProjects.map(async ({ teamId, projectId }) => ({
+                            teamId,
+                            response: await api.get<TeamFlagsPageResponse>(
+                                `api/projects/${projectId}/feature_flags/?${params}`
+                            ),
+                        }))
                     )
-                    return { offset, search, ...response }
+
+                    const results: ProjectsGridFlagRow[] = []
+                    const seenKeys = new Set<string>()
+
+                    for (const { teamId, response } of responses) {
+                        for (const flag of response.results) {
+                            if (seenKeys.has(flag.key)) {
+                                continue
+                            }
+                            seenKeys.add(flag.key)
+                            results.push({ ...flag, source_team_id: teamId })
+                        }
+                    }
+
+                    return {
+                        offset,
+                        search,
+                        count: results.length,
+                        next: responses.some(({ response }) => response.next !== null) ? 'next' : null,
+                        results,
+                    }
                 },
             },
         ],
@@ -160,9 +217,11 @@ export const projectsGridLogic = kea<projectsGridLogicType>([
         },
         setPickedTeamIds: ({ teamIds }) => {
             localStorage.setItem(storageKey(getCurrentTeamId()), JSON.stringify(teamIds))
+            actions.loadFlagsPage({ offset: 0, search: values.search })
         },
         resetPickedTeamIds: () => {
             localStorage.removeItem(storageKey(getCurrentTeamId()))
+            actions.loadFlagsPage({ offset: 0, search: values.search })
         },
     })),
     afterMount(({ actions }) => {
@@ -171,7 +230,7 @@ export const projectsGridLogic = kea<projectsGridLogicType>([
             try {
                 const parsed = JSON.parse(raw)
                 if (Array.isArray(parsed) && parsed.every((x) => typeof x === 'number')) {
-                    actions.setPickedTeamIds(parsed)
+                    actions.hydratePickedTeamIds(parsed)
                 }
             } catch {
                 // ignore malformed entry
@@ -211,4 +270,38 @@ async function drainQueue(
     } catch {
         actions.siblingsFailed(nextKey)
     }
+}
+
+function getVisibleProjects(
+    values: ReturnType<typeof projectsGridLogic.build>['values']
+): Array<{ teamId: number; projectId: number }> {
+    if (!values.currentTeamId || !values.currentProjectId) {
+        return []
+    }
+
+    const projectIdByTeamId = new Map(
+        (values.currentOrganization?.teams ?? []).map((team) => [team.id, team.project_id])
+    )
+
+    return [values.currentTeamId, ...values.pickedTeamIds.filter((teamId) => teamId !== values.currentTeamId)]
+        .map((teamId) => ({
+            teamId,
+            projectId: teamId === values.currentTeamId ? values.currentProjectId : projectIdByTeamId.get(teamId),
+        }))
+        .filter((project): project is { teamId: number; projectId: number } => typeof project.projectId === 'number')
+}
+
+function mergeFlagRowsByKey(state: ProjectsGridFlagRow[], incoming: ProjectsGridFlagRow[]): ProjectsGridFlagRow[] {
+    const seenKeys = new Set(state.map((flag) => flag.key))
+    const nextRows = [...state]
+
+    for (const flag of incoming) {
+        if (seenKeys.has(flag.key)) {
+            continue
+        }
+        seenKeys.add(flag.key)
+        nextRows.push(flag)
+    }
+
+    return nextRows
 }
