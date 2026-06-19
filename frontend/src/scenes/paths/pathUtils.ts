@@ -10,6 +10,9 @@ import { PATH_NODE_CARD_HEIGHT, PATH_NODE_CARD_OVERLAP_GAP, PATH_NODE_CARD_TOP_O
 import { HIDE_PATH_CARD_HEIGHT } from './Paths'
 
 const PATH_NODE_CARD_TOP_ADJUSTMENTS = 33
+const PATH_NODE_DISPLAY_PREFIX_LENGTH = 14
+const PATH_NODE_DISPLAY_SUFFIX_LENGTH = 8
+const PATH_NODE_DISPLAY_MAX_LENGTH = PATH_NODE_DISPLAY_PREFIX_LENGTH + PATH_NODE_DISPLAY_SUFFIX_LENGTH + '...'.length
 
 export interface PathTargetLink {
     average_conversion_time: number
@@ -193,8 +196,8 @@ export function pageUrl(d: PathNodeData, display?: boolean, showFullUrls?: boole
     if (showFullUrls) {
         return name
     }
-    return name.length > 15
-        ? name.substring(0, 6) + '...' + name.slice(-8)
+    return name.length > PATH_NODE_DISPLAY_MAX_LENGTH
+        ? name.substring(0, PATH_NODE_DISPLAY_PREFIX_LENGTH) + '...' + name.slice(-PATH_NODE_DISPLAY_SUFFIX_LENGTH)
         : name.length < 4 && d.name.length < 25
           ? d.name.replace(/(^[0-9]+_)/, '')
           : name
