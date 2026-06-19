@@ -874,6 +874,24 @@ describe('dashboardLogic', () => {
         })
     })
 
+    describe('when streaming dashboard loading fails after a handled 404', () => {
+        it('keeps the not-found state and skips the abort toast', async () => {
+            const lemonToastErrorSpy = jest.spyOn(lemonToast, 'error').mockImplementation()
+            logic = dashboardLogic({ id: 5 })
+            logic.mount()
+
+            await expectLogic(logic, () => {
+                logic.actions.tileStreamingFailure({ message: 'HTTP 404: {"detail":"Not found."}', status: 404 })
+                logic.actions.tileStreamingFailure(new DOMException('The operation was aborted.', 'AbortError'))
+            }).toFinishAllListeners()
+
+            expect(logic.values.error404).toBe(true)
+            expect(lemonToastErrorSpy).not.toHaveBeenCalled()
+
+            lemonToastErrorSpy.mockRestore()
+        })
+    })
+
     describe('when a dashboard item API errors', () => {
         beforeEach(() => {
             logic = dashboardLogic({ id: 8 })

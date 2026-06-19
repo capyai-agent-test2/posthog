@@ -3438,6 +3438,7 @@ const api = {
                 .assembleFullUrl(true)
 
             const abortController = new AbortController()
+            let handledOpenError = false
 
             fetchEventSource(url, {
                 signal: abortController.signal,
@@ -3445,6 +3446,7 @@ const api = {
                 openWhenHidden: true,
                 onopen: async (response) => {
                     if (!response.ok) {
+                        handledOpenError = true
                         // Get server error message if available
                         let errorMessage = `HTTP ${response.status}`
                         try {
@@ -3457,7 +3459,8 @@ const api = {
                         }
 
                         // For any error, call onError and abort to prevent retries
-                        onError(new Error(errorMessage))
+                        const error = Object.assign(new Error(errorMessage), { status: response.status })
+                        onError(error)
                         abortController.abort()
                         return
                     }
@@ -3477,9 +3480,17 @@ const api = {
                     }
                 },
                 onerror: (error) => {
+                    if (handledOpenError || error?.name === 'AbortError') {
+                        return
+                    }
                     onError(error)
                 },
-            }).catch(onError)
+            }).catch((error) => {
+                if (handledOpenError || error?.name === 'AbortError') {
+                    return
+                }
+                onError(error)
+            })
 
             return () => abortController.abort()
         },

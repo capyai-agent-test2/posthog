@@ -2026,6 +2026,9 @@ export const dashboardLogic = kea<dashboardLogicType>([
             })
         },
         tileStreamingFailure: ({ error }) => {
+            if (error?.name === 'AbortError') {
+                return
+            }
             if (error?.message?.includes('404') || error?.status === 404) {
                 actions.dashboardNotFound()
             } else if (error?.message?.includes('403') || error?.status === 403) {
