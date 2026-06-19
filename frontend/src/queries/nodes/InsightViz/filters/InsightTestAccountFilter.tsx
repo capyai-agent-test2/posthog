@@ -1,4 +1,5 @@
 import { useActions, useValues } from 'kea'
+import { useEffect } from 'react'
 
 import { TestAccountFilterSwitch } from 'lib/components/TestAccountFiltersSwitch'
 import { filterTestAccountsDefaultsLogic } from 'scenes/settings/environment/filterTestAccountDefaultsLogic'
@@ -20,6 +21,15 @@ export function InsightTestAccountFilter({
     const { currentTeam } = useValues(teamLogic)
     const { setLocalDefault } = useActions(filterTestAccountsDefaultsLogic)
     const hasFilters = (currentTeam?.test_account_filters || []).length > 0
+
+    useEffect(() => {
+        if (!disabledReason || !query.filterTestAccounts) {
+            return
+        }
+
+        setQuery({ ...query, filterTestAccounts: false })
+    }, [disabledReason, query, setQuery])
+
     return (
         <TestAccountFilterSwitch
             checked={hasFilters ? !!query.filterTestAccounts : false}
