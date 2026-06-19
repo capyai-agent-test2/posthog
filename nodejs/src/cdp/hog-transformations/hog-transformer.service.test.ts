@@ -140,6 +140,75 @@ describe('HogTransformer', () => {
             `)
         })
 
+        it('handles geoip lookup transformation when $ip property is missing', async () => {
+            const hogByteCode = await compileHog(geoipTemplate.code)
+            const geoIpFunction = createHogFunction({
+                type: 'transformation',
+                name: geoipTemplate.name,
+                team_id: teamId,
+                enabled: true,
+                bytecode: hogByteCode,
+                execution_order: 1,
+                id: 'd77e792e-0f35-431b-a983-097534aa4767',
+            })
+            await insertHogFunction(hub.postgres, teamId, geoIpFunction)
+
+            hogTransformer['hogFunctionManager']['onHogFunctionsReloaded'](teamId, [geoIpFunction.id])
+
+            const event: PluginEvent = createPluginEvent(
+                {
+                    ip: '12.87.118.0',
+                    properties: { $current_url: 'https://example.com' },
+                },
+                teamId
+            )
+            const result = await hogTransformer.transformEventAndProduceMessages(event)
+
+            expect(result.event?.properties).toMatchObject({
+                $geoip_country_code: 'US',
+                $set: expect.objectContaining({ $geoip_country_code: 'US' }),
+                $set_once: expect.objectContaining({ $initial_geoip_country_code: 'US' }),
+            })
+        })
+
+        it('refreshes event ip between chained transformations', async () => {
+            const removeIpFunction = createHogFunction({
+                type: 'transformation',
+                name: 'Remove IP',
+                team_id: teamId,
+                enabled: true,
+                bytecode: [],
+                execution_order: 1,
+                id: 'a77e792e-0f35-431b-a983-097534aa4767',
+                hog: `
+                    let returnEvent := event
+                    returnEvent.properties.$ip := null
+                    return returnEvent
+                `,
+            })
+            removeIpFunction.bytecode = await compileHog(removeIpFunction.hog)
+            const geoIpFunction = createHogFunction({
+                type: 'transformation',
+                name: geoipTemplate.name,
+                team_id: teamId,
+                enabled: true,
+                bytecode: await compileHog(geoipTemplate.code),
+                execution_order: 2,
+                id: 'd77e792e-0f35-431b-a983-097534aa4767',
+            })
+            await insertHogFunction(hub.postgres, teamId, removeIpFunction)
+            await insertHogFunction(hub.postgres, teamId, geoIpFunction)
+
+            hogTransformer['hogFunctionManager']['onHogFunctionsReloaded'](teamId, [
+                removeIpFunction.id,
+                geoIpFunction.id,
+            ])
+
+            const result = await hogTransformer.transformEventAndProduceMessages(createPluginEvent({}, teamId))
+
+            expect(result.event?.properties).not.toHaveProperty('$geoip_country_code')
+        })
+
         it('should expose elements_chain from $elements_chain property', async () => {
             const fn = createHogFunction({
                 type: 'transformation',

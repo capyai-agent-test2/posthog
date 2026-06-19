@@ -150,6 +150,7 @@ export class HogTransformerService {
                 properties: event.properties || {},
                 elements_chain: event.properties?.$elements_chain || '',
                 timestamp: event.timestamp || '',
+                ip: event.ip,
                 url: event.properties?.$current_url || '',
             },
         }
@@ -346,6 +347,7 @@ export class HogTransformerService {
             globals.event.properties = event.properties
             globals.event.event = event.event
             globals.event.distinct_id = event.distinct_id
+            globals.event.ip = event.ip
 
             transformationsSucceeded.push(transformationIdentifier)
         }
