@@ -165,9 +165,11 @@ describe('sqlEditorLogic', () => {
     let databaseLogic: ReturnType<typeof databaseTableListLogic.build>
     const TAB_ID = '1'
     let queryEndpointMock: jest.Mock
+    let updateInsightMock: jest.Mock
 
     beforeEach(async () => {
         queryEndpointMock = jest.fn(() => [200, { tables: {}, joins: [] }])
+        updateInsightMock = jest.fn(() => [200, MOCK_INSIGHT])
         useMocks({
             get: {
                 '/api/environments/:team_id/insights/': (req) => {
@@ -200,6 +202,7 @@ describe('sqlEditorLogic', () => {
             },
             patch: {
                 '/api/user_home_settings/@me/': [200],
+                '/api/environments/:team_id/insights/:id/': updateInsightMock,
             },
             delete: {
                 '/api/environments/:team_id/query/:id/': [204],
@@ -721,6 +724,47 @@ describe('sqlEditorLogic', () => {
             })
 
             expect(editorRootLogic.values.updateInsightButtonEnabled).toEqual(true)
+
+            visualizationLogic.unmount()
+        })
+
+        it('updates local insight state with the latest source query after saving, even when the API response is stale', async () => {
+            logic = sqlEditorLogic({
+                tabId: TAB_ID,
+                monaco: createMockMonaco(),
+                editor: createMockEditor(),
+            })
+            logic.mount()
+
+            router.actions.push(urls.sqlEditor(), { open_insight: MOCK_INSIGHT_SHORT_ID })
+
+            await expectLogic(logic)
+                .toDispatchActions(['editInsight', 'createTab', 'updateTab'])
+                .toMatchValues({
+                    editingInsight: partial({ short_id: MOCK_INSIGHT_SHORT_ID }),
+                })
+
+            const dataLogicKey = logic.values.dataLogicKey
+            const visualizationLogic = dataVisualizationLogic({
+                key: dataLogicKey,
+                query: MOCK_INSIGHT_QUERY,
+                dataNodeCollectionId: dataLogicKey,
+            })
+            visualizationLogic.mount()
+
+            const updatedQuery: DataVisualizationNode = {
+                ...MOCK_INSIGHT_QUERY,
+                source: { ...MOCK_INSIGHT_QUERY.source, query: 'SELECT count() FROM events WHERE event = $pageview' },
+            }
+
+            logic.actions.setSourceQuery(updatedQuery)
+            logic.actions.updateInsight()
+
+            await expectLogic(logic).toDispatchActions(['updateInsight', 'updateTab'])
+            const updateRequestBody = await updateInsightMock.mock.calls[0][0].json()
+
+            expect(updateRequestBody.query).toEqual(updatedQuery)
+            expect(logic.values.activeTab?.insight?.query).toEqual(updatedQuery)
 
             visualizationLogic.unmount()
         })
