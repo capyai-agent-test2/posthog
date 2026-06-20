@@ -1058,6 +1058,28 @@ describe('sessionRecordingsPlaylistLogic', () => {
                 })
             }).toMatchValues({ filters: expect.objectContaining({ date_from: '-7d', date_to: null }) })
         })
+
+        it('ignores date_to when given a relative date_from and absolute date_to together', async () => {
+            await expectLogic(logic, () => {
+                logic.actions.setFilters({
+                    date_from: '-30d',
+                    date_to: '2023-06-16T23:59:59',
+                })
+            }).toMatchValues({ filters: expect.objectContaining({ date_from: '-30d', date_to: null }) })
+        })
+
+        it('clears date_to when given a null date_to with an absolute date_from', async () => {
+            await expectLogic(logic, () => {
+                logic.actions.setFilters({
+                    date_from: '2021-10-01',
+                    date_to: '2021-10-10',
+                })
+                logic.actions.setFilters({
+                    date_from: '2021-10-01',
+                    date_to: null,
+                })
+            }).toMatchValues({ filters: expect.objectContaining({ date_from: '2021-10-01', date_to: null }) })
+        })
     })
 
     describe('convertUniversalFiltersToRecordingsQuery', () => {

@@ -661,8 +661,13 @@ export const sessionRecordingsPlaylistLogic = kea<sessionRecordingsPlaylistLogic
 
                         const newState = {
                             ...state,
-                            date_to: filters.date_from && isRelativeDate(filters.date_from) ? null : state.date_to,
                             ...filters,
+                            date_to:
+                                filters.date_from && isRelativeDate(filters.date_from)
+                                    ? null
+                                    : 'date_to' in filters
+                                      ? filters.date_to
+                                      : state.date_to,
                         }
                         if (props.pinnedFilters) {
                             newState.filter_group = mergePinnedFilters(newState.filter_group, props.pinnedFilters)
