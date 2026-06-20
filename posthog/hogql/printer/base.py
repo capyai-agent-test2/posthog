@@ -398,11 +398,22 @@ class BasePrinter(Visitor[str]):
         space = f"\n{self.indent(1)}" if self.pretty else " "
         comma = f",\n{self.indent(1)}" if self.pretty else ", "
 
+        from_clause = None
+        joins_after_array_join = None
+        if len(joined_tables) > 0:
+            from_clause = f"FROM{space}{joined_tables[0]}"
+            if len(joined_tables) > 1:
+                if node.array_join_op is not None and self.DIALECT_NAME == "clickhouse":
+                    joins_after_array_join = space.join(joined_tables[1:])
+                else:
+                    from_clause = f"{from_clause}{space}{space.join(joined_tables[1:])}"
+
         clauses = [
             f"WITH{' RECURSIVE' if has_recursive_cte else ''}{space}{comma.join(ctes)}" if ctes else None,
             f"SELECT{space}{'DISTINCT ' if node.distinct else ''}{comma.join(columns)}",
-            f"FROM{space}{space.join(joined_tables)}" if len(joined_tables) > 0 else None,
+            from_clause,
             array_join if array_join else None,
+            joins_after_array_join,
             f"PREWHERE{space}" + prewhere if prewhere else None,
             f"WHERE{space}" + where if where else None,
             (
