@@ -197,6 +197,24 @@ describe('personsLogic', () => {
                     personError: null,
                 })
         })
+
+        it('does not reload the person when only the URL hash changes on the same UUID route', async () => {
+            logic.unmount()
+
+            const tabLogic = personsLogic({ syncWithUrl: true, urlId: 'uuid-1', tabId: 'tab-a' })
+            tabLogic.mount()
+            tabLogic.actions.setPerson(person)
+            const loadPersonUUIDSpy = jest.spyOn(tabLogic.actions, 'loadPersonUUID')
+
+            await expectLogic(tabLogic, () => {
+                router.actions.push('/persons/uuid-1', {}, { activeTab: PersonsTabType.EVENTS })
+            }).toFinishAllListeners()
+
+            expect(tabLogic.values.activeTab).toBe(PersonsTabType.EVENTS)
+            expect(loadPersonUUIDSpy).not.toHaveBeenCalled()
+
+            tabLogic.unmount()
+        })
     })
 
     describe('Load cohorts', () => {
