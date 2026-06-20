@@ -78,9 +78,12 @@ export const getClampedStepRangeFilter = ({
     const funnelFromStepIsSet = typeof funnel_from_step === 'number'
     const funnelToStepIsSet = typeof funnel_to_step === 'number'
 
-    if (funnelFromStepIsSet && funnelToStepIsSet) {
-        funnel_from_step = clamp(funnel_from_step ?? 0, 0, maxStepIndex)
-        funnel_to_step = clamp(funnel_to_step ?? maxStepIndex, funnel_from_step + 1, maxStepIndex)
+    if (funnelFromStepIsSet) {
+        funnel_from_step = clamp(funnel_from_step ?? 0, 0, maxStepIndex - 1)
+    }
+
+    if (funnelToStepIsSet) {
+        funnel_to_step = clamp(funnel_to_step ?? maxStepIndex, (funnel_from_step ?? 0) + 1, maxStepIndex)
     }
 
     return {
