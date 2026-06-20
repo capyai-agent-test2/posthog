@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import { useActions, useValues } from 'kea'
 
 import { IconClock } from '@posthog/icons'
@@ -10,9 +11,8 @@ import { Tooltip } from 'lib/lemon-ui/Tooltip'
 import { funnelDataLogic } from 'scenes/funnels/funnelDataLogic'
 import { insightLogic } from 'scenes/insights/insightLogic'
 import { getActionFilterFromFunnelStep } from 'scenes/insights/views/Funnels/funnelStepTableUtils'
-import { userLogic } from 'scenes/userLogic'
 
-import { AvailableFeature, ChartParams, FunnelStepWithConversionMetrics } from '~/types'
+import { ChartParams, FunnelStepWithConversionMetrics } from '~/types'
 
 import { funnelPersonsModalLogic } from '../funnelPersonsModalLogic'
 import { FunnelStepMore } from '../FunnelStepMore'
@@ -38,7 +38,6 @@ export function StepLegend({ step, stepIndex, showTime, showPersonsModal, inCard
     const { aggregationTargetLabel, funnelsFilter, isStepOptional } = useValues(funnelDataLogic(insightProps))
     const { canOpenPersonModal, isInExperimentContext } = useValues(funnelPersonsModalLogic(insightProps))
     const { openPersonsModalForStep } = useActions(funnelPersonsModalLogic(insightProps))
-    const { hasAvailableFeature } = useValues(userLogic)
 
     const isOptionalStep = isStepOptional(stepIndex + 1)
     const isFirstStep = stepIndex === 0
@@ -68,13 +67,11 @@ export function StepLegend({ step, stepIndex, showTime, showPersonsModal, inCard
     )
 
     return (
-        <div className="StepLegend" data-attr="funnel-step-legend" style={{ opacity: isOptionalStep ? 0.6 : 1 }}>
+        <div className={clsx('StepLegend', isOptionalStep && 'StepLegend--optional')} data-attr="funnel-step-legend">
             {/* Step */}
             <LemonRow
                 icon={<Lettermark name={stepIndex + 1} color={LettermarkColor.Gray} />}
-                sideIcon={
-                    hasAvailableFeature(AvailableFeature.PATHS_ADVANCED) && <FunnelStepMore stepIndex={stepIndex} />
-                }
+                sideIcon={<FunnelStepMore stepIndex={stepIndex} />}
             >
                 <EntityFilterInfo filter={getActionFilterFromFunnelStep(step)} allowWrap />
                 {isOptionalStep ? <div className="ml-1 text-xs font-normal">(optional)</div> : null}
