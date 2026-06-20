@@ -779,6 +779,85 @@ class TestRootNodeTools(BaseTest):
         self.assertEqual(result.messages[0].tool_call_id, "xyz")
         read_taxonomy_mock.assert_called_once_with(query=ReadEvents())
 
+    @patch("ee.hogai.tools.read_taxonomy.tool.ReadTaxonomyTool._run_impl")
+    async def test_duplicate_tool_call_in_same_turn_returns_existing_result_hint(self, read_taxonomy_mock):
+        read_taxonomy_mock.return_value = ("Content", None)
+
+        node = _create_agent_tools_node(self.team, self.user)
+        state = AssistantState(
+            messages=[
+                HumanMessage(content="Show events", id="turn-start"),
+                AssistantMessage(
+                    content="",
+                    id="tool-message-1",
+                    tool_calls=[
+                        AssistantToolCall(id="tool-1", name="read_taxonomy", args={"query": {"kind": "events"}})
+                    ],
+                ),
+                AssistantToolCallMessage(content="Content", id="tool-result-1", tool_call_id="tool-1"),
+                AssistantMessage(
+                    content="",
+                    id="tool-message-2",
+                    tool_calls=[
+                        AssistantToolCall(id="tool-2", name="read_taxonomy", args={"query": {"kind": "events"}})
+                    ],
+                ),
+            ],
+            root_tool_call_id="tool-2",
+            start_id="turn-start",
+        )
+
+        result = await node.arun(state, {})
+
+        self.assertIsInstance(result, PartialAssistantState)
+        assert result is not None
+        self.assertEqual(len(result.messages), 1)
+        assert isinstance(result.messages[0], AssistantToolCallMessage)
+        self.assertEqual(result.messages[0].tool_call_id, "tool-2")
+        self.assertIn("already ran in this turn", result.messages[0].content)
+        read_taxonomy_mock.assert_not_called()
+
+    @patch("ee.hogai.tools.read_taxonomy.tool.ReadTaxonomyTool._run_impl")
+    async def test_transient_error_allows_one_retry_without_changes(self, read_taxonomy_mock):
+        read_taxonomy_mock.return_value = ("Content", None)
+
+        node = _create_agent_tools_node(self.team, self.user)
+        state = AssistantState(
+            messages=[
+                HumanMessage(content="Show events", id="turn-start"),
+                AssistantMessage(
+                    content="",
+                    id="tool-message-1",
+                    tool_calls=[
+                        AssistantToolCall(id="tool-1", name="read_taxonomy", args={"query": {"kind": "events"}})
+                    ],
+                ),
+                AssistantToolCallMessage(
+                    content="Tool failed: Rate limit exceeded. You may retry this operation once without changes.",
+                    id="tool-result-1",
+                    tool_call_id="tool-1",
+                ),
+                AssistantMessage(
+                    content="",
+                    id="tool-message-2",
+                    tool_calls=[
+                        AssistantToolCall(id="tool-2", name="read_taxonomy", args={"query": {"kind": "events"}})
+                    ],
+                ),
+            ],
+            root_tool_call_id="tool-2",
+            start_id="turn-start",
+        )
+
+        result = await node.arun(state, {})
+
+        self.assertIsInstance(result, PartialAssistantState)
+        assert result is not None
+        self.assertEqual(len(result.messages), 1)
+        assert isinstance(result.messages[0], AssistantToolCallMessage)
+        self.assertEqual(result.messages[0].tool_call_id, "tool-2")
+        read_taxonomy_mock.assert_called_once_with(query=ReadEvents())
+
     async def test_invalid_tool_call_returns_error(self):
         """Test that invalid tool calls return an error message"""
         node = _create_agent_tools_node(self.team, self.user)
