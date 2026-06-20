@@ -14,7 +14,7 @@ export function openBillingPopupModal({
     LemonDialog.open({
         title: title,
         description: description,
-        content: <Billing />,
+        content: <Billing isPopup />,
         width: 800,
         primaryButton: {
             children: 'Maybe later...',

@@ -43,7 +43,11 @@ export const scene: SceneExport = {
     logic: billingLogic,
 }
 
-export function Billing(): JSX.Element {
+interface BillingProps {
+    isPopup?: boolean
+}
+
+export function Billing({ isPopup = false }: BillingProps = {}): JSX.Element {
     const {
         billing,
         billingLoading,
@@ -82,7 +86,7 @@ export function Billing(): JSX.Element {
         }
     }, [!!billing]) // oxlint-disable-line react-hooks/exhaustive-deps
 
-    if (preflight && !isCloudOrDev) {
+    if (preflight && !isCloudOrDev && !isPopup) {
         router.actions.push(urls.default())
     }
 
