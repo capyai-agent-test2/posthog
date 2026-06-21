@@ -33,7 +33,7 @@ import { SeriesCheckColumnItem, SeriesCheckColumnTitle } from './columns/SeriesC
 import { SeriesColumnItem } from './columns/SeriesColumn'
 import { ValueColumnItem, ValueColumnTitle } from './columns/ValueColumn'
 import { WorldMapColumnItem, WorldMapColumnTitle } from './columns/WorldMapColumn'
-import { AggregationType, insightsTableDataLogic } from './insightsTableDataLogic'
+import { AggregationType, DEFAULT_TRENDS_TABLE_SORTING, insightsTableDataLogic } from './insightsTableDataLogic'
 
 export type CalcColumnState = 'total' | 'average' | 'median'
 
@@ -97,8 +97,15 @@ export function InsightsTable({
         insightData,
     } = useValues(trendsDataLogic(insightProps))
     const { toggleResultHidden, toggleAllResultsHidden } = useActions(trendsDataLogic(insightProps))
-    const { aggregation, allowAggregation, pinnedColumns, isColumnPinned, getPreviousResult, displayResults } =
-        useValues(insightsTableDataLogic(insightProps))
+    const {
+        aggregation,
+        allowAggregation,
+        pinnedColumns,
+        isColumnPinned,
+        getPreviousResult,
+        displayResults,
+        savedSorting,
+    } = useValues(insightsTableDataLogic(insightProps))
     const { setDetailedResultsAggregationType, toggleColumnPin } = useActions(insightsTableDataLogic(insightProps))
     const { weekStartDay, timezone, baseCurrency } = useValues(teamLogic)
     const [maxVisibleColumns, setMaxVisibleColumns] = useState(MAX_VALUE_COLUMNS)
@@ -354,6 +361,7 @@ export function InsightsTable({
                 (getAggregatedValue(a, aggregation, isNonTimeSeriesDisplay) ?? 0) -
                 (getAggregatedValue(b, aggregation, isNonTimeSeriesDisplay) ?? 0),
             dataIndex: 'count',
+            defaultSortOrder: -1,
             align: 'right',
         })
 
@@ -501,6 +509,10 @@ export function InsightsTable({
             disableTableWhileLoading={false}
             emptyState="No insight results"
             data-attr="insights-table-graph"
+            defaultSorting={
+                savedSorting ?? (isMainInsightView && allowAggregation ? DEFAULT_TRENDS_TABLE_SORTING : null)
+            }
+            noSortingCancellation={isMainInsightView && allowAggregation}
             useURLForSorting={!editMode}
             rowRibbonColor={
                 isLegend
