@@ -302,7 +302,7 @@ cp posthog/.env.services .env.services
 envsubst < docker-compose.yml.tmpl > docker-compose.yml
 rm docker-compose.yml.tmpl
 
-docker-compose pull
+docker-compose pull --ignore-buildable
 
 echo "Checking if async migrations are up to date"
 sudo -E docker-compose run asyncmigrationscheck
@@ -338,7 +338,7 @@ read -r -p "Do you want to restart the PostHog stack now ? (docker-compose up) [
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])+$ ]]
 then
     echo "OK, Restarting the stack!"
-    sudo -E docker-compose up -d
+    sudo -E docker-compose up -d --no-build --pull always
 else
     echo "OK, we are leaving the stack OFFLINE. Run 'sudo -E docker-compose up -d' when you are ready to start it."
     exit
