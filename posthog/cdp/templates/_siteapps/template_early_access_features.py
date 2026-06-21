@@ -243,6 +243,10 @@ export function onLoad({ inputs, posthog }) {
         posthog.updateEarlyAccessFeatureEnrollment(flagKey, false)
     }
 
+    function closeBugBox() {
+        Object.assign(listElement.style, { display: 'none' })
+    }
+
     function openbugBox() {
         posthog.getEarlyAccessFeatures((previewItemData) => {
             const betaListContainer = shadow.getElementById('list-container')
@@ -275,22 +279,6 @@ export function onLoad({ inputs, posthog }) {
         }, true) // Force reload always
 
         Object.assign(listElement.style, { display: 'flex' })
-
-        const closeButton = shadow.querySelector('.beta-list-cancel')
-        closeButton?.addEventListener('click', (e) => {
-            e.preventDefault()
-            Object.assign(listElement.style, { display: 'none' })
-        })
-
-        // // Hide when clicked outside
-        // const _betaList = document.getElementById('beta-list')
-        // document.addEventListener('click', function(event) {
-        //     const isClickInside = _betaList?.contains(event.target)
-
-        //     if (!isClickInside) {
-        //         // Object.assign(formElement.style, { display: 'none' })
-        //     }
-        // });
     }
 
     // TODO: Make this button a inputs option
@@ -345,6 +333,26 @@ export function onLoad({ inputs, posthog }) {
     })
 
     shadow.appendChild(listElement)
+
+    const closeButton = shadow.querySelector('.beta-list-cancel')
+    closeButton?.addEventListener('click', (e) => {
+        e.preventDefault()
+        closeBugBox()
+    })
+
+    document.addEventListener('click', (e) => {
+        const isOpen = listElement.style.display === 'flex'
+        const eventPath = e.composedPath()
+        if (isOpen && !eventPath.includes(listElement) && !eventPath.includes(buttonElement)) {
+            closeBugBox()
+        }
+    })
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeBugBox()
+        }
+    })
 
     if (inputs.selector) {
         const clickListener = (e) => {

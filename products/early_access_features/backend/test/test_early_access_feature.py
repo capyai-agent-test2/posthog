@@ -54,6 +54,17 @@ class TestEarlyAccessFeatureSiteAppTemplate(unittest.TestCase):
         assert len(raw_pattern.findall(code)) == 0, "Found unescaped interpolation of item.documentationUrl"
         assert len(safe_url_pattern.findall(code)) > 0, "item.documentationUrl must be wrapped in safeUrl"
 
+    def test_site_app_template_closes_modal_with_standard_modal_events(self):
+        from posthog.cdp.templates._siteapps.template_early_access_features import template
+
+        code = template.code
+
+        assert "function closeBugBox()" in code
+        assert "document.addEventListener('click'" in code
+        assert "!eventPath.includes(listElement)" in code
+        assert "document.addEventListener('keydown'" in code
+        assert "e.key === 'Escape'" in code
+
 
 class TestEarlyAccessFeature(APIBaseTest):
     maxDiff = None
