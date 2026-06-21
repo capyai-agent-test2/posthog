@@ -159,7 +159,15 @@ export function LemonModal({
                             </LemonModalHeader>
                         ) : null}
 
-                        {children ? <LemonModalContent>{children}</LemonModalContent> : null}
+                        {children ? (
+                            <LemonModalContent
+                                className={clsx(
+                                    !title && closable && !hideCloseButton && 'LemonModal__content--close-spaced'
+                                )}
+                            >
+                                {children}
+                            </LemonModalContent>
+                        ) : null}
                         {footer ? <LemonModalFooter>{footer}</LemonModalFooter> : null}
                     </>
                 )}
