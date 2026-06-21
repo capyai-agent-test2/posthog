@@ -1,3 +1,5 @@
+import { LemonBanner } from '@posthog/lemon-ui'
+
 import { SetupTaskId } from 'lib/components/ProductSetup'
 import { OnboardingErrorTrackingAlertsStep } from 'scenes/onboarding/error-tracking/OnboardingErrorTrackingAlertsStep'
 import { OnboardingErrorTrackingSourceMapsStep } from 'scenes/onboarding/error-tracking/OnboardingErrorTrackingSourceMapsStep'
@@ -8,6 +10,13 @@ import { urls } from 'scenes/urls'
 
 import { ProductKey } from '~/queries/schema/schema-general'
 import { OnboardingStepKey } from '~/types'
+
+const ErrorTrackingInstallHeader = (): JSX.Element => (
+    <LemonBanner type="info">
+        Already using <code>posthog-js</code> on your site? You don't need to install a second script. Continue through
+        this step to enable exception autocapture for your existing setup.
+    </LemonBanner>
+)
 
 export const errorTrackingOnboarding: ProductOnboardingProvider = {
     steps: (ctx) => {
@@ -22,7 +31,12 @@ export const errorTrackingOnboarding: ProductOnboardingProvider = {
             // `EnableErrorTracking` task still gets ticked because the dedup pass merges
             // setupTaskIds from dropped descriptors into the survivor.
             dedupKey: INSTALL_DEDUP_KEYS.POSTHOG_JS,
-            render: () => <OnboardingInstallStep sdkInstructionMap={ErrorTrackingSDKInstructions} />,
+            render: () => (
+                <OnboardingInstallStep
+                    sdkInstructionMap={ErrorTrackingSDKInstructions}
+                    header={<ErrorTrackingInstallHeader />}
+                />
+            ),
         }
         if (ctx.role === 'secondary') {
             return [installStep]
