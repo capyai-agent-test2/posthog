@@ -115,6 +115,7 @@ export const LemonInput = React.forwardRef<HTMLDivElement, LemonInputProps>(func
         disabledReason,
         disabledReasonInteractive,
         badgeText,
+        onKeyDown,
         ...props
     },
     ref
@@ -265,9 +266,16 @@ export const LemonInput = React.forwardRef<HTMLDivElement, LemonInputProps>(func
                         if (stopPropagation) {
                             event.stopPropagation()
                         }
-                        if (onPressEnter && event.key === 'Enter' && !event.nativeEvent.isComposing) {
+
+                        if (event.key === 'Enter' && event.nativeEvent.isComposing) {
+                            return
+                        }
+
+                        if (onPressEnter && event.key === 'Enter') {
                             onPressEnter(event)
                         }
+
+                        onKeyDown?.(event)
                     }}
                     {...props}
                 />
