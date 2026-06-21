@@ -40,14 +40,14 @@ export const sessionRecordingsListPropertiesLogic = kea<sessionRecordingsListPro
                     const query = hogql`
                         SELECT
                             $session_id as session_id,
-                            any(properties.$geoip_country_code) as $geoip_country_code,
-                            any(properties.$browser) as $browser,
-                            any(properties.$device_type) as $device_type,
-                            any(properties.$os) as $os,
-                            any(properties.$os_name) as $os_name,
+                            argMin(properties.$geoip_country_code, timestamp) as $geoip_country_code,
+                            argMin(properties.$browser, timestamp) as $browser,
+                            argMin(properties.$device_type, timestamp) as $device_type,
+                            argMin(properties.$os, timestamp) as $os,
+                            argMin(properties.$os_name, timestamp) as $os_name,
                             any(session.$entry_referring_domain) as $entry_referring_domain,
-                            any(properties.$geoip_subdivision_1_name) as $geoip_subdivision_1_name,
-                            any(properties.$geoip_city_name) as $geoip_city_name,
+                            argMin(properties.$geoip_subdivision_1_name, timestamp) as $geoip_subdivision_1_name,
+                            argMin(properties.$geoip_city_name, timestamp) as $geoip_city_name,
                             any(session.$entry_current_url) as $entry_current_url
                         FROM events
                         WHERE event IN ${Object.keys(CORE_FILTER_DEFINITIONS_BY_GROUP['events'])}
