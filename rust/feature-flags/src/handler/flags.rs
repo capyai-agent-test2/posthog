@@ -100,8 +100,11 @@ fn detect_evaluation_runtime_from_request(
         return Some(EvaluationRuntime::Client);
     }
 
-    // If we can't determine, default to None (which will include flags with no runtime requirement + "all")
-    None
+    // Unknown non-browser callers should still receive server-evaluated flags.
+    // Browser requests are already caught above via UA parsing or browser-only
+    // fetch headers, so falling back to server here avoids forcing custom
+    // server clients to masquerade as curl or an official SDK.
+    Some(EvaluationRuntime::Server)
 }
 
 /// Returns the set of flag IDs that don't match the current runtime.
@@ -569,11 +572,20 @@ mod tests {
     }
 
     #[test]
-    fn test_detect_evaluation_runtime_unknown() {
+    fn test_detect_evaluation_runtime_unknown_defaults_to_server() {
         let headers = axum::http::HeaderMap::new();
 
         let result = detect_evaluation_runtime_from_request(&headers, None);
-        assert_eq!(result, None);
+        assert_eq!(result, Some(EvaluationRuntime::Server));
+    }
+
+    #[test]
+    fn test_detect_evaluation_runtime_custom_user_agent_defaults_to_server() {
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert("user-agent", "this-is-not-accepted".parse().unwrap());
+
+        let result = detect_evaluation_runtime_from_request(&headers, None);
+        assert_eq!(result, Some(EvaluationRuntime::Server));
     }
 
     #[test]
