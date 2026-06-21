@@ -11,7 +11,12 @@ from posthog.hogql.parser import ast
 
 from posthog.models.team import Team, WeekStartDay
 from posthog.queries.util import get_earliest_timestamp, get_trunc_func_ch
-from posthog.utils import DEFAULT_DATE_FROM_DAYS, relative_date_parse, relative_date_parse_with_delta_mapping
+from posthog.utils import (
+    DEFAULT_DATE_FROM_DAYS,
+    is_date_only_string,
+    relative_date_parse,
+    relative_date_parse_with_delta_mapping,
+)
 
 IntervalLiteral = Literal["second", "minute", "hour", "day", "week", "month"]
 ORDERED_INTERVALS = [
@@ -114,7 +119,9 @@ class QueryDateRange:
 
         if not self._date_range or not self._date_range.explicitDate:
             is_relative = not self._date_range or not self._date_range.date_to or delta_mapping is not None
-            if compare_interval_length(self.interval_type, ">", IntervalType.HOUR):
+            if is_date_only_string(self._date_range.date_to if self._date_range else None):
+                date_to = date_to.replace(hour=23, minute=59, second=59, microsecond=999999)
+            elif compare_interval_length(self.interval_type, ">", IntervalType.HOUR):
                 date_to = date_to.replace(hour=23, minute=59, second=59, microsecond=999999)
             elif is_relative:
                 if self.interval_type == IntervalType.HOUR:
