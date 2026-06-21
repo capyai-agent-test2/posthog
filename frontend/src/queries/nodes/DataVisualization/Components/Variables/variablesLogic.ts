@@ -8,11 +8,13 @@ import {
     syncSelectedVariablesToQuery,
 } from 'scenes/insights/utils/queryUtils'
 
+import { isSharedView } from '~/exporter/exporterViewLogic'
 import { DataVisualizationNode, HogQLVariable } from '~/queries/schema/schema-general'
 import { DashboardType } from '~/types'
 
 import { dataVisualizationLogic } from '../../dataVisualizationLogic'
 import { Variable, VariableType } from '../../types'
+import { getSharedVariablesOverrideUrl } from './sharedVariablesOverride'
 import { variableDataLogic } from './variableDataLogic'
 import type { variablesLogicType } from './variablesLogicType'
 
@@ -39,7 +41,6 @@ const convertValueToCorrectType = (value: string, type: VariableType): number | 
 
     return value
 }
-
 export const variablesLogic = kea<variablesLogicType>([
     path(['queries', 'nodes', 'DataVisualization', 'Components', 'Variables', 'variablesLogic']),
     props({ key: '' } as VariablesLogicProps),
@@ -352,9 +353,11 @@ export const variablesLogic = kea<variablesLogicType>([
             props.setQuery?.(query)
 
             if (props.readOnly) {
-                // Refresh the data manaully via dataNodeLogic when in insight view mode
-                // actions.loadData(true, undefined, query.source)
-                props.onUpdate?.(query)
+                if (isSharedView()) {
+                    window.location.replace(getSharedVariablesOverrideUrl(variables, window.location.href))
+                } else {
+                    props.onUpdate?.(query)
+                }
             }
         },
     })),
