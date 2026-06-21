@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 from parameterized import parameterized
 
 from posthog.schema import (
@@ -11,6 +13,10 @@ from posthog.schema import (
     SessionPropertyFilter,
 )
 
+from posthog.session_recordings.queries.sub_queries.events_subquery import (
+    get_negative_entity_properties,
+    is_negative_prop,
+)
 from posthog.session_recordings.queries.utils import (
     UnexpectedQueryProperties,
     _strip_person_and_event_and_cohort_properties,
@@ -99,3 +105,13 @@ class TestStripProperties:
         assert offending_value not in str(exc)
         assert "event" in str(exc)
         assert "$entry_referring_domain" in str(exc)
+
+    def test_negative_property_detection_handles_dict_filters(self) -> None:
+        negative_filter = {"key": "email", "operator": "is_not_set", "type": "person"}
+        positive_filter = {"key": "email", "operator": "is_set", "type": "person"}
+
+        assert is_negative_prop(negative_filter)
+        assert not is_negative_prop(positive_filter)
+        assert get_negative_entity_properties([SimpleNamespace(properties=[negative_filter, positive_filter])]) == [
+            negative_filter
+        ]

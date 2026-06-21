@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from datetime import timedelta
 from typing import Optional, cast
 
@@ -64,14 +64,32 @@ def get_negative_entity_properties(
     return negative_props
 
 
+def _get_property_operator(prop: object) -> PropertyOperator | None:
+    raw_operator = prop.get("operator") if isinstance(prop, Mapping) else getattr(prop, "operator", None)
+    if raw_operator is None:
+        return None
+
+    try:
+        return raw_operator if isinstance(raw_operator, PropertyOperator) else PropertyOperator(raw_operator)
+    except ValueError:
+        return None
+
+
+def _with_property_operator(prop: AnyPropertyFilter, operator: PropertyOperator) -> AnyPropertyFilter:
+    if isinstance(prop, Mapping):
+        return cast(AnyPropertyFilter, {**prop, "operator": operator})
+    return prop.model_copy(update={"operator": operator})
+
+
 def is_negative_prop(prop: AnyPropertyFilter) -> bool:
-    if not hasattr(prop, "operator"):
+    operator = _get_property_operator(prop)
+    if operator is None:
         return False
-    if prop.operator in NEGATIVE_OPERATORS:
+    if operator in NEGATIVE_OPERATORS:
         return True
     # NOT_IN is intentionally omitted from NEGATIVE_OPERATORS for event/person filters
     # (it has different semantics there), but for cohort filters it IS the negative form.
-    if is_cohort_property(prop) and prop.operator == PropertyOperator.NOT_IN:
+    if is_cohort_property(prop) and operator == PropertyOperator.NOT_IN:
         return True
     return False
 
@@ -606,8 +624,9 @@ class ReplayFiltersEventsSubQuery(SessionRecordingsListingBaseQuery):
             return ast.Constant(value=True)
 
         def countif_zero(prop: AnyPropertyFilter) -> ast.Expr:
-            operator = cast(PropertyOperator, prop.operator)  # type: ignore[union-attr]
-            inverted = prop.model_copy(update={"operator": INVERSE_OPERATOR_FOR[operator]})
+            operator = _get_property_operator(prop)
+            assert operator is not None
+            inverted = _with_property_operator(prop, INVERSE_OPERATOR_FOR[operator])
             return ast.CompareOperation(
                 op=ast.CompareOperationOp.Eq,
                 left=ast.Call(name="countIf", args=[property_to_expr(inverted, team=self._team, scope="event")]),
@@ -694,8 +713,10 @@ class ReplayFiltersEventsSubQuery(SessionRecordingsListingBaseQuery):
         # Build inverted (positive) expressions for each negative property
         inverted_exprs: list[ast.Expr] = []
         for prop in negative_props:
-            operator = cast(PropertyOperator, prop.operator)  # type: ignore[union-attr]
-            inverted = prop.model_copy(update={"operator": INVERSE_OPERATOR_FOR[operator]})
+            operator = _get_property_operator(prop)
+            if operator is None:
+                continue
+            inverted = _with_property_operator(prop, INVERSE_OPERATOR_FOR[operator])
             inverted_exprs.append(property_to_expr(inverted, team=self._team, scope="event"))
 
         # Any event matching any positive condition → session goes in blocklist
