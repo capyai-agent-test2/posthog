@@ -1,4 +1,4 @@
-import { asNonEmptyString, joinWithUiHost, slashDotDataAttrUnescape } from './utils'
+import { asNonEmptyString, elementIsVisible, joinWithUiHost, slashDotDataAttrUnescape } from './utils'
 
 describe('utils', () => {
     describe('asNonEmptyString', () => {
@@ -94,6 +94,41 @@ describe('utils', () => {
                 const result = slashDotDataAttrUnescape(input)
                 expect(result).toBe(expected)
             })
+        })
+    })
+
+    describe('elementIsVisible', () => {
+        function addRenderedElement(style?: string): HTMLElement {
+            const element = document.createElement('button')
+            if (style) {
+                element.setAttribute('style', style)
+            }
+            element.getClientRects = jest.fn(() => [{ width: 10, height: 10 }] as unknown as DOMRectList)
+            document.body.appendChild(element)
+            return element
+        }
+
+        afterEach(() => {
+            document.body.innerHTML = ''
+        })
+
+        it('treats elements inside fully transparent parents as hidden', () => {
+            const parent = document.createElement('div')
+            parent.setAttribute('style', 'opacity: 0')
+            const child = addRenderedElement()
+            parent.appendChild(child)
+            document.body.appendChild(parent)
+
+            expect(elementIsVisible(child, new WeakMap())).toBe(false)
+        })
+
+        it('keeps rendered elements with visible parents selectable', () => {
+            const parent = document.createElement('div')
+            const child = addRenderedElement()
+            parent.appendChild(child)
+            document.body.appendChild(parent)
+
+            expect(elementIsVisible(child, new WeakMap())).toBe(true)
         })
     })
 })
