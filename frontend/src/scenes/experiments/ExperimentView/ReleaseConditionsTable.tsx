@@ -11,6 +11,7 @@ import { FeatureFlagGroupType } from '~/types'
 
 import { experimentLogic } from '../experimentLogic'
 import { modalsLogic } from '../modalsLogic'
+import { getExperimentAggregationGroupTypeIndex } from '../utils'
 
 export function ReleaseConditionsModal(): JSX.Element {
     const { experiment } = useValues(experimentLogic)
@@ -95,10 +96,9 @@ export function ReleaseConditionsTable(): JSX.Element {
             key: 'rollout_percentage',
             title: 'Rollout',
             render: function Key(_, item): JSX.Element {
+                const aggregationGroupTypeIndex = getExperimentAggregationGroupTypeIndex(experiment)
                 const aggregationTargetName =
-                    experiment.filters.aggregation_group_type_index != null
-                        ? aggregationLabel(experiment.filters.aggregation_group_type_index).plural
-                        : 'users'
+                    aggregationGroupTypeIndex != null ? aggregationLabel(aggregationGroupTypeIndex).plural : 'users'
 
                 const releaseText = `${item.rollout_percentage ?? 0}% of ${aggregationTargetName}`
 

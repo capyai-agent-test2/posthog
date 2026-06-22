@@ -15,6 +15,7 @@ import { ExperimentConclusion } from '~/types'
 import { CONCLUSION_DISPLAY_CONFIG } from '../constants'
 import { experimentLogic } from '../experimentLogic'
 import { modalsLogic } from '../modalsLogic'
+import { getExperimentAggregationGroupTypeIndex } from '../utils'
 import { VariantTag } from './VariantTag'
 
 function ConclusionForm(): JSX.Element {
@@ -220,10 +221,9 @@ export function FinishExperimentModal(): JSX.Element {
         experiment.parameters?.feature_flag_variants,
     ])
 
+    const aggregationGroupTypeIndex = getExperimentAggregationGroupTypeIndex(experiment)
     const aggregationTargetName =
-        experiment.filters.aggregation_group_type_index != null
-            ? aggregationLabel(experiment.filters.aggregation_group_type_index).plural
-            : 'users'
+        aggregationGroupTypeIndex != null ? aggregationLabel(aggregationGroupTypeIndex).plural : 'users'
 
     const handleEndExperiment = (): void => {
         if (isSingleVariantShipped || !selectedVariantKey) {
