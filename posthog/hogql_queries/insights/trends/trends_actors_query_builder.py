@@ -31,6 +31,7 @@ from posthog.hogql_queries.insights.trends.aggregation_operations import (
 )
 from posthog.hogql_queries.insights.trends.breakdown import Breakdown
 from posthog.hogql_queries.insights.trends.display import TrendsDisplay
+from posthog.hogql_queries.insights.trends.exact_timerange import should_use_exact_timerange
 from posthog.hogql_queries.insights.trends.utils import group_node_to_expr, is_groups_math
 from posthog.hogql_queries.utils.query_compare_to_date_range import QueryCompareToDateRange
 from posthog.hogql_queries.utils.query_date_range import QueryDateRange
@@ -96,7 +97,7 @@ class TrendsActorsQueryBuilder:
 
     @property
     def exact_timerange(self):
-        return self.trends_query.dateRange and self.trends_query.dateRange.explicitDate
+        return should_use_exact_timerange(self.trends_query, self.team, self.trends_display.display_type)
 
     @cached_property
     def trends_date_range(self) -> QueryDateRange:
@@ -174,7 +175,7 @@ class TrendsActorsQueryBuilder:
 
     @cached_property
     def is_explicit(self) -> bool:
-        return self.trends_date_range.explicit
+        return self.exact_timerange
 
     @cached_property
     def is_total_value(self) -> bool:

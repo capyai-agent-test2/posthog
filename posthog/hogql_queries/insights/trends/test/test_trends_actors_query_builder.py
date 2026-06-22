@@ -273,6 +273,40 @@ class TestTrendsActorsQueryBuilder(BaseTest):
                 "greaterOrEquals(timestamp, toDateTime('2022-06-04 22:00:00.000000')), lessOrEquals(timestamp, toDateTime('2022-06-12 21:59:59.999999'))",
             )
 
+    def test_single_bucket_vertical_bar_uses_exact_timerange_for_drilldown(self):
+        self.team.timezone = "Europe/Berlin"
+        trends_query = default_query.model_copy(
+            update={
+                "interval": IntervalType.MONTH,
+                "trendsFilter": TrendsFilter(display=ChartDisplayType.ACTIONS_BAR),
+                "dateRange": DateRange(date_from="-7d", explicitDate=False),
+            },
+            deep=True,
+        )
+
+        with freeze_time("2022-06-15T12:00:00.000Z"):
+            builder = self._get_builder(trends_query=trends_query, time_frame="2022-06-01")
+            self.assertTrue(builder.exact_timerange)
+            self.assertEqual(
+                self._get_date_where_sql(trends_query=trends_query, time_frame="2022-06-01"),
+                "greaterOrEquals(timestamp, toDateTime('2022-06-08 12:00:00.000000')), lessOrEquals(timestamp, toDateTime('2022-06-15 12:00:00.000000'))",
+            )
+
+    def test_single_bucket_line_chart_keeps_whole_interval_drilldown(self):
+        self.team.timezone = "Europe/Berlin"
+        trends_query = default_query.model_copy(
+            update={
+                "interval": IntervalType.MONTH,
+                "trendsFilter": TrendsFilter(display=ChartDisplayType.ACTIONS_LINE_GRAPH),
+                "dateRange": DateRange(date_from="-7d", explicitDate=False),
+            },
+            deep=True,
+        )
+
+        with freeze_time("2022-06-15T12:00:00.000Z"):
+            builder = self._get_builder(trends_query=trends_query, time_frame="2022-06-01")
+            self.assertFalse(builder.exact_timerange)
+
     def test_date_range_weekly_active_users_math(self):
         self.team.timezone = "Europe/Berlin"
         trends_query = default_query.model_copy(
