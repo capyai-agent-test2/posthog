@@ -39,6 +39,7 @@ from posthog.hogql.transforms.type_aware_simplification import simplify_redundan
 from posthog.hogql.visitor import clone_expr
 from posthog.hogql.workload import WorkloadCollector
 
+from posthog.clickhouse.client.escape import substitute_params_for_display
 from posthog.clickhouse.workload import Workload
 from posthog.models.team import Team
 
@@ -47,16 +48,20 @@ from products.access_control.backend.property_access_control import get_restrict
 
 def to_printed_hogql(query: ast.Expr, team: Team, modifiers: "HogQLQueryModifiers | None" = None) -> str:
     """Prints the HogQL query without mutating the node"""
-    return prepare_and_print_ast(
+    context = HogQLContext(
+        team_id=team.pk,
+        enable_select_queries=True,
+        modifiers=create_default_modifiers_for_team(team, modifiers),
+    )
+    printed_hogql = prepare_and_print_ast(
         clone_expr(query),
         dialect="hogql",
-        context=HogQLContext(
-            team_id=team.pk,
-            enable_select_queries=True,
-            modifiers=create_default_modifiers_for_team(team, modifiers),
-        ),
+        context=context,
         pretty=True,
     )[0]
+    if context.values:
+        return substitute_params_for_display(printed_hogql, context.values)
+    return printed_hogql
 
 
 def prepare_and_print_ast(
