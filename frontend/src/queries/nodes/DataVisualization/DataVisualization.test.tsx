@@ -17,12 +17,18 @@ const mockLemonTable = jest.fn((props: LemonTableMockProps): null => {
     return null
 })
 
+const mockDateRange = jest.fn((): JSX.Element => <div data-testid="mock-date-range" />)
+
 jest.mock('@posthog/lemon-ui', () => ({
     ...jest.requireActual('@posthog/lemon-ui'),
     LemonTable: (props: Record<string, unknown>): null => {
         mockLemonTable(props)
         return null
     },
+}))
+
+jest.mock('../DataNode/DateRange', () => ({
+    DateRange: (): JSX.Element => mockDateRange(),
 }))
 
 describe('DataTableVisualization', () => {
@@ -45,6 +51,7 @@ describe('DataTableVisualization', () => {
         initKeaTests()
         mockLatestLemonTableProps = null
         mockLemonTable.mockClear()
+        mockDateRange.mockClear()
     })
 
     afterEach(() => {
@@ -81,4 +88,20 @@ describe('DataTableVisualization', () => {
             expect(mockLatestLemonTableProps.allowContentScroll).toBe(expectedAllowContentScroll)
         }
     )
+
+    it('shows the HogQL date range control in read-only insight view mode', async () => {
+        const { container } = render(
+            <DataTableVisualization
+                uniqueKey="data-visualization-date-range"
+                query={query}
+                setQuery={jest.fn()}
+                cachedResults={cachedResults}
+                readOnly
+                embedded={false}
+            />
+        )
+
+        await waitFor(() => expect(mockDateRange).toHaveBeenCalled())
+        expect(container.querySelector('[data-testid="mock-date-range"]')).not.toBeNull()
+    })
 })
