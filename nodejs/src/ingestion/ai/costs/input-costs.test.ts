@@ -132,6 +132,11 @@ describe('resolveCacheReportingExclusive()', () => {
             expected: true,
         },
         {
+            name: 'auto-detects exclusive for Bedrock Anthropic model IDs',
+            properties: { $ai_provider: 'bedrock', $ai_model: 'us.anthropic.claude-sonnet-4-6' },
+            expected: true,
+        },
+        {
             name: 'auto-detects inclusive for Vercel gateway with valid token counts',
             properties: {
                 $ai_provider: 'gateway',
@@ -680,6 +685,24 @@ describe('calculateInputCost()', () => {
             // Regular: 1000 * 0.000003 = 0.003
             // Total: 0.00312
             expectCostToBeCloseTo(result, 0.00312)
+        })
+
+        it('matches Anthropic path for Bedrock regional Anthropic model IDs', () => {
+            const event = createAIEvent({
+                $ai_provider: 'bedrock',
+                $ai_model: 'us.anthropic.claude-sonnet-4-6',
+                $ai_input_tokens: 1000,
+                $ai_cache_read_input_tokens: 500,
+                $ai_cache_creation_input_tokens: 200,
+            })
+
+            const result = calculateInputCost(event, ANTHROPIC_MODEL)
+
+            // Read: 500 * 3e-7 = 0.00015
+            // Write: 200 * 0.00000375 = 0.00075
+            // Regular: 1000 * 0.000003 = 0.003
+            // Total: 0.0039
+            expectCostToBeCloseTo(result, 0.0039)
         })
     })
 

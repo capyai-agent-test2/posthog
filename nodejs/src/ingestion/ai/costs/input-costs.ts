@@ -14,13 +14,15 @@ const matchProvider = (event: PluginEvent, provider: string): boolean => {
     const { $ai_provider: eventProvider, $ai_model: eventModel } = event.properties
     const normalizedProvider = provider.toLowerCase()
     const normalizedModel = eventModel?.toLowerCase()
+    const isAnthropicModelFamily = normalizedModel !== undefined && /(^|[/.])claude(?:[.-]|$)/.test(normalizedModel)
 
     if (eventProvider?.toLowerCase() === normalizedProvider || normalizedModel?.includes(normalizedProvider)) {
         return true
     }
 
-    // Claude models use Anthropic-style token counting regardless of provider (e.g., via Vertex)
-    if (normalizedProvider === 'anthropic' && normalizedModel?.startsWith('claude')) {
+    // Claude models use Anthropic-style token counting regardless of provider, including
+    // Bedrock's regional Anthropic model IDs like "us.anthropic.claude-sonnet-4-6".
+    if (normalizedProvider === 'anthropic' && isAnthropicModelFamily) {
         return true
     }
 
