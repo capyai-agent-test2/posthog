@@ -2,9 +2,30 @@ from posthog.hogql import ast
 from posthog.hogql.parser import parse_expr
 
 from posthog.hogql_queries.insights.retention.retention_base_query_builder import RetentionBaseQueryBuilder
+from posthog.hogql_queries.insights.utils.breakdowns import ALL_USERS_COHORT_ID
 
 
 class RetentionRollingIntervalBaseQueryBuilder(RetentionBaseQueryBuilder):
+    def _event_filters(self) -> list[ast.Expr]:
+        event_filters = self.global_event_filters.copy()
+        if (
+            self.query.breakdownFilter
+            and self.query.breakdownFilter.breakdowns
+            and len(self.query.breakdownFilter.breakdowns) == 1
+            and self.query.breakdownFilter.breakdowns[0].type == "cohort"
+        ):
+            cohort_id = self.query.breakdownFilter.breakdowns[0].property
+            if int(cohort_id) != ALL_USERS_COHORT_ID:
+                event_filters.append(
+                    ast.CompareOperation(
+                        op=ast.CompareOperationOp.InCohort,
+                        left=ast.Field(chain=["person_id"]),
+                        right=ast.Constant(value=int(cohort_id)),
+                    )
+                )
+
+        return event_filters
+
     def build_base_query(
         self,
         start_interval_index_filter: int | None = None,
@@ -33,7 +54,7 @@ class RetentionRollingIntervalBaseQueryBuilder(RetentionBaseQueryBuilder):
                 ast.Alias(alias="t_0", expr=t0_expr),
             ],
             select_from=ast.JoinExpr(table=ast.Field(chain=["events"])),
-            where=ast.And(exprs=self.global_event_filters),
+            where=ast.And(exprs=self._event_filters()),
             group_by=[ast.Field(chain=["actor_id"])],
             having=ast.CompareOperation(
                 op=ast.CompareOperationOp.NotEq, left=ast.Field(chain=["t_0"]), right=ast.Constant(value=None)
@@ -100,7 +121,7 @@ class RetentionRollingIntervalBaseQueryBuilder(RetentionBaseQueryBuilder):
                     ),
                 ),
             ),
-            where=ast.And(exprs=[*self.global_event_filters, parse_expr("timestamp >= t_0")]),
+            where=ast.And(exprs=[*self._event_filters(), parse_expr("timestamp >= t_0")]),
             group_by=[ast.Field(chain=["actors_with_t0", "actor_id"]), ast.Field(chain=["actors_with_t0", "t_0"])],
         )
 
