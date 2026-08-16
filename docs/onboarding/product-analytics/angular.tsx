@@ -154,16 +154,31 @@ export const getAngularSteps = (ctx: OnboardingComponentsContext): StepDefinitio
                                               import { AppComponent } from './app/app.component';
                                               import { environment } from "./environments/environment";
                                               import posthog from 'posthog-js'
-                                              posthog.init(environment.posthogKey, {
-                                                api_host: environment.posthogHost,
-                                                defaults: '2025-11-30'
-                                              })
+
+                                              declare const Zone: any
+                                              const isNgZoneEnabled = typeof Zone !== 'undefined' && Zone.root?.run
+                                              const runOutsideAngular = <T>(callback: () => T): T =>
+                                                isNgZoneEnabled ? Zone.root.run(callback) : callback()
+
+                                              runOutsideAngular(() =>
+                                                posthog.init(environment.posthogKey, {
+                                                  api_host: environment.posthogHost,
+                                                  defaults: '2025-11-30'
+                                                })
+                                              )
+
                                               bootstrapApplication(AppComponent, appConfig)
                                                 .catch((err) => console.error(err));
                                             `,
                                         },
                                     ]}
                                 />
+                                <Markdown>
+                                    {dedent`
+                                        Initializing PostHog outside the Angular zone avoids extra change-detection work from
+                                        the SDK's event listeners and session recording hooks.
+                                    `}
+                                </Markdown>
                             </Tab.Panel>
                         </Tab.Panels>
                     </Tab.Group>
